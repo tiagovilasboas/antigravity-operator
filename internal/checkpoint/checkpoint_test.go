@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tiagoboas/antigravity-operator/internal/checkpoint"
+	"github.com/tiagovilasboas/antigravity-operator/internal/checkpoint"
 )
 
 func setupTestGitRepo(t *testing.T) string {

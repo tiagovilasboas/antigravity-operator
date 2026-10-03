@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tiagoboas/antigravity-operator/templates"
+	"github.com/tiagovilasboas/antigravity-operator/templates"
 )
 
 // ArchiveInfo sintetiza uma sessão arquivada encontrada no disco.

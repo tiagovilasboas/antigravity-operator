@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/tiagoboas/antigravity-operator/internal/platform"
+	"github.com/tiagovilasboas/antigravity-operator/internal/platform"
 )
 
 func TestSync(t *testing.T) {

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tiagoboas/antigravity-operator/internal/platform"
+	"github.com/tiagovilasboas/antigravity-operator/internal/platform"
 )
 
 func TestCLI_PrintUsage(t *testing.T) {

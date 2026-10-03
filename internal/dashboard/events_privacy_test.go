@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tiagoboas/antigravity-operator/internal/platform"
+	"github.com/tiagovilasboas/antigravity-operator/internal/platform"
 )
 
 // TestEventsDoNotLeakSessionText garante que /api/events e /api/all expõem só

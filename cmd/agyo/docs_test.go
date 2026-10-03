@@ -69,3 +69,18 @@ func TestReadmeParity(t *testing.T) {
 		t.Fatalf("README section structure differs:\nEN %v\nPT %v", en, pt)
 	}
 }
+
+// TestModulePathMatchesRepository keeps `go install
+// github.com/tiagovilasboas/antigravity-operator/cmd/agyo@<tag>` working: Go
+// refuses a module whose go.mod declares a different path than the one used to
+// fetch it.
+func TestModulePathMatchesRepository(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join("..", "..", "go.mod"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	first := strings.SplitN(string(b), "\n", 2)[0]
+	if want := "module github.com/tiagovilasboas/antigravity-operator"; strings.TrimSpace(first) != want {
+		t.Fatalf("go.mod declares %q, want %q", first, want)
+	}
+}

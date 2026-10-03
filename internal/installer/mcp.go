@@ -9,8 +9,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/tiagoboas/antigravity-operator/internal/platform"
-	"github.com/tiagoboas/antigravity-operator/templates"
+	"github.com/tiagovilasboas/antigravity-operator/internal/platform"
+	"github.com/tiagovilasboas/antigravity-operator/templates"
 )
 
 const mcpTemplate = "mcps/default-servers.json"

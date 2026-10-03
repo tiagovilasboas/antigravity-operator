@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tiagoboas/antigravity-operator/internal/installer"
-	"github.com/tiagoboas/antigravity-operator/internal/platform"
+	"github.com/tiagovilasboas/antigravity-operator/internal/installer"
+	"github.com/tiagovilasboas/antigravity-operator/internal/platform"
 )
 
 func TestRun(t *testing.T) {

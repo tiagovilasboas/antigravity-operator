@@ -6,10 +6,10 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/tiagoboas/antigravity-operator/internal/installer"
-	"github.com/tiagoboas/antigravity-operator/internal/platform"
-	"github.com/tiagoboas/antigravity-operator/internal/profile"
-	"github.com/tiagoboas/antigravity-operator/internal/session"
+	"github.com/tiagovilasboas/antigravity-operator/internal/installer"
+	"github.com/tiagovilasboas/antigravity-operator/internal/platform"
+	"github.com/tiagovilasboas/antigravity-operator/internal/profile"
+	"github.com/tiagovilasboas/antigravity-operator/internal/session"
 )
 
 // CheckItem representa o resultado de uma verificação individual.

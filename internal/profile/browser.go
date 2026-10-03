@@ -13,7 +13,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/tiagoboas/antigravity-operator/internal/platform"
+	"github.com/tiagovilasboas/antigravity-operator/internal/platform"
 )
 
 const (

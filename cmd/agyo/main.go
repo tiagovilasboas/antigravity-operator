@@ -10,17 +10,17 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/tiagoboas/antigravity-operator/internal/checkpoint"
-	"github.com/tiagoboas/antigravity-operator/internal/completion"
-	"github.com/tiagoboas/antigravity-operator/internal/dashboard"
-	"github.com/tiagoboas/antigravity-operator/internal/doctor"
-	"github.com/tiagoboas/antigravity-operator/internal/exporter"
-	"github.com/tiagoboas/antigravity-operator/internal/hook"
-	"github.com/tiagoboas/antigravity-operator/internal/installer"
-	"github.com/tiagoboas/antigravity-operator/internal/platform"
-	"github.com/tiagoboas/antigravity-operator/internal/profile"
-	"github.com/tiagoboas/antigravity-operator/internal/session"
-	"github.com/tiagoboas/antigravity-operator/internal/watcher"
+	"github.com/tiagovilasboas/antigravity-operator/internal/checkpoint"
+	"github.com/tiagovilasboas/antigravity-operator/internal/completion"
+	"github.com/tiagovilasboas/antigravity-operator/internal/dashboard"
+	"github.com/tiagovilasboas/antigravity-operator/internal/doctor"
+	"github.com/tiagovilasboas/antigravity-operator/internal/exporter"
+	"github.com/tiagovilasboas/antigravity-operator/internal/hook"
+	"github.com/tiagovilasboas/antigravity-operator/internal/installer"
+	"github.com/tiagovilasboas/antigravity-operator/internal/platform"
+	"github.com/tiagovilasboas/antigravity-operator/internal/profile"
+	"github.com/tiagovilasboas/antigravity-operator/internal/session"
+	"github.com/tiagovilasboas/antigravity-operator/internal/watcher"
 )
 
 // Version is set at build time from the git tag:

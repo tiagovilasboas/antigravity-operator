@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tiagoboas/antigravity-operator/internal/platform"
+	"github.com/tiagovilasboas/antigravity-operator/internal/platform"
 )
 
 // newTestServer binds a free loopback port so the allowlist sees a real port.

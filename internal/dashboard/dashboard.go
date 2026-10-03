@@ -15,11 +15,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tiagoboas/antigravity-operator/internal/doctor"
-	"github.com/tiagoboas/antigravity-operator/internal/platform"
-	"github.com/tiagoboas/antigravity-operator/internal/profile"
-	"github.com/tiagoboas/antigravity-operator/internal/session"
-	"github.com/tiagoboas/antigravity-operator/internal/watcher"
+	"github.com/tiagovilasboas/antigravity-operator/internal/doctor"
+	"github.com/tiagovilasboas/antigravity-operator/internal/platform"
+	"github.com/tiagovilasboas/antigravity-operator/internal/profile"
+	"github.com/tiagovilasboas/antigravity-operator/internal/session"
+	"github.com/tiagovilasboas/antigravity-operator/internal/watcher"
 )
 
 //go:embed dashboard.html

@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tiagoboas/antigravity-operator/internal/platform"
-	"github.com/tiagoboas/antigravity-operator/templates"
+	"github.com/tiagovilasboas/antigravity-operator/internal/platform"
+	"github.com/tiagovilasboas/antigravity-operator/templates"
 )
 
 // legacyMCP is what releases before v0.4.5 installed: unpinned packages, one of

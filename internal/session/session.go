@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tiagoboas/antigravity-operator/templates"
+	"github.com/tiagovilasboas/antigravity-operator/templates"
 )
 
 // Result resume o que foi criado durante a inicialização.
