@@ -249,4 +249,3 @@ func handleMockCDPConn(conn net.Conn, port int) {
 		_, _ = conn.Write(out.Bytes())
 	}
 }
-

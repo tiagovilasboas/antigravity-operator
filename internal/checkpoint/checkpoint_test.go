@@ -135,4 +135,3 @@ func TestCheckpoint_WithDirtyFiles(t *testing.T) {
 		t.Error("esperava erro ao pedir checkpoint inexistente")
 	}
 }
-
