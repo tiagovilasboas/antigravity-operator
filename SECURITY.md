@@ -20,6 +20,17 @@ The Antigravity Operator team takes security seriously. If you discover a securi
 
 You will receive an acknowledgment within 48 hours, followed by updates on the assessment and timeline for a patch.
 
+## Verifying Release Artifacts
+
+Every release publishes `checksums.txt` (SHA-256 of each archive). `scripts/install.sh` refuses to install an archive that does not match it. Releases after v0.4.5 also carry a signed SLSA build provenance attestation made by `.github/workflows/release.yml`. To check an archive by hand:
+
+```bash
+sha256sum -c --ignore-missing checksums.txt
+gh attestation verify agyo_linux_amd64.tar.gz --repo tiagovilasboas/antigravity-operator
+```
+
+All GitHub Actions used by the workflows are pinned to full commit SHAs, with the release tag in a comment.
+
 ## Privacy & Data Protection (LGPD & GDPR)
 
 Antigravity Operator follows strict **Privacy by Design** principles:
