@@ -101,4 +101,19 @@ git commit -m "feat(browser): support dynamic CDP port detection"
 4. Push to the branch (`git push origin feat/my-new-feature`).
 5. Open a Pull Request with a clear summary of changes and test evidence. The PR template has a short checklist; for features, link the issue where the scope was agreed.
 
+---
+
+## 📦 Releasing (maintainers)
+
+1. On green `main`, push an annotated tag: `git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin vX.Y.Z`.
+2. `.github/workflows/release.yml` builds the archives, publishes `checksums.txt` and the build provenance attestation, then opens the bump PR on `tiagovilasboas/homebrew-tap` (only when the `HOMEBREW_TAP_TOKEN` secret is set; otherwise it logs a notice and you bump the tap by hand).
+3. **Bump the in-repo `Formula/agyo.rb` by hand** in a small PR once the tag exists (the sha256 is of the tag's source tarball):
+   ```bash
+   TAG=vX.Y.Z
+   URL="https://github.com/tiagovilasboas/antigravity-operator/archive/refs/tags/${TAG}.tar.gz"
+   SHA="$(curl -fsSL "$URL" | sha256sum | cut -d' ' -f1)"
+   BUMP_TAP_LIB=1 . scripts/bump-tap-formula.sh && bump_formula Formula/agyo.rb "$URL" "$SHA"
+   ```
+   Keep it identical to the tap's `Formula/agyo.rb`.
+
 Thank you for helping empower students, researchers, and developers worldwide! 🎓
