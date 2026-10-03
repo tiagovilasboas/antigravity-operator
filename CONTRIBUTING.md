@@ -14,6 +14,27 @@ We follow the **Martin Fowler Outer Harness** model:
 
 ---
 
+## ✅ What Gets Accepted
+
+`agyo` is an outer harness for Google Antigravity: it keeps sessions scoped, evidence-backed, and recoverable. Contributions that fit are the ones that make an operator's life better on the problems in the [README](README.md#-the-problem-why-antigravity-needs-an-operator): **supervision** (browser/CDP, doctor sensors), **observability** (watcher, the embedded dashboard), and **session persistence** (`.agents/session/`, checkpoints).
+
+**Out of scope** (we'll politely decline these):
+- Exposing prompts, transcript content, or commands in the API or UI without redaction.
+- Reading undocumented internal Antigravity logs or files without an approved proposal first.
+- Growing the dashboard beyond the simple embedded single-file UI described in [spec 06](docs/spec/06-OBSERVABILIDADE-WATCHER-E-DASHBOARD.md): no frameworks, build steps, or CDN assets.
+- New dependencies (`go.mod` stays on the standard library).
+- Features without a clear, real pain behind them.
+
+**Size:** one subject per PR. Around **400 lines of code** is the reference (tests and generated files don't count). Bigger than that? Slice it into a sequence of PRs, or explain in the description why it can't be split.
+
+**Issue first:** for a new feature or any UI/API change, open an issue and agree on scope before writing code. Bug fixes and docs can go straight to a PR.
+
+**Privacy by default:** everything stays local and the dashboard listens on localhost only. Read [PRIVACY.md](PRIVACY.md) before touching anything that reads or shows session data.
+
+**AI-assisted contributions are welcome.** You review and own every line you submit, though: please don't send bundles of generated features. Small, understood changes get merged fast.
+
+---
+
 ## 🛠️ Development Setup
 
 ### Prerequisites
@@ -76,6 +97,6 @@ git commit -m "feat(browser): support dynamic CDP port detection"
 2. Create your feature branch (`git checkout -b feat/my-new-feature`).
 3. Commit your changes adhering to the commit guidelines.
 4. Push to the branch (`git push origin feat/my-new-feature`).
-5. Open a Pull Request with a clear summary of changes and test evidence.
+5. Open a Pull Request with a clear summary of changes and test evidence. The PR template has a short checklist; for features, link the issue where the scope was agreed.
 
 Thank you for helping empower students, researchers, and developers worldwide! 🎓
