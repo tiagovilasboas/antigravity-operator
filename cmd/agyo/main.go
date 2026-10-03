@@ -878,4 +878,7 @@ func runRollback(args []string) {
 	if len(res.DirtyFiles) > 0 {
 		fmt.Printf("   Arquivos  : %d modificações restauradas na working tree\n", len(res.DirtyFiles))
 	}
+	if w := res.Warning(); w != "" {
+		fmt.Print(w)
+	}
 }

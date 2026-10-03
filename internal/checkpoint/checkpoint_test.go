@@ -210,3 +210,119 @@ func TestRollback_CleanCheckpointKeepsBranch(t *testing.T) {
 		t.Errorf("main.go não foi revertido: %s", b)
 	}
 }
+
+func git(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %s: %v %s", strings.Join(args, " "), err, out)
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// HEAD andou desde o checkpoint (o agente commitou): o rollback move a branch
+// de volta ao commit do checkpoint, sem destacar o HEAD, e diz como desfazer.
+func TestRollback_HeadMovedMovesBranchBack(t *testing.T) {
+	repoDir := setupTestGitRepo(t)
+	branch := git(t, repoDir, "symbolic-ref", "--short", "HEAD")
+
+	// .agents/ versionado no commit do checkpoint, para provar que não muda.
+	stateFile := filepath.Join(repoDir, ".agents", "session", "state.md")
+	_ = os.MkdirAll(filepath.Dir(stateFile), 0o755)
+	_ = os.WriteFile(stateFile, []byte("# antes\n"), 0o644)
+	git(t, repoDir, "add", ".agents/session/state.md")
+	git(t, repoDir, "commit", "-m", "session")
+	base := git(t, repoDir, "rev-parse", "HEAD")
+
+	if _, err := checkpoint.Create(repoDir, "pre", ""); err != nil {
+		t.Fatalf("Create falhou: %v", err)
+	}
+	_ = os.WriteFile(filepath.Join(repoDir, "main.go"), []byte("commit do agente"), 0o644)
+	_ = os.WriteFile(stateFile, []byte("# depois\n"), 0o644)
+	git(t, repoDir, "commit", "-am", "agent commit")
+	moved := git(t, repoDir, "rev-parse", "HEAD")
+	_ = os.WriteFile(filepath.Join(repoDir, "main.go"), []byte("edição não commitada"), 0o644)
+
+	res, err := checkpoint.Rollback(repoDir, "latest")
+	if err != nil {
+		t.Fatalf("Rollback falhou: %v", err)
+	}
+
+	cmd := exec.Command("git", "symbolic-ref", "-q", "--short", "HEAD")
+	cmd.Dir = repoDir
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("rollback destacou o HEAD (git symbolic-ref falhou: %v)", err)
+	}
+	if got := strings.TrimSpace(string(out)); got != branch {
+		t.Fatalf("HEAD em %q, esperava a branch %q", got, branch)
+	}
+	if got := git(t, repoDir, "rev-parse", branch); got != base {
+		t.Fatalf("branch %s em %s, esperava o commit do checkpoint %s", branch, got, base)
+	}
+	if b, _ := os.ReadFile(filepath.Join(repoDir, "main.go")); !strings.Contains(string(b), "func main()") {
+		t.Errorf("main.go não foi revertido: %s", b)
+	}
+	if b, _ := os.ReadFile(stateFile); !strings.HasPrefix(string(b), "# depois\n") {
+		t.Errorf("rollback alterou .agents/session/state.md: %q", b)
+	}
+
+	if res.MovedFrom != moved || res.MovedBranch != branch {
+		t.Fatalf("MovedFrom=%q MovedBranch=%q, esperava %q %q", res.MovedFrom, res.MovedBranch, moved, branch)
+	}
+	w := res.Warning()
+	if !strings.Contains(w, "git reset --hard "+moved) || !strings.Contains(w, "reflog") || !strings.Contains(w, "git stash apply "+res.BackupStash) || res.BackupStash == "" {
+		t.Fatalf("aviso incompleto (stash %q): %s", res.BackupStash, w)
+	}
+
+	// O commit antigo e a edição não commitada continuam recuperáveis.
+	// Desfazer como o aviso manda: volta a branch e reaplica o backup.
+	git(t, repoDir, "cat-file", "-e", moved+"^{commit}")
+	git(t, repoDir, "reset", "--hard", moved)
+	git(t, repoDir, "stash", "apply", res.BackupStash)
+	if b, _ := os.ReadFile(filepath.Join(repoDir, "main.go")); string(b) != "edição não commitada" {
+		t.Errorf("backup não restaurou a edição: %s", b)
+	}
+}
+
+func TestRollback_RefusesDetachedHeadWhenMoved(t *testing.T) {
+	repoDir := setupTestGitRepo(t)
+	if _, err := checkpoint.Create(repoDir, "pre", ""); err != nil {
+		t.Fatalf("Create falhou: %v", err)
+	}
+	_ = os.WriteFile(filepath.Join(repoDir, "main.go"), []byte("x"), 0o644)
+	git(t, repoDir, "commit", "-am", "agent commit")
+	git(t, repoDir, "checkout", "-q", "--detach")
+	head := git(t, repoDir, "rev-parse", "HEAD")
+	_ = os.WriteFile(filepath.Join(repoDir, "main.go"), []byte("não commitado"), 0o644)
+
+	if _, err := checkpoint.Rollback(repoDir, "latest"); err == nil || !strings.Contains(err.Error(), "detached") {
+		t.Fatalf("esperava recusa por HEAD destacado, obteve %v", err)
+	}
+	if got := git(t, repoDir, "rev-parse", "HEAD"); got != head {
+		t.Errorf("rollback recusado moveu o HEAD para %s", got)
+	}
+	if b, _ := os.ReadFile(filepath.Join(repoDir, "main.go")); string(b) != "não commitado" {
+		t.Errorf("rollback recusado mexeu na working tree: %s", b)
+	}
+}
+
+func TestRollback_RefusesOtherBranchWhenMoved(t *testing.T) {
+	repoDir := setupTestGitRepo(t)
+	if _, err := checkpoint.Create(repoDir, "pre", ""); err != nil {
+		t.Fatalf("Create falhou: %v", err)
+	}
+	git(t, repoDir, "checkout", "-q", "-b", "other")
+	_ = os.WriteFile(filepath.Join(repoDir, "main.go"), []byte("x"), 0o644)
+	git(t, repoDir, "commit", "-am", "other commit")
+	head := git(t, repoDir, "rev-parse", "HEAD")
+
+	if _, err := checkpoint.Rollback(repoDir, "latest"); err == nil || !strings.Contains(err.Error(), "branch") {
+		t.Fatalf("esperava recusa por branch diferente, obteve %v", err)
+	}
+	if got := git(t, repoDir, "rev-parse", "other"); got != head {
+		t.Errorf("rollback recusado moveu a branch other para %s", got)
+	}
+}

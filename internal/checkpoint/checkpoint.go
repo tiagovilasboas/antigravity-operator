@@ -119,8 +119,38 @@ func List(targetDir string) ([]Checkpoint, error) {
 	return list, nil
 }
 
+// RollbackResult descreve o rollback executado.
+type RollbackResult struct {
+	Checkpoint
+	// MovedFrom é o commit em que a branch estava antes do rollback, quando
+	// HEAD tinha andado desde o checkpoint ("" quando não andou).
+	MovedFrom string
+	// MovedBranch é a branch movida de volta ao commit do checkpoint.
+	MovedBranch string
+	// BackupStash guarda as alterações rastreadas descartadas pelo rollback.
+	BackupStash string
+}
+
+// Warning explains how to undo a rollback that moved the branch or discarded
+// local changes. It is empty when there is nothing to undo.
+func (r *RollbackResult) Warning() string {
+	var b strings.Builder
+	if r.MovedFrom != "" {
+		fmt.Fprintf(&b, "⚠️  Branch %s moved from %s back to checkpoint commit %s.\n", r.MovedBranch, shortSHA(r.MovedFrom), r.CommitSHA)
+		fmt.Fprintf(&b, "   Undo: git reset --hard %s  (the old commit is also in: git reflog)\n", r.MovedFrom)
+	}
+	if r.BackupStash != "" {
+		where := ""
+		if r.MovedFrom != "" {
+			where = " (after the undo above; they were made on top of " + shortSHA(r.MovedFrom) + ")"
+		}
+		fmt.Fprintf(&b, "⚠️  Uncommitted changes were saved before the rollback. Restore: git stash apply %s%s\n", r.BackupStash, where)
+	}
+	return b.String()
+}
+
 // Rollback restaura o workspace para o estado exato gravado em um checkpoint.
-func Rollback(targetDir string, targetIDOrName string) (*Checkpoint, error) {
+func Rollback(targetDir string, targetIDOrName string) (*RollbackResult, error) {
 	if !isGitRepo(targetDir) {
 		return nil, fmt.Errorf("diretório %s não é um repositório git", targetDir)
 	}
@@ -149,13 +179,53 @@ func Rollback(targetDir string, targetIDOrName string) (*Checkpoint, error) {
 		return nil, fmt.Errorf("checkpoint '%s' não encontrado", targetIDOrName)
 	}
 
-	// 1. Limpa alterações não commitadas locais
-	if err := execGit(targetDir, "reset", "--hard", "HEAD"); err != nil {
-		return nil, fmt.Errorf("falha ao descartar alterações locais (git reset --hard HEAD): %w", err)
+	target := runGit(targetDir, "rev-parse", "--verify", "-q", targetChk.CommitSHA+"^{commit}")
+	if target == "" {
+		return nil, fmt.Errorf("commit %q do checkpoint '%s' não existe mais neste repositório", targetChk.CommitSHA, targetChk.Name)
+	}
+	head := runGit(targetDir, "rev-parse", "HEAD")
+	res := &RollbackResult{Checkpoint: *targetChk}
+
+	// HEAD andou desde o checkpoint: move a branch atual de volta ao commit do
+	// checkpoint (git reset --hard), sem destacar o HEAD. Recusa antes de mexer
+	// em qualquer coisa se o HEAD já está destacado ou se a branch não é a do
+	// checkpoint.
+	if target != head {
+		branch := runGit(targetDir, "symbolic-ref", "-q", "--short", "HEAD")
+		if branch == "" {
+			return nil, fmt.Errorf("HEAD está destacado (detached) em %s; faça checkout de uma branch antes do rollback para não perder a referência", shortSHA(head))
+		}
+		if targetChk.Branch != "" && targetChk.Branch != "HEAD" && targetChk.Branch != branch {
+			return nil, fmt.Errorf("o checkpoint '%s' foi criado na branch %s, mas a branch atual é %s; faça checkout de %s antes do rollback", targetChk.Name, targetChk.Branch, branch, targetChk.Branch)
+		}
+		res.MovedFrom = head
+		res.MovedBranch = branch
+	}
+
+	// Guarda alterações rastreadas não commitadas num stash recuperável antes
+	// de descartá-las (git stash list / git stash apply <sha>).
+	if runGit(targetDir, "status", "--porcelain", "--untracked-files=no") != "" {
+		msg := fmt.Sprintf("agyo-rollback: backup before %s", targetChk.ID)
+		if sha := runGit(targetDir, "stash", "create", msg); sha != "" {
+			if err := execGit(targetDir, "stash", "store", "-m", msg, sha); err != nil {
+				return nil, fmt.Errorf("falha ao guardar backup das alterações locais (git stash store): %w", err)
+			}
+			res.BackupStash = sha
+		}
+	}
+
+	// .agents/ (memória da sessão e checkpoints.json) nunca muda com o rollback,
+	// mesmo se estiver versionado e o commit antigo tiver outra versão.
+	agents := snapshotDir(filepath.Join(targetDir, ".agents"))
+
+	// 1. Volta a working tree (e a branch, se HEAD andou) ao commit do checkpoint
+	if err := execGit(targetDir, "reset", "--hard", target); err != nil {
+		restoreDir(agents)
+		return nil, fmt.Errorf("falha ao restaurar o commit %s (git reset --hard): %w", shortSHA(target), err)
 	}
 	// Remove só arquivos criados depois do checkpoint. Nunca apaga .agents/
-	// (memória da sessão e checkpoints.json) nem arquivos que já existiam
-	// sem rastreio no checkpoint, cujo conteúdo o stash não guarda.
+	// nem arquivos que já existiam sem rastreio no checkpoint, cujo conteúdo o
+	// stash não guarda.
 	keep := make(map[string]bool, len(targetChk.Untracked))
 	for _, f := range targetChk.Untracked {
 		keep[f] = true
@@ -170,13 +240,12 @@ func Rollback(targetDir string, targetIDOrName string) (*Checkpoint, error) {
 	if targetChk.StashSHA != "" {
 		if err := execGit(targetDir, "stash", "apply", targetChk.StashSHA); err != nil {
 			// Se stash falhar (ex: conflito de index), restaura ao commit base
-			_ = execGit(targetDir, "reset", "--hard", targetChk.CommitSHA)
+			_ = execGit(targetDir, "reset", "--hard", target)
+			restoreDir(agents)
 			return nil, fmt.Errorf("falha ao reaplicar as alterações do checkpoint (stash %s); working tree restaurada ao commit %s: %w", targetChk.StashSHA, targetChk.CommitSHA, err)
 		}
-	} else if targetChk.CommitSHA != "" && runGit(targetDir, "rev-parse", targetChk.CommitSHA+"^{commit}") != runGit(targetDir, "rev-parse", "HEAD") {
-		// Só troca de commit se HEAD andou; senão o checkout destacaria o HEAD da branch.
-		_ = execGit(targetDir, "checkout", targetChk.CommitSHA)
 	}
+	restoreDir(agents)
 
 	// 3. Atualiza nota de rollback no state.md se presente
 	statePath := filepath.Join(targetDir, ".agents", "session", "state.md")
@@ -186,7 +255,39 @@ func Rollback(targetDir string, targetIDOrName string) (*Checkpoint, error) {
 		_ = os.WriteFile(statePath, []byte(string(stateBytes)+note), 0644)
 	}
 
-	return targetChk, nil
+	return res, nil
+}
+
+func shortSHA(sha string) string {
+	if len(sha) > 12 {
+		return sha[:12]
+	}
+	return sha
+}
+
+// snapshotDir lê todos os arquivos regulares sob dir.
+func snapshotDir(dir string) map[string][]byte {
+	files := map[string][]byte{}
+	_ = filepath.WalkDir(dir, func(p string, d os.DirEntry, err error) error {
+		if err == nil && d.Type().IsRegular() {
+			if b, err := os.ReadFile(p); err == nil {
+				files[p] = b
+			}
+		}
+		return nil
+	})
+	return files
+}
+
+// restoreDir regrava os arquivos de um snapshot (sem apagar nada).
+func restoreDir(files map[string][]byte) {
+	for p, b := range files {
+		if cur, err := os.ReadFile(p); err == nil && string(cur) == string(b) {
+			continue
+		}
+		_ = os.MkdirAll(filepath.Dir(p), 0o755)
+		_ = os.WriteFile(p, b, 0o644)
+	}
 }
 
 // untrackedFiles lista arquivos não rastreados e não ignorados, relativos a

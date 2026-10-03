@@ -301,6 +301,7 @@ agyo checkpoint --list --json
 agyo rollback
 agyo rollback chk-20261001-113000
 ```
+Se houve commits depois do checkpoint, o `rollback` move a branch atual de volta ao commit do checkpoint (recusa com HEAD destacado ou em outra branch). Antes, guarda as alterações não commitadas num stash e mostra como desfazer (`git reset --hard <antigo>`, também no `git reflog`). A pasta `.agents/` nunca é alterada.
 
 ### 5. Proteção contra Desperdício de Tokens (`.agentignore`)
 Ao rodar `agyo init`, uma lista negra `.agentignore` pré-configurada é criada para impedir que agentes carreguem dependências pesadas no contexto do prompt:
