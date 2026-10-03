@@ -62,13 +62,14 @@ Para equipes que preferem monitoramento visual ou desejam manter uma janela de c
 |---|---|
 | `GET /` | Serve a interface web completa em HTML5/CSS3 com UI Dark Mode responsiva. |
 | `GET /api/status` | Retorna o status da sessão em JSON (`Objective`, `DoneTasks`, `TotalTasks`, `HealthStatus`). |
-| `GET /api/doctor` | Retorna o relatório do host com badges de status de cada sensor. |
+| `GET /api/doctor` | Retorna o relatório do host com badges de status de cada sensor (sem nome e e-mail do git, que ficam só no `agyo doctor` local). |
 | `GET /api/tabs` | Lista as abas ativas do Chrome DevTools e seus títulos em tempo real. |
 | `GET /api/events` | Retorna os últimos eventos da sessão só com tipo, passo, ferramenta e status (sem texto de prompt, raciocínio, argumentos ou saída). |
 | `GET /api/all` | Agrega todos os dados acima em uma única chamada atômica para polling eficiente da UI. |
 
 ### 4.2. Zero Dependências e Segurança
 - O frontend da web UI é embarcado diretamente no código Go, sem exigir `npm install`, sem assets baixados de CDNs externos e funcionando 100% offline.
+- O servidor escuta só em `127.0.0.1` e responde `403` a qualquer requisição cujo `Host` (ou `Origin`, quando presente) não seja `localhost`, `127.0.0.1` ou `[::1]` na porta em uso. Isso bloqueia DNS rebinding, em que uma página remota alcança a porta local com o próprio hostname.
 - Encerramento gracioso via captura de sinais do SO (`SIGINT` e `SIGTERM`) com timeout de segurança de 2 segundos.
 
 ---
