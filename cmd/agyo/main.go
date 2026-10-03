@@ -836,7 +836,12 @@ func runCheckpoint(args []string) {
 	fmt.Printf("   Nome      : %s\n", chk.Name)
 	fmt.Printf("   Branch    : %s (%s)\n", chk.Branch, chk.CommitSHA)
 	if len(chk.DirtyFiles) > 0 {
-		fmt.Printf("   Modificados: %d arquivos preservados no stash commit (%s)\n", len(chk.DirtyFiles), chk.StashSHA)
+		if chk.StashSHA != "" {
+			fmt.Printf("   Modificados: alterações rastreadas preservadas no stash commit (%s)\n", chk.StashSHA)
+		}
+		if len(chk.Untracked) > 0 {
+			fmt.Printf("   Não rastreados: %d arquivos mantidos no rollback (conteúdo não versionado no checkpoint)\n", len(chk.Untracked))
+		}
 	} else {
 		fmt.Printf("   Modificados: Working tree limpa (clean tree)\n")
 	}

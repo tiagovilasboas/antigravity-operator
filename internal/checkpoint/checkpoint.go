@@ -21,12 +21,19 @@ type Checkpoint struct {
 	DirtyFiles  []string `json:"dirty_files"`
 	StashSHA    string   `json:"stash_sha,omitempty"`
 	Description string   `json:"description"`
+	// Untracked lista os arquivos não rastreados no momento do checkpoint.
+	// O rollback nunca os apaga (o stash não guarda o conteúdo deles).
+	Untracked []string `json:"untracked,omitempty"`
 }
 
 // Create cria um checkpoint de segurança registrando o estado exato do git e arquivos modificados.
 func Create(targetDir string, name string, description string) (*Checkpoint, error) {
 	if !isGitRepo(targetDir) {
 		return nil, fmt.Errorf("diretório %s não é um repositório git (necessário para checkpoints atômicos)", targetDir)
+	}
+
+	if runGit(targetDir, "rev-parse", "--verify", "-q", "HEAD") == "" {
+		return nil, fmt.Errorf("o repositório em %s ainda não tem commits; faça o primeiro commit antes de criar um checkpoint", targetDir)
 	}
 
 	branch := runGit(targetDir, "rev-parse", "--abbrev-ref", "HEAD")
@@ -58,6 +65,7 @@ func Create(targetDir string, name string, description string) (*Checkpoint, err
 		Branch:      branch,
 		DirtyFiles:  dirtyFiles,
 		Description: description,
+		Untracked:   untrackedFiles(targetDir),
 	}
 
 	// Se houver arquivos modificados, cria um objeto de stash commit sem alterar a working tree
@@ -142,14 +150,28 @@ func Rollback(targetDir string, targetIDOrName string) (*Checkpoint, error) {
 	}
 
 	// 1. Limpa alterações não commitadas locais
-	_ = execGit(targetDir, "reset", "--hard", "HEAD")
-	_ = execGit(targetDir, "clean", "-fd")
+	if err := execGit(targetDir, "reset", "--hard", "HEAD"); err != nil {
+		return nil, fmt.Errorf("falha ao descartar alterações locais (git reset --hard HEAD): %w", err)
+	}
+	// Remove só arquivos criados depois do checkpoint. Nunca apaga .agents/
+	// (memória da sessão e checkpoints.json) nem arquivos que já existiam
+	// sem rastreio no checkpoint, cujo conteúdo o stash não guarda.
+	keep := make(map[string]bool, len(targetChk.Untracked))
+	for _, f := range targetChk.Untracked {
+		keep[f] = true
+	}
+	for _, f := range untrackedFiles(targetDir) {
+		if !keep[f] {
+			_ = os.Remove(filepath.Join(targetDir, f))
+		}
+	}
 
 	// 2. Se o checkpoint tinha stash registrado, reaplica
 	if targetChk.StashSHA != "" {
 		if err := execGit(targetDir, "stash", "apply", targetChk.StashSHA); err != nil {
 			// Se stash falhar (ex: conflito de index), restaura ao commit base
 			_ = execGit(targetDir, "reset", "--hard", targetChk.CommitSHA)
+			return nil, fmt.Errorf("falha ao reaplicar as alterações do checkpoint (stash %s); working tree restaurada ao commit %s: %w", targetChk.StashSHA, targetChk.CommitSHA, err)
 		}
 	} else if targetChk.CommitSHA != "" {
 		_ = execGit(targetDir, "checkout", targetChk.CommitSHA)
@@ -164,6 +186,24 @@ func Rollback(targetDir string, targetIDOrName string) (*Checkpoint, error) {
 	}
 
 	return targetChk, nil
+}
+
+// untrackedFiles lista arquivos não rastreados e não ignorados, relativos a
+// dir, excluindo .agents/ (memória da sessão do próprio agyo).
+func untrackedFiles(dir string) []string {
+	cmd := exec.Command("git", "ls-files", "--others", "--exclude-standard", "-z", "--", ".", ":(exclude).agents")
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		return nil
+	}
+	var files []string
+	for _, f := range strings.Split(string(out), "\x00") {
+		if f != "" {
+			files = append(files, f)
+		}
+	}
+	return files
 }
 
 func isGitRepo(dir string) bool {

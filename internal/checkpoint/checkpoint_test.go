@@ -135,3 +135,52 @@ func TestCheckpoint_WithDirtyFiles(t *testing.T) {
 		t.Error("esperava erro ao pedir checkpoint inexistente")
 	}
 }
+
+// Rollback não pode apagar a memória da sessão (.agents/) nem arquivos que já
+// existiam sem rastreio no checkpoint; só os criados depois dele.
+func TestRollback_KeepsSessionAndPreexistingUntracked(t *testing.T) {
+	repoDir := setupTestGitRepo(t)
+
+	stateFile := filepath.Join(repoDir, ".agents", "session", "state.md")
+	_ = os.MkdirAll(filepath.Dir(stateFile), 0755)
+	_ = os.WriteFile(stateFile, []byte("# objetivo\n"), 0644)
+	notes := filepath.Join(repoDir, "notes.txt")
+	_ = os.WriteFile(notes, []byte("anotações do usuário"), 0644)
+
+	if _, err := checkpoint.Create(repoDir, "pre", ""); err != nil {
+		t.Fatalf("Create falhou: %v", err)
+	}
+
+	mainFile := filepath.Join(repoDir, "main.go")
+	_ = os.WriteFile(mainFile, []byte("quebrado"), 0644)
+	agentFile := filepath.Join(repoDir, "agent_tmp.go")
+	_ = os.WriteFile(agentFile, []byte("lixo"), 0644)
+
+	if _, err := checkpoint.Rollback(repoDir, "latest"); err != nil {
+		t.Fatalf("Rollback falhou: %v", err)
+	}
+
+	for _, keep := range []string{stateFile, notes, filepath.Join(repoDir, ".agents", "session", "checkpoints.json")} {
+		if _, err := os.Stat(keep); err != nil {
+			t.Errorf("rollback apagou %s: %v", keep, err)
+		}
+	}
+	if _, err := os.Stat(agentFile); !os.IsNotExist(err) {
+		t.Errorf("arquivo criado após o checkpoint deveria ter sido removido")
+	}
+	if b, _ := os.ReadFile(mainFile); !strings.Contains(string(b), "func main()") {
+		t.Errorf("main.go não foi revertido: %s", b)
+	}
+}
+
+func TestCheckpoint_RequiresInitialCommit(t *testing.T) {
+	dir := t.TempDir()
+	cmd := exec.Command("git", "init")
+	cmd.Dir = dir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v %s", err, out)
+	}
+	if _, err := checkpoint.Create(dir, "x", ""); err == nil {
+		t.Error("esperava erro ao criar checkpoint em repositório sem commits")
+	}
+}
