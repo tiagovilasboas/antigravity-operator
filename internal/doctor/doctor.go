@@ -16,6 +16,9 @@ type CheckItem struct {
 	Name    string `json:"name"`
 	Status  string `json:"status"` // "OK", "WARN", "FAIL", "INFO"
 	Details string `json:"details"`
+	// PublicDetails, when set, replaces Details on surfaces served over HTTP
+	// (dashboard) because Details carries personal data such as the git email.
+	PublicDetails string `json:"-"`
 }
 
 // Report agrega todas as verificações do sistema.
@@ -105,6 +108,8 @@ func checkGit() CheckItem {
 		Name:    "Git",
 		Status:  "OK",
 		Details: fmt.Sprintf("%s (%s <%s>)", version, name, email),
+		// Name and email stay in the local CLI output only.
+		PublicDetails: fmt.Sprintf("%s (identity configured)", version),
 	}
 }
 
@@ -222,6 +227,8 @@ func checkAPIKeys() CheckItem {
 			Name:    "Gemini API Key (BYOK)",
 			Status:  "OK",
 			Details: fmt.Sprintf("Configurada via %s (%s)", source, masked),
+			// No key characters over HTTP; the masked value stays in the local CLI.
+			PublicDetails: fmt.Sprintf("Configured via %s", source),
 		}
 	}
 
