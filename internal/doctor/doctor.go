@@ -227,6 +227,8 @@ func checkAPIKeys() CheckItem {
 			Name:    "Gemini API Key (BYOK)",
 			Status:  "OK",
 			Details: fmt.Sprintf("Configurada via %s (%s)", source, masked),
+			// No key characters over HTTP; the masked value stays in the local CLI.
+			PublicDetails: fmt.Sprintf("Configured via %s", source),
 		}
 	}
 

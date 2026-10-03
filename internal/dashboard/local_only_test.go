@@ -114,3 +114,33 @@ func TestDoctorOverHTTP_HidesGitIdentity(t *testing.T) {
 		}
 	}
 }
+
+// TestDoctorOverHTTP_HidesAPIKey checks that no characters of the Gemini or
+// Google API key reach /api/doctor or /api/all (the CLI shows a masked form).
+func TestDoctorOverHTTP_HidesAPIKey(t *testing.T) {
+	for _, env := range []string{"GEMINI_API_KEY", "GOOGLE_API_KEY"} {
+		t.Run(env, func(t *testing.T) {
+			t.Setenv("GEMINI_API_KEY", "")
+			t.Setenv("GOOGLE_API_KEY", "")
+			const key = "AIzaHEADxxxxxxxxxxxxxxxxxxxxxxxxxxTAIL"
+			t.Setenv(env, key)
+
+			s := newTestServer(t)
+			for _, path := range []string{"/api/doctor", "/api/all"} {
+				r := httptest.NewRequest(http.MethodGet, path, nil)
+				r.Host = "127.0.0.1:" + strconv.Itoa(s.port)
+				w := httptest.NewRecorder()
+				s.server.Handler.ServeHTTP(w, r)
+				body := w.Body.String()
+				for _, part := range []string{key[:4], key[len(key)-4:], "HEAD", "TAIL"} {
+					if strings.Contains(body, part) {
+						t.Errorf("%s leaks key fragment %q", path, part)
+					}
+				}
+				if !strings.Contains(body, "Configured via "+env) {
+					t.Errorf("%s: expected redacted API key check, got %s", path, body)
+				}
+			}
+		})
+	}
+}
