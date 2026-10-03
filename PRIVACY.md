@@ -4,13 +4,36 @@ Antigravity Operator (`agyo`) is committed to the highest standards of data priv
 
 ---
 
-## 1. Core Principle: Privacy by Design & Local-First
+## 1. Core Principle: Local-First, No Telemetry
 
-Antigravity Operator is built from the ground up as a **100% offline, local-first developer tool**:
+- **No telemetry:** the `agyo` binary contains no analytics, tracking beacons or pingbacks, and sends nothing about you, your code or your sessions to the maintainer or any third party.
+- **No cloud storage:** everything `agyo` writes stays on your machine (listed below).
+- **Network use is limited and listed:** the only traffic that leaves your machine comes from the installer, the MCP servers it configures, and the Chrome instance it launches. See the table below. The `agyo` binary itself only opens loopback connections (`127.0.0.1`).
 
-- **Zero Telemetry:** `agyo` contains no analytics, tracking beacons, pingbacks, or external network requests.
-- **Zero Cloud Storage:** All data produced by `agyo` is stored exclusively on your local workstation's filesystem.
-- **No Third-Party Data Sharing:** Your code, prompts, session states, and metadata are never collected or sent to any centralized server or third party by this project.
+### 1.1. What touches the network
+
+| Component | Destination | When |
+| :--- | :--- | :--- |
+| `scripts/install.sh` | `api.github.com` (latest release tag), `github.com` (release archive and `checksums.txt`, or `git clone` when building from source) | Only when you run the installer |
+| Homebrew formula | `github.com` (source tarball), Go module proxy for the build | Only on `brew install` / `brew upgrade` |
+| MCP servers in `templates/mcps/default-servers.json` (`chrome-devtools-mcp`, `@executeautomation/playwright-mcp-server`, pinned versions) | `registry.npmjs.org` via `npx` to download the package; then whatever the server itself does | When your AI client (e.g. Antigravity) starts them, not when `agyo` runs |
+| Chrome launched by `agyo browser` | Whatever Chrome and the pages you or the agent open contact (updates, sites) | While that browser runs |
+
+### 1.2. What `agyo` reads locally
+
+| Data | Path or source | Used by |
+| :--- | :--- | :--- |
+| Antigravity session transcripts | `~/.gemini/antigravity/brain/*/.system_generated/logs/transcript.jsonl` (CLI) and `~/.gemini/brain/*/…/transcript.jsonl` (dashboard) | `session watch`, `session export`, `dashboard` (dashboard events show only type, step, tool and status) |
+| Session memory | `.agents/session/` in your project (`state.md`, `todo.md`, `decisions.md`, `checkpoints.json`) | `session`, `checkpoint`, `rollback`, `dashboard` |
+| Git metadata | `git config user.name` / `user.email`, the project's repository | `doctor`, `checkpoint`, `rollback`, `hook` |
+| Chrome tabs | CDP on `127.0.0.1:9222` (tab titles and URLs of the isolated profile) | `browser`, `dashboard` |
+| Host facts | OS, architecture, display, `npx` presence, running `antigravity` processes | `doctor` |
+
+The dashboard (`agyo dashboard`) serves this data over HTTP on `127.0.0.1` only. It does not send it anywhere else.
+
+### 1.3. What `agyo` writes locally
+
+`.agents/session/` and `.agents/.gitignore` in your project, `~/.gemini/antigravity/{rules,mcp}/`, `~/.gemini/config/skills/agyo/`, the isolated browser profile `~/.gemini/antigravity-browser-profile`, and a git pre-commit hook when you run `agyo hook`.
 
 ---
 
@@ -31,7 +54,7 @@ Antigravity Operator is built from the ground up as a **100% offline, local-firs
 
 Because all state is stored locally on your machine, you retain complete sovereignty over your data:
 
-- **Immediate Elimination (Direito de Exclusão):** You can permanently erase all session data at any time by running `agyo session archive` or simply deleting the local folder:
+- **Immediate Elimination (Direito de Exclusão):** `agyo session archive` moves the current session into `.agents/session/archive/`; to erase everything, delete the local folders:
   ```bash
   rm -rf .agents/session
   rm -rf ~/.gemini/antigravity-browser-profile
