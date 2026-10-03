@@ -393,7 +393,7 @@ We welcome contributions from engineers, students, and open-source enthusiasts! 
 * **MCP Integrations:** Create templates for popular community Model Context Protocol servers in `templates/mcps/`.
 * **Linux Distribution Testing:** Verify and document compatibility on Arch Linux, Alpine, Fedora, or NixOS.
 
-Please review our [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), [AUTHORS](AUTHORS), and [CONTRIBUTORS](CONTRIBUTORS).
+Please review our [CONTRIBUTING.md](CONTRIBUTING.md) (what gets accepted), [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), [AUTHORS](AUTHORS), and [CONTRIBUTORS](CONTRIBUTORS).
 
 ---
 

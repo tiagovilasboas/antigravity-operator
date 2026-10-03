@@ -395,7 +395,7 @@ Contribuições de engenheiros, estudantes e entusiastas de open source são mui
 * **Integrações de MCP:** Adicione templates de servidores MCP úteis em `templates/mcps/`.
 * **Testes em Outras Distribuições Linux:** Documente a compatibilidade no Arch Linux, Alpine, Fedora ou NixOS.
 
-Consulte também [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), [AUTHORS](AUTHORS) e [CONTRIBUTORS](CONTRIBUTORS).
+Consulte também [CONTRIBUTING.md](CONTRIBUTING.md) (o que é aceito), [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), [AUTHORS](AUTHORS) e [CONTRIBUTORS](CONTRIBUTORS).
 
 ---
 
