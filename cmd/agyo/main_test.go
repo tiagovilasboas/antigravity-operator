@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/tiagoboas/antigravity-operator/internal/platform"
@@ -69,7 +70,20 @@ func TestCLI_RunSync(t *testing.T) {
 	info := &platform.Info{
 		GeminiDir: tempGemini,
 	}
-	runSync(info)
+	runSync(info, nil)
+
+	// --update-mcp backs up a legacy manifest and rewrites it.
+	mcp := filepath.Join(tempGemini, "mcp", "default-servers.json")
+	legacy := `{"mcpServers":{"playwright":{"command":"npx","args":["-y","@executeautomation/playwright-mcp-server"]}}}`
+	_ = os.WriteFile(mcp, []byte(legacy), 0644)
+	runSync(info, []string{"--update-mcp"})
+	backups, _ := filepath.Glob(mcp + ".bak-*")
+	if len(backups) != 1 {
+		t.Fatalf("expected one backup, got %v", backups)
+	}
+	if cur, _ := os.ReadFile(mcp); strings.Contains(string(cur), "executeautomation") {
+		t.Fatalf("manifest not rewritten: %s", cur)
+	}
 }
 
 func TestCLI_RunBrowserCommands(t *testing.T) {

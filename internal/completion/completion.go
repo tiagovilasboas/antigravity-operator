@@ -67,6 +67,9 @@ _agyo_completion() {
                 COMPREPLY=( $(compgen -W "${completion_subcommands}" -- ${cur}) )
             fi
             ;;
+        sync)
+            COMPREPLY=( $(compgen -W "--update-mcp" -- ${cur}) )
+            ;;
     esac
 }
 complete -F _agyo_completion agyo
@@ -148,6 +151,9 @@ _agyo() {
                 completion)
                     _describe -t completion_cmds 'shell type' completion_cmds
                     ;;
+                sync)
+                    _values 'sync flag' '--update-mcp[Back up and rewrite the MCP manifest from the built-in template]'
+                    ;;
             esac
             ;;
     esac
@@ -183,4 +189,5 @@ complete -c agyo -n '__fish_seen_subcommand_from session' -a 'status compact arc
 complete -c agyo -n '__fish_seen_subcommand_from browser' -a 'start status stop tabs open close eval shot'
 complete -c agyo -n '__fish_seen_subcommand_from hook' -a 'install uninstall'
 complete -c agyo -n '__fish_seen_subcommand_from completion' -a 'bash zsh fish'
+complete -c agyo -n '__fish_seen_subcommand_from sync' -l update-mcp -d 'Back up and rewrite the MCP manifest'
 `

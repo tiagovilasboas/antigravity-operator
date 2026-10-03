@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/tiagoboas/antigravity-operator/internal/installer"
 	"github.com/tiagoboas/antigravity-operator/internal/platform"
 	"github.com/tiagoboas/antigravity-operator/internal/profile"
 	"github.com/tiagoboas/antigravity-operator/internal/session"
@@ -66,6 +67,9 @@ func Run(info *platform.Info) *Report {
 
 	// 5. Node e NPX (para MCPs)
 	rep.add(checkNode())
+
+	// 5b. Manifesto MCP instalado vs. template embutido
+	rep.add(checkMCPManifest(info))
 
 	// 6. Gemini API Keys (BYOK)
 	rep.add(checkAPIKeys())
@@ -180,6 +184,25 @@ func checkHarnessCore(info *platform.Info) CheckItem {
 		Status:  "INFO",
 		Details: "Modo Standalone (fonte central não detectada)",
 	}
+}
+
+func checkMCPManifest(info *platform.Info) CheckItem {
+	const name = "MCP Manifest"
+	const fix = " Run 'agyo sync --update-mcp' (backs up the current file)."
+	st := installer.CheckMCP(info)
+	switch {
+	case !st.Exists:
+		return CheckItem{Name: name, Status: "INFO", Details: "Not installed. Run 'agyo sync'."}
+	case st.ReadError != nil:
+		return CheckItem{Name: name, Status: "WARN", Details: "Unreadable: " + st.ReadError.Error(), PublicDetails: "Unreadable"}
+	case st.Invalid:
+		return CheckItem{Name: name, Status: "WARN", Details: "Not valid JSON." + fix}
+	case len(st.Unpinned) > 0:
+		return CheckItem{Name: name, Status: "WARN", Details: fmt.Sprintf("%d unpinned npx package(s) (%s).%s", len(st.Unpinned), strings.Join(st.Unpinned, "; "), fix)}
+	case st.Differs:
+		return CheckItem{Name: name, Status: "WARN", Details: "Differs from the built-in template." + fix}
+	}
+	return CheckItem{Name: name, Status: "OK", Details: "Matches the built-in template (packages pinned)"}
 }
 
 func checkAntigravity(info *platform.Info) CheckItem {

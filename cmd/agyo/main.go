@@ -60,7 +60,7 @@ func main() {
 	case "browser":
 		runBrowser(info, os.Args[2:])
 	case "sync":
-		runSync(info)
+		runSync(info, os.Args[2:])
 	case "hook":
 		runHook(os.Args[2:])
 	case "completion":
@@ -106,7 +106,8 @@ Available commands:
   browser close <id>  Close a specific tab by ID
   browser eval "<js>" Evaluate JavaScript expression in the active tab (pure Go CDP)
   browser shot [file] Capture PNG screenshot of active tab without external libraries
-  sync                Synchronize canonical rules and MCP manifests to Google Antigravity
+  sync [--update-mcp] Synchronize canonical rules and MCP manifests to Google Antigravity
+                      (--update-mcp backs up and rewrites an outdated MCP manifest)
   hook install [dir]  Install git pre-commit hook to safeguard session continuity
   hook uninstall [dir] Remove agyo git pre-commit hook
   completion [shell]  Generate shell autocompletion script (bash, zsh, fish)
@@ -602,7 +603,11 @@ func runBrowser(info *platform.Info, args []string) {
 	}
 }
 
-func runSync(info *platform.Info) {
+func runSync(info *platform.Info, args []string) {
+	syncCmd := flag.NewFlagSet("sync", flag.ExitOnError)
+	updateMCP := syncCmd.Bool("update-mcp", false, "Back up the installed MCP manifest and rewrite it from the built-in template")
+	_ = syncCmd.Parse(args)
+
 	fmt.Println("🔄 Synchronizing rules and manifests into Google Antigravity...")
 	res, err := installer.Sync(info)
 	if err != nil {
@@ -610,8 +615,25 @@ func runSync(info *platform.Info) {
 		os.Exit(1)
 	}
 	fmt.Printf("✅ Rules synchronized at: %s\n", res.RulesPath)
-	if res.MCPPath != "" {
+	if *updateMCP {
+		backup, changed, err := installer.UpdateMCP(info, time.Now())
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error updating MCP manifest: %v\n", err)
+			os.Exit(1)
+		}
+		if backup != "" {
+			fmt.Printf("🗂️  Previous MCP manifest backed up to: %s\n", backup)
+		}
+		if changed {
+			fmt.Printf("✅ MCP manifest rewritten from the built-in template: %s\n", installer.MCPPath(info))
+		} else {
+			fmt.Printf("✅ MCP manifest already matches the built-in template: %s\n", installer.MCPPath(info))
+		}
+	} else if res.MCPPath != "" {
 		fmt.Printf("✅ MCP manifest prepared at: %s\n", res.MCPPath)
+		if installer.CheckMCP(info).NeedsUpdate() {
+			fmt.Println("⚠️  Existing MCP manifest differs from the built-in template (kept as is). Run 'agyo sync --update-mcp' to back it up and rewrite it.")
+		}
 	}
 	if res.SkillsPath != "" {
 		fmt.Printf("✅ Antigravity skill installed at: %s\n", res.SkillsPath)

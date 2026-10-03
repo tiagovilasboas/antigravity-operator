@@ -49,3 +49,15 @@ func TestGenerate_InvalidShell(t *testing.T) {
 		t.Errorf("expected error for unsupported shell, got nil")
 	}
 }
+
+func TestGenerate_SyncUpdateMCPFlag(t *testing.T) {
+	for _, sh := range []string{"bash", "zsh", "fish"} {
+		var buf bytes.Buffer
+		if err := Generate(sh, &buf); err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(buf.String(), "update-mcp") {
+			t.Errorf("%s completion does not offer sync --update-mcp", sh)
+		}
+	}
+}

@@ -340,6 +340,10 @@ Provisions canonical rules and automation manifests into Google Antigravity:
 ```bash
 agyo sync
 ```
+`sync` never overwrites an existing MCP manifest (`~/.gemini/antigravity/mcp/default-servers.json`). `agyo doctor` warns when that file has unpinned `npx` packages or differs from the built-in template. To back it up (`default-servers.json.bak-<UTC timestamp>`) and rewrite it:
+```bash
+agyo sync --update-mcp
+```
 
 ### 8. Shell Autocompletion (`completion`)
 Generate command and flag autocompletion for Bash, Zsh, or Fish:

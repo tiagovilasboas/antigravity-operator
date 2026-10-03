@@ -33,7 +33,7 @@ The dashboard (`agyo dashboard`) serves this data over HTTP on `127.0.0.1` only.
 
 ### 1.3. What `agyo` writes locally
 
-`.agents/session/` and `.agents/.gitignore` in your project, `~/.gemini/antigravity/{rules,mcp}/`, `~/.gemini/config/skills/agyo/`, the isolated browser profile `~/.gemini/antigravity-browser-profile`, and a git pre-commit hook when you run `agyo hook`.
+`.agents/session/` and `.agents/.gitignore` in your project, `~/.gemini/antigravity/{rules,mcp}/` (plus `mcp/default-servers.json.bak-<timestamp>` when you run `agyo sync --update-mcp`), `~/.gemini/config/skills/agyo/`, the isolated browser profile `~/.gemini/antigravity-browser-profile`, and a git pre-commit hook when you run `agyo hook`.
 
 ---
 

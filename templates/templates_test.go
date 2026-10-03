@@ -3,14 +3,8 @@ package templates
 import (
 	"encoding/json"
 	"io/fs"
-	"regexp"
 	"testing"
 )
-
-// pinnedNpmPackage matches name@X.Y.Z, scoped or not. npx -y runs whatever the
-// registry serves for an unpinned or unclaimed name, so every templated MCP
-// server must name an exact version (CI checks that it exists with npm view).
-var pinnedNpmPackage = regexp.MustCompile(`^(@[a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*@\d+\.\d+\.\d+$`)
 
 func TestMCPTemplates_PinNpxPackages(t *testing.T) {
 	files, err := fs.Glob(FS, "mcps/*.json")
@@ -41,14 +35,8 @@ func TestMCPTemplates_PinNpxPackages(t *testing.T) {
 			if srv.Command != "npx" {
 				continue
 			}
-			var pkg string
-			for _, a := range srv.Args {
-				if len(a) > 0 && a[0] != '-' {
-					pkg = a
-					break
-				}
-			}
-			if !pinnedNpmPackage.MatchString(pkg) {
+			pkg := NpxPackage(srv.Args)
+			if !IsPinnedNpmPackage(pkg) {
 				t.Errorf("%s: %s: npx package %q must be pinned as name@X.Y.Z", f, name, pkg)
 			}
 		}

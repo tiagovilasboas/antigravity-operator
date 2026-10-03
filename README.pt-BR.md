@@ -331,6 +331,10 @@ Garante que as regras de governança e servidores de automação estejam instala
 ```bash
 agyo sync
 ```
+O `sync` nunca sobrescreve um manifesto MCP existente (`~/.gemini/antigravity/mcp/default-servers.json`). O `agyo doctor` avisa quando esse arquivo tem pacotes `npx` sem versão fixa ou difere do template embutido. Para fazer backup (`default-servers.json.bak-<timestamp UTC>`) e reescrevê-lo:
+```bash
+agyo sync --update-mcp
+```
 
 ### 8. Autocompletar no Terminal (`completion`)
 Gera scripts de autocompletion de comandos e flags para Zsh, Bash ou Fish:
