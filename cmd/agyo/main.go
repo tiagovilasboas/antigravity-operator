@@ -23,7 +23,12 @@ import (
 	"github.com/tiagoboas/antigravity-operator/internal/watcher"
 )
 
-const Version = "0.4.4"
+// Version is set at build time from the git tag:
+//
+//	go build -ldflags "-X main.Version=0.4.5" ./cmd/agyo
+//
+// Builds without the flag report "dev".
+var Version = "dev"
 
 func main() {
 	if len(os.Args) < 2 {
