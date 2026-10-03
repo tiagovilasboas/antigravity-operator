@@ -251,7 +251,7 @@ func (s *Server) getEventsData() []string {
 	}
 
 	_ = watcher.Stream(ctx, tInfo.Path, opts, func(evt *watcher.Event) {
-		sm := evt.Summary()
+		sm := evt.MetadataSummary()
 		if sm != "" {
 			events = append(events, sm)
 		}

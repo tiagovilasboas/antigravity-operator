@@ -64,7 +64,7 @@ Para equipes que preferem monitoramento visual ou desejam manter uma janela de c
 | `GET /api/status` | Retorna o status da sessão em JSON (`Objective`, `DoneTasks`, `TotalTasks`, `HealthStatus`). |
 | `GET /api/doctor` | Retorna o relatório do host com badges de status de cada sensor. |
 | `GET /api/tabs` | Lista as abas ativas do Chrome DevTools e seus títulos em tempo real. |
-| `GET /api/events` | Retorna as últimas 20 ações e pensamentos parseados da sessão. |
+| `GET /api/events` | Retorna os últimos eventos da sessão só com tipo, passo, ferramenta e status (sem texto de prompt, raciocínio, argumentos ou saída). |
 | `GET /api/all` | Agrega todos os dados acima em uma única chamada atômica para polling eficiente da UI. |
 
 ### 4.2. Zero Dependências e Segurança

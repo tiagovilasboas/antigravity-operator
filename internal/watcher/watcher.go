@@ -187,6 +187,39 @@ func (e *Event) Summary() string {
 	return sb.String()
 }
 
+// MetadataSummary descreve o evento só com tipo, passo, ferramenta e status,
+// sem texto de prompt, raciocínio, argumentos ou saída. Use em superfícies
+// servidas por HTTP (dashboard), onde o texto da sessão não deve vazar.
+func (e *Event) MetadataSummary() string {
+	switch e.Type {
+	case "USER_INPUT":
+		return fmt.Sprintf("👤 [User #%d]", e.StepIndex)
+	case "PLANNER_RESPONSE":
+		var lines []string
+		if e.Thinking != "" {
+			lines = append(lines, fmt.Sprintf("💭 [Think #%d]", e.StepIndex))
+		}
+		for _, tc := range e.ToolCalls {
+			if tc.Name == "ask_question" {
+				lines = append(lines, fmt.Sprintf("🔔 [INTERAÇÃO #%d] O agente precisa da sua resposta!", e.StepIndex))
+			} else {
+				lines = append(lines, fmt.Sprintf("🛠️  [Tool #%d] %s", e.StepIndex, tc.Name))
+			}
+		}
+		if len(lines) == 0 {
+			return fmt.Sprintf("🤖 [Agent #%d] Planejando próxima ação...", e.StepIndex)
+		}
+		return strings.Join(lines, "\n")
+	case "GENERIC":
+		if e.Status == "" {
+			return fmt.Sprintf("⚡ [Step #%d]", e.StepIndex)
+		}
+		return fmt.Sprintf("⚡ [Step #%d] Status: %s", e.StepIndex, e.Status)
+	default:
+		return fmt.Sprintf("ℹ️  [%s #%d] Status: %s", e.Type, e.StepIndex, e.Status)
+	}
+}
+
 func extractArgsSummary(toolName string, rawArgs json.RawMessage) string {
 	if len(rawArgs) == 0 {
 		return ""
