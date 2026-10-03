@@ -31,13 +31,23 @@ O `antigravity-operator` é um motor de execução e gerenciamento de **Session 
 
 | Pacote / Arquivo | Responsabilidade Canônica |
 |---|---|
-| `cmd/agyo/main.go` | Entrypoint da CLI, roteamento de subcomandos e saída ao usuário |
-| `internal/platform/` | Detecção de SO, arquitetura, display gráfico (X11/Wayland) e caminhos do Chrome |
-| `internal/session/` | Criação e garantia de integridade da pasta `.agents/session/` e `.agents/.gitignore` |
-| `internal/profile/` | Gerenciamento do Chrome com perfil isolado e comunicação via CDP (porta 9222) |
-| `internal/installer/` | Instalação idempotente de regras canônicas e manifestos MCP no host |
-| `internal/doctor/` | Sensores de diagnóstico (Git, Chrome, NPX, Conexão com Harness Core) |
-| `templates/` | Fonte estática de templates embutidos via `embed.FS` |
+| `cmd/agyo/` | Entrypoint da CLI: roteamento de subcomandos, flags e saída ao usuário |
+| `internal/platform/` | Detecção de SO, arquitetura, display (X11/Wayland) e caminhos canônicos (Chrome, `~/.gemini`) |
+| `internal/session/` | Memória `.agents/session/`: init, status, compact, archive/restore, `.agentignore` |
+| `internal/checkpoint/` | Snapshots atômicos da working tree e `rollback` |
+| `internal/watcher/` | Localização e tailing do transcript do Antigravity, árvore de subagentes, notificações |
+| `internal/exporter/` | Relatório consolidado da sessão (Markdown/HTML) |
+| `internal/dashboard/` | Servidor HTTP local (localhost, Host/Origin allowlist), UI embutida e API JSON |
+| `internal/profile/` | Chrome com perfil isolado e cliente CDP em Go puro (porta 9222) |
+| `internal/doctor/` | Sensores de diagnóstico do host e `doctor --fix` |
+| `internal/installer/` | `agyo sync`: regras, skill e manifesto MCP no host |
+| `internal/hook/` | Hook git pre-commit de continuidade de sessão |
+| `internal/completion/` | Scripts de autocompletar (bash, zsh, fish) |
+| `templates/` | Templates embutidos via `embed.FS` (regras, sessão, MCPs, skills) |
+| `scripts/` | `install.sh` (verifica `checksums.txt`), setup de dev e checagem de pacotes MCP no npm |
+| `.github/workflows/` | CI (gofmt, vet, testes com race) e release (binários, checksums) |
+
+Detalhes por subsistema: [`docs/spec/`](docs/spec/README.md).
 
 ---
 

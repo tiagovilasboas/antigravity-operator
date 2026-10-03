@@ -59,12 +59,14 @@
 - [The Solution: Core Capabilities](#-the-solution-what-antigravity-operator-solves)
 - [Landscape & Benchmark](#-landscape-how-agyo-compares)
 - [Student, Research & Google AI Pro Edition](#-student-research--google-ai-pro-edition)
-- [System Architecture (SRP, KISS, YAGNI, DRY)](#-system-architecture-srp-kiss-yagni-dry)
+- [System Architecture (SRP, KISS, YAGNI, DRY)](#️-system-architecture-srp-kiss-yagni-dry)
+- [AI-Assisted Development & Agent Ecosystem](#-ai-assisted-development--agent-ecosystem)
 - [Getting Started & Installation](#-getting-started--installation)
 - [CLI Reference & Usage](#-cli-reference--usage)
+- [Canonical Operating Principles](#️-canonical-operating-principles)
 - [How to Contribute](#-how-to-contribute)
 - [Sponsor & Support](#-sponsor--support)
-- [Security & License](#-security--license)
+- [Security, Privacy & License](#-security-privacy--license)
 
 ---
 
@@ -155,6 +157,7 @@ antigravity-operator/
 ├── internal/
 │   ├── platform/             # SRP: OS detection, X11/Wayland check, Chrome binary resolution
 │   ├── session/              # SRP: .agents/session/ scaffold & gitignore protection
+│   ├── checkpoint/           # SRP: Atomic working-tree snapshots & rollback
 │   ├── profile/              # SRP: Chrome lifecycle management, PID tracking & CDP port
 │   ├── watcher/              # SRP: Brain streaming, subagent tree hierarchy & OS notifications
 │   ├── exporter/             # SRP: Consolidated session report generator (Markdown & HTML)
@@ -179,12 +182,22 @@ antigravity-operator/
 ├── SECURITY.md               # Responsible vulnerability disclosure policy
 ├── PRIVACY.md                # Zero-telemetry local-first privacy policy (LGPD & GDPR)
 ├── CONTRIBUTING.md           # Contribution guide and testing protocol
+└── Makefile                  # Native build, lint, coverage and cross-compilation targets
 ```
 
 > 📖 **Comprehensive Engineering Specification:**  
 > For an in-depth breakdown of every subsystem, RFC 6455 WebSocket CDP implementation, $O(1)$ memory algorithms, and design decisions, read the [System Specification Index (docs/spec/)](docs/spec/README.md).
 
 ---
+
+## 🤖 AI-Assisted Development & Agent Ecosystem
+
+The project follows an **Agent-as-Code** approach:
+- **`AGENTS.md`:** Operating contract for any AI assistant (Antigravity, Cursor, Claude, Copilot): Go conventions, the sensor checklist and commit rules.
+- **Specialist roster (`agents/`):**
+  - **`operator-architect`:** Guardian of OS behavior, macOS/Linux parity and KISS/YAGNI.
+  - **`cdp-engineer`:** Chrome DevTools Protocol, browser flags and debugging sockets.
+  - **`qa-sentinel`:** Automated tests and regression sensors.
 
 ---
 
@@ -238,12 +251,14 @@ Files created:
 - `.agents/session/decisions.md` (Architecture log and trade-offs)
 - `.agents/session/todo.md` (Task tracker)
 - `.agents/.gitignore` (Protects runtime logs and sensitive credentials)
+- `.agentignore` (Token blacklist: excludes `node_modules/`, `vendor/`, lockfiles and dumps; see section 5)
 
 ### 3. Inspect & Manage Session Memory (`session`)
 Monitor your agent's active progress, stream reasoning in real time, or archive completed missions:
 ```bash
-# View active mission objective, phase, and task completion percentage:
+# View active mission objective, phase, and task completion percentage (supports --json):
 agyo session status
+agyo session status --json
 
 # Stream active agent reasoning and tool executions live with desktop notifications:
 agyo session watch
@@ -263,8 +278,9 @@ agyo session compact --threshold 5 --keep 3
 # Archive completed session to historical log and reset templates for the next task:
 agyo session archive
 
-# List all archived historical sessions:
+# List all archived historical sessions (supports --json):
 agyo session list
+agyo session list --json
 
 # Restore a past archived session into active memory (creates safety backup automatically):
 agyo session restore session-2026-10-01-113140.md
@@ -277,8 +293,9 @@ Protect your repository against hallucinated or destructive agent refactorings. 
 # Create an atomic snapshot before starting a complex multi-file edit:
 agyo checkpoint "pre-refactor" --desc="Before database schema migration"
 
-# List all saved checkpoints:
+# List all saved checkpoints (supports --json):
 agyo checkpoint --list
+agyo checkpoint --list --json
 
 # Instant panic button: Safely undo agent changes and restore exact working tree:
 agyo rollback
@@ -287,7 +304,7 @@ agyo rollback chk-20261001-113000
 
 ### 5. Token Waste Protection (`.agentignore`)
 When running `agyo init`, a pre-configured `.agentignore` blacklist is automatically scaffolded to prevent agents from loading heavyweight dependencies into prompt context:
-- Excludes `node_modules/`, `vendor/`, `dist/`, `.git/`
+- Excludes build output and dependencies (`node_modules/`, `vendor/`, `dist/`, `build/`, `target/`)
 - Excludes lockfiles (`package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`)
 - Excludes large dumps, datasets, minified bundles (`*.min.js`), and local `.env` files
 
@@ -301,7 +318,7 @@ agyo dashboard
 agyo dashboard --port 8090 --open=false
 ```
 
-### 5. Manage Isolated Chrome Lifecycle & CDP (`browser`)
+### 7. Manage Isolated Chrome Lifecycle & CDP (`browser`)
 Full process supervision with PID tracking, graceful shutdown, and pure-Go Chrome DevTools Protocol inspection:
 ```bash
 # Launch isolated Chrome on port 9222 (Desktop GUI):
@@ -325,7 +342,7 @@ agyo browser shot screenshot.png     # Capture PNG screenshot via CDP
 agyo browser stop
 ```
 
-### 6. Git Pre-Commit Continuity Hook (`hook`)
+### 8. Git Pre-Commit Continuity Hook (`hook`)
 Installs an automated session sensor into `.git/hooks/pre-commit` to prevent committing code without updating session objectives and task progress:
 ```bash
 # Install hook in current repository (or specific target dir):
@@ -335,7 +352,7 @@ agyo hook install
 agyo hook uninstall
 ```
 
-### 7. Sync Rules, Skills, and MCP Manifestos (`sync`)
+### 9. Sync Rules, Skills, and MCP Manifestos (`sync`)
 Provisions canonical rules and automation manifests into Google Antigravity:
 ```bash
 agyo sync
@@ -345,7 +362,7 @@ agyo sync
 agyo sync --update-mcp
 ```
 
-### 8. Shell Autocompletion (`completion`)
+### 10. Shell Autocompletion (`completion`)
 Generate command and flag autocompletion for Bash, Zsh, or Fish:
 ```bash
 # Zsh (add to ~/.zshrc):
@@ -358,10 +375,21 @@ source <(agyo completion bash)
 agyo completion fish | source
 ```
 
-### 9. Project Manifesto (`about`)
+### 11. Project Manifesto (`about`)
 ```bash
 agyo about
 ```
+
+---
+
+## 🛡️ Canonical Operating Principles
+
+When Antigravity runs under `agyo`, it follows 5 rules:
+1. **Investigate first:** Look for facts in the terminal, browser and logs before asking trivial questions.
+2. **Multi-tool orchestration:** Identify -> Investigate -> Implement -> Test -> Validate in the browser.
+3. **Rigorous validation:** A task is done only when the result is validated end to end with evidence.
+4. **Isolated profile:** Zero interference with or exposure of the user's personal Chrome.
+5. **Concise communication:** Direct, technical and grounded in data.
 
 ---
 

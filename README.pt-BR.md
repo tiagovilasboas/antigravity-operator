@@ -42,6 +42,10 @@
 └────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
+<p align="center">
+  <a href="README.md">🇺🇸 <b>Read in English</b></a> | <a href="#-instalação-e-início-rápido"><b>Instalação</b></a> | <a href="#-caso-de-uso-de-destaque-estudantes-pesquisa--google-ai-pro"><b>Edição Estudante</b></a> | <a href="#-sponsor--apoie-o-projeto"><b>Sponsor</b></a> | <a href="#-como-contribuir"><b>Contribuir</b></a>
+</p>
+
 > **Aviso:** *Este é um projeto comunitário de código aberto e não é um produto oficial patrocinado pelo Google. Foi concebido para estender e potencializar o ecossistema do Google Antigravity e desenvolvedores Google AI.*
 
 ---
@@ -54,15 +58,30 @@
 - [A Solução & Recursos Principais](#-a-solução-o-que-o-antigravity-operator-resolve)
 - [Comparativo de Mercado](#-comparativo-onde-o-agyo-se-posiciona)
 - [Caso de Uso para Estudantes e Google AI Pro](#-caso-de-uso-de-destaque-estudantes-pesquisa--google-ai-pro)
-- [Arquitetura do Sistema (SRP, KISS, YAGNI, DRY)](#-arquitetura-canônica-srp-kiss-yagni-dry)
-- [Instalação e Início Rápido](#-instalação-rápida)
+- [Arquitetura do Sistema (SRP, KISS, YAGNI, DRY)](#️-arquitetura-canônica-srp-kiss-yagni-dry)
+- [Assisted-IA & Ecossistema de Agentes](#-assisted-ia--ecossistema-de-agentes)
+- [Instalação e Início Rápido](#-instalação-e-início-rápido)
 - [Como Usar a CLI](#-como-usar)
-- [Padrões de Comunidade e Contribuição](#-contribuindo-e-padrões-da-comunidade)
-- [Segurança e Licença](#-segurança-e-licença)
+- [Princípios Operacionais Canônicos](#️-princípios-operacionais-canônicos)
+- [Como Contribuir](#-como-contribuir)
+- [Sponsor & Apoie o Projeto](#-sponsor--apoie-o-projeto)
+- [Segurança, Privacidade & Licença](#-segurança-privacidade--licença)
 
 ---
 
-### 🎁 Um Presente de Engenharia para a Comunidade & para o Google
+## 🔭 Visão Geral
+
+O **Antigravity Operator** (`agyo`) transforma o poder bruto do Google Antigravity em um **operador de sistema operacional** autônomo, seguro e persistente (estilo Claude Computer Use / OS Agent).
+
+Implementando o modelo canônico de **Outer Harness (Martin Fowler)**, o `agyo` oferece:
+1. **Memória de sessão determinística:** O estado persiste direto em `.agents/session/` no disco (`state.md`, `decisions.md`, `todo.md`), eliminando a amnésia de contexto.
+2. **Isolamento do Chrome sem poluição:** Inicia e supervisiona uma instância dedicada do Chrome na porta `9222` (`~/.gemini/antigravity-browser-profile`), mantendo seu navegador pessoal intocado.
+3. **Paridade com Linux headless e servidores:** Detecta a ausência de ambiente gráfico (`$DISPLAY` / `$WAYLAND_DISPLAY`) e ativa flags robustas de servidor (`--headless=new`, `--disable-dev-shm-usage`, `--no-sandbox`).
+4. **Portabilidade em binário único:** Escrito em Go puro com `CGO_ENABLED=0` e templates embutidos (`//go:embed`), gerando um executável autocontido de ~6MB sem dependências.
+
+---
+
+## 🎁 Um Presente de Engenharia para a Comunidade & para o Google
 
 > *"Este projeto é uma contribuição aberta da comunidade para todos os desenvolvedores, estudantes e pesquisadores, e um agradecimento especial ao **Google** pelo incentivo transformador concedido aos estudantes através do plano **Google AI Pro**."*  
 >  
@@ -138,6 +157,7 @@ antigravity-operator/
 ├── internal/
 │   ├── platform/             # SRP: Detecção de SO, display X11/Wayland e caminhos do Chrome
 │   ├── session/              # SRP: Scaffold da memória operacional (.agents/session/) e proteção de logs
+│   ├── checkpoint/           # SRP: Snapshots atômicos da working tree e rollback
 │   ├── profile/              # SRP: Gerenciamento do Chrome com perfil isolado e endpoint CDP 9222
 │   ├── watcher/              # SRP: Streaming de raciocínio, árvore de subagentes e notificações de OS
 │   ├── exporter/             # SRP: Exportador de relatórios consolidados de missão (Markdown e HTML)
@@ -209,8 +229,7 @@ make install
 ### 1. Diagnosticar o ambiente da máquina (`doctor`)
 Audita se o sistema operacional, Git, Chrome, Node/NPX e conexões de harness estão prontos:
 ```bash
-agyo doctor
-```bash
+# Diagnóstico interativo padrão:
 agyo doctor
 
 # Saída em formato JSON para extensões e scripts:
@@ -244,6 +263,7 @@ agyo session status --json
 # Compactar tarefas concluídas para evitar context bloat de tokens:
 agyo session compact
 agyo session compact --dry-run
+agyo session compact --threshold 5 --keep 3
 
 # Acompanhar raciocínio e chamadas de ferramentas em tempo real com notificações nativas:
 agyo session watch
@@ -282,7 +302,13 @@ agyo rollback
 agyo rollback chk-20261001-113000
 ```
 
-### 5. Dashboard Web & Inspetor Local em Tempo Real (`dashboard`)
+### 5. Proteção contra Desperdício de Tokens (`.agentignore`)
+Ao rodar `agyo init`, uma lista negra `.agentignore` pré-configurada é criada para impedir que agentes carreguem dependências pesadas no contexto do prompt:
+- Exclui saída de build e dependências (`node_modules/`, `vendor/`, `dist/`, `build/`, `target/`)
+- Exclui lockfiles (`package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`)
+- Exclui dumps grandes, datasets, bundles minificados (`*.min.js`) e arquivos `.env` locais
+
+### 6. Dashboard Web & Inspetor Local em Tempo Real (`dashboard`)
 Inicia um servidor web em Go puro com zero dependências externas em `http://127.0.0.1:8080`, com UI dark mode moderna, progresso de sessão, diagnósticos do host, abas ativas do Chrome e live activity log:
 ```bash
 # Iniciar dashboard e abrir automaticamente no navegador padrão:
@@ -292,7 +318,7 @@ agyo dashboard
 agyo dashboard --port 8090 --open=false
 ```
 
-### 5. Gerenciar o Chrome isolado e Inspeção CDP (`browser`)
+### 7. Gerenciar o Chrome isolado e Inspeção CDP (`browser`)
 Controla o ciclo de vida da instância exclusiva do Chrome e permite inspeção direta via Chrome DevTools Protocol em Go puro (sem Node/Python):
 ```bash
 # Iniciar normalmente (abre janela no Mac/Linux desktop na porta 9222):
@@ -316,7 +342,7 @@ agyo browser shot screenshot.png     # Captura screenshot PNG da aba ativa
 agyo browser stop
 ```
 
-### 6. Git Pre-Commit Hook de Continuidade (`hook`)
+### 8. Git Pre-Commit Hook de Continuidade (`hook`)
 Instala um sensor automático em `.git/hooks/pre-commit` para evitar commits sem atualizar o objetivo e as tarefas concluídas da sessão:
 ```bash
 # Instalar o hook no repositório atual (ou diretório especificado):
@@ -326,7 +352,7 @@ agyo hook install
 agyo hook uninstall
 ```
 
-### 7. Sincronizar regras, skills e MCPs no Antigravity (`sync`)
+### 9. Sincronizar regras, skills e MCPs no Antigravity (`sync`)
 Garante que as regras de governança e servidores de automação estejam instalados:
 ```bash
 agyo sync
@@ -336,7 +362,7 @@ O `sync` nunca sobrescreve um manifesto MCP existente (`~/.gemini/antigravity/mc
 agyo sync --update-mcp
 ```
 
-### 8. Autocompletar no Terminal (`completion`)
+### 10. Autocompletar no Terminal (`completion`)
 Gera scripts de autocompletion de comandos e flags para Zsh, Bash ou Fish:
 ```bash
 # Zsh (adicione ao seu ~/.zshrc):
@@ -349,7 +375,7 @@ source <(agyo completion bash)
 agyo completion fish | source
 ```
 
-### 9. Sobre o projeto e manifesto (`about`)
+### 11. Sobre o projeto e manifesto (`about`)
 ```bash
 agyo about
 ```
