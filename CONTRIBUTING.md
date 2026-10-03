@@ -31,6 +31,8 @@ We follow the **Martin Fowler Outer Harness** model:
 
 **Privacy by default:** everything stays local and the dashboard listens on localhost only. Read [PRIVACY.md](PRIVACY.md) before touching anything that reads or shows session data.
 
+**Keep it lean:** only what delivers clear operator value. Leave out nice-to-have, cosmetic or unrequested changes, and don't let scope grow along the way. When in doubt, ask in an issue first.
+
 **AI-assisted contributions are welcome.** You review and own every line you submit, though: please don't send bundles of generated features. Small, understood changes get merged fast.
 
 ---

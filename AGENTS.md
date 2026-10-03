@@ -84,4 +84,5 @@ Same rules as [CONTRIBUTING.md](CONTRIBUTING.md#-what-gets-accepted); they apply
 - **One subject per PR**, ~400 lines of code (excluding tests/generated). Slice anything bigger; never bundle features.
 - **Issue first** for a new feature or any UI/API change; agree on scope before coding.
 - **Sensors before done:** `gofmt -l .` empty, `go vet ./...`, `go test -race ./...`, with tests for new behavior.
+- **Keep only what delivers clear operator value.** Drop nice-to-have, cosmetic or unrequested changes; don't bundle or self-expand scope. When in doubt, ask the maintainer in an issue first.
 - **The human author reviews and owns every line** an agent produces.
