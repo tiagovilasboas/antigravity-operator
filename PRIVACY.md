@@ -16,7 +16,7 @@ Antigravity Operator (`agyo`) is committed to the highest standards of data priv
 | :--- | :--- | :--- |
 | `scripts/install.sh` | `api.github.com` (latest release tag), `github.com` (release archive and `checksums.txt`, or `git clone` when building from source) | Only when you run the installer |
 | Homebrew formula | `github.com` (source tarball), Go module proxy for the build | Only on `brew install` / `brew upgrade` |
-| MCP servers in `templates/mcps/default-servers.json` (`chrome-devtools-mcp`, `@executeautomation/playwright-mcp-server`, pinned versions) | `registry.npmjs.org` via `npx` to download the package; then whatever the server itself does | When your AI client (e.g. Antigravity) starts them, not when `agyo` runs |
+| MCP servers in `templates/mcps/default-servers.json` (`chrome-devtools-mcp` from Chrome DevTools and `@playwright/mcp` from Microsoft, pinned versions) | `registry.npmjs.org` via `npx` to download the package; then whatever the server itself does | When your AI client (e.g. Antigravity) starts them, not when `agyo` runs |
 | Chrome launched by `agyo browser` | Whatever Chrome and the pages you or the agent open contact (updates, sites) | While that browser runs |
 
 ### 1.2. What `agyo` reads locally
