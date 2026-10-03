@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -280,8 +279,7 @@ func (s *Server) getEventsData() []string {
 	if err != nil {
 		return events
 	}
-	geminiDir := filepath.Join(home, ".gemini")
-	tInfo, err := watcher.FindActiveTranscript(geminiDir)
+	tInfo, err := watcher.FindLatestTranscript(home)
 	if err != nil {
 		return events
 	}

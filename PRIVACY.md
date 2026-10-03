@@ -23,7 +23,7 @@ Antigravity Operator (`agyo`) is committed to the highest standards of data priv
 
 | Data | Path or source | Used by |
 | :--- | :--- | :--- |
-| Antigravity session transcripts | `~/.gemini/antigravity/brain/*/.system_generated/logs/transcript.jsonl` (CLI) and `~/.gemini/brain/*/…/transcript.jsonl` (dashboard) | `session watch`, `session export`, `dashboard` (dashboard events show only type, step, tool and status) |
+| Antigravity session transcripts | `~/.gemini/{antigravity,antigravity-cli,antigravity-ide}/brain/*/.system_generated/logs/transcript.jsonl` (newest one; same lookup for CLI and dashboard) | `session watch`, `session export`, `dashboard` (dashboard events show only type, step, tool and status) |
 | Session memory | `.agents/session/` in your project (`state.md`, `todo.md`, `decisions.md`, `checkpoints.json`) | `session`, `checkpoint`, `rollback`, `dashboard` |
 | Git metadata | `git config user.name` / `user.email`, the project's repository | `doctor`, `checkpoint`, `rollback`, `hook` |
 | Chrome tabs | CDP on `127.0.0.1:9222` (tab titles and URLs of the isolated profile) | `browser`, `dashboard` |

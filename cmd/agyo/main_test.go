@@ -37,8 +37,9 @@ func TestCLI_RunInitAndSession(t *testing.T) {
 	// 4. Session archive
 	runSession(info, []string{"archive", targetDir})
 
-	// 5. Session watch with prepared brain log
-	brainDir := filepath.Join(info.GeminiDir, "brain", "conv-test", ".system_generated", "logs")
+	// 5. Session watch with prepared brain log (Antigravity 2.0 app data dir)
+	info.HomeDir = t.TempDir()
+	brainDir := filepath.Join(info.HomeDir, ".gemini", "antigravity", "brain", "conv-test", ".system_generated", "logs")
 	_ = os.MkdirAll(brainDir, 0755)
 	_ = os.WriteFile(filepath.Join(brainDir, "transcript.jsonl"), []byte(`{"step_index":1,"type":"USER_INPUT","content":"Hi"}`+"\n"), 0644)
 	runSession(info, []string{"watch", "--once", "--steps", "1"})
@@ -112,11 +113,12 @@ func TestCLI_RunSessionExport(t *testing.T) {
 
 func TestCLI_RunWatchTree(t *testing.T) {
 	info := &platform.Info{
-		OS:        "darwin",
-		GeminiDir: t.TempDir(),
+		OS:      "darwin",
+		HomeDir: t.TempDir(),
 	}
 
-	brainDir := filepath.Join(info.GeminiDir, "brain", "conv-test", ".system_generated", "logs")
+	// CLI app data dir: the CLI must find it too, not only ~/.gemini/antigravity.
+	brainDir := filepath.Join(info.HomeDir, ".gemini", "antigravity-cli", "brain", "conv-test", ".system_generated", "logs")
 	_ = os.MkdirAll(brainDir, 0755)
 	_ = os.WriteFile(filepath.Join(brainDir, "transcript.jsonl"), []byte(`{"step_index":1,"type":"PLANNER_RESPONSE","tool_calls":[{"function":{"name":"invoke_subagent","arguments":"{\"Subagents\":[{\"Role\":\"Tester\",\"TypeName\":\"research\",\"Prompt\":\"Check tests\"}]}"}}]}`+"\n"), 0644)
 

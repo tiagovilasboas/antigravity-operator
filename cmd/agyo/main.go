@@ -355,6 +355,15 @@ func runSessionCompact(args []string) {
 	fmt.Println("-----------------------------------------------------------------")
 }
 
+// homeDir returns the user's home for transcript discovery.
+func homeDir(info *platform.Info) string {
+	if info.HomeDir != "" {
+		return info.HomeDir
+	}
+	home, _ := os.UserHomeDir()
+	return home
+}
+
 func runSessionWatch(info *platform.Info, args []string) {
 	watchCmd := flag.NewFlagSet("session watch", flag.ExitOnError)
 	once := watchCmd.Bool("once", false, "Exibe os passos recentes e encerra sem acompanhar em tempo real")
@@ -363,7 +372,7 @@ func runSessionWatch(info *platform.Info, args []string) {
 	tree := watchCmd.Bool("tree", false, "Exibe a árvore de subagentes e mensagens inter-agentes")
 	_ = watchCmd.Parse(args)
 
-	tInfo, err := watcher.FindActiveTranscript(info.GeminiDir)
+	tInfo, err := watcher.FindLatestTranscript(homeDir(info))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Erro localizando transcrição: %v\n", err)
 		os.Exit(1)
@@ -660,7 +669,7 @@ func runSessionExport(info *platform.Info, args []string) {
 	}
 
 	transcriptPath := ""
-	if tInfo, err := watcher.FindActiveTranscript(info.GeminiDir); err == nil {
+	if tInfo, err := watcher.FindLatestTranscript(homeDir(info)); err == nil {
 		transcriptPath = tInfo.Path
 	}
 

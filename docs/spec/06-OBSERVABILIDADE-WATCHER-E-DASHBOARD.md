@@ -7,7 +7,7 @@ O `antigravity-operator` oferece visibilidade em tempo real sobre a linha de rac
 ## 1. Streaming Reativo de Transcrições (`internal/watcher`)
 
 O motor de IA do Google Antigravity persiste os eventos da sessão em arquivos JSON Lines compactos:
-`~/.gemini/antigravity/brain/<conversation-id>/.system_generated/logs/transcript.jsonl`
+`~/.gemini/<app>/brain/<conversation-id>/.system_generated/logs/transcript.jsonl`, onde `<app>` é `antigravity` (2.0), `antigravity-cli` ou `antigravity-ide` (ver `transcriptPath` em https://antigravity.google/docs/hooks/). CLI e dashboard usam a mesma função (`watcher.FindLatestTranscript`).
 
 O `watcher` localiza dinamicamente a sessão mais recente analisando os timestamps de modificação das pastas em `brain/` e realiza o tailing reativo do arquivo.
 

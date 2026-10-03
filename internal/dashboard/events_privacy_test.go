@@ -16,7 +16,7 @@ import (
 func TestEventsDoNotLeakSessionText(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	logs := filepath.Join(home, ".gemini", "brain", "conv-1", ".system_generated", "logs")
+	logs := filepath.Join(home, ".gemini", "antigravity", "brain", "conv-1", ".system_generated", "logs")
 	if err := os.MkdirAll(logs, 0o755); err != nil {
 		t.Fatal(err)
 	}
