@@ -13,7 +13,7 @@ O `antigravity-operator` é um motor de execução e gerenciamento de **Session 
 
 1. **Outer Harness (Guia × Sensor):**
    * **Guias:** Este documento, regras de arquitetura e steerings. Leia-os antes de gerar código.
-   * **Sensores:** Todo código deve ser validado computacionalmente (`go test -v ./...`, `go vet ./...`, `agyo doctor`) antes de declarar a tarefa concluída.
+   * **Sensores:** Todo código deve ser validado computacionalmente (`gofmt -l .`, `go vet ./...`, `go test -race ./...`, `agyo doctor`) antes de declarar a tarefa concluída.
 2. **Sem Afirmação Sem Fonte (No Assumptions):**
    * Nunca assuma o estado do sistema ou caminhos de arquivos. Inspecione com ferramentas ou comandos reais.
 3. **Mínima Alteração Necessária (Minimal Change Principle / SRP / KISS / YAGNI):**
@@ -46,11 +46,12 @@ O `antigravity-operator` é um motor de execução e gerenciamento de **Session 
 Antes de finalizar qualquer alteração ou propor commits, o agente DEVE executar:
 
 ```bash
-# 1. Análise estática do Go
+# 1. Formatação (deve imprimir nada) e análise estática do Go
+gofmt -l .
 go vet ./...
 
-# 2. Bateria completa de testes unitários
-go test -v ./...
+# 2. Bateria completa de testes unitários com race detector
+go test -race ./...
 
 # 3. Compilação do binário local
 make build

@@ -40,7 +40,7 @@ We follow the **Martin Fowler Outer Harness** model:
 ## 🛠️ Development Setup
 
 ### Prerequisites
-- Go 1.22+
+- Go 1.27+ (the version in `go.mod`; CI uses the same one)
 - Git
 - Google Chrome or Chromium (optional for runtime browser testing)
 
