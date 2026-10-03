@@ -37,6 +37,7 @@ O `antigravity-operator` é um motor de execução e gerenciamento de **Session 
 | `internal/checkpoint/` | Snapshots atômicos da working tree e `rollback` |
 | `internal/watcher/` | Localização e tailing do transcript do Antigravity, árvore de subagentes, notificações |
 | `internal/exporter/` | Relatório consolidado da sessão (Markdown/HTML) |
+| `internal/analytics/` | Parser de transcripts, agregação de métricas de tool calls e redação de segredos |
 | `internal/dashboard/` | Servidor HTTP local (localhost, Host/Origin allowlist), UI embutida e API JSON |
 | `internal/profile/` | Chrome com perfil isolado e cliente CDP em Go puro (porta 9222) |
 | `internal/doctor/` | Sensores de diagnóstico do host e `doctor --fix` |

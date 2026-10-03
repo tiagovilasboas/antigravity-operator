@@ -157,6 +157,7 @@ antigravity-operator/
 │   ├── profile/              # SRP: Gerenciamento do Chrome com perfil isolado e endpoint CDP 9222
 │   ├── watcher/              # SRP: Streaming de raciocínio, árvore de subagentes e notificações de OS
 │   ├── exporter/             # SRP: Exportador de relatórios consolidados de missão (Markdown e HTML)
+│   ├── analytics/            # SRP: Parsing de transcripts, métricas de chamadas de ferramentas e redação de segredos
 │   ├── dashboard/            # SRP: Mini-servidor HTTP embutido em Go puro, UI web e API REST
 │   ├── completion/           # SRP: Gerador de autocompletion de shell (Bash, Zsh, Fish)
 │   ├── hook/                 # SRP: Sensor e guarda de continuidade de sessão para o Git pre-commit

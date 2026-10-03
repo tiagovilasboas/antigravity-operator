@@ -23,13 +23,13 @@ Antigravity Operator (`agyo`) is committed to the highest standards of data priv
 
 | Data | Path or source | Used by |
 | :--- | :--- | :--- |
-| Antigravity session transcripts | `~/.gemini/{antigravity,antigravity-cli,antigravity-ide}/brain/*/.system_generated/logs/transcript.jsonl` (newest one; same lookup for CLI and dashboard) | `session watch`, `session export`, `dashboard` (dashboard events show only type, step, tool and status) |
+| Antigravity session transcripts | `~/.gemini/{antigravity,antigravity-cli,antigravity-ide}/brain/*/.system_generated/logs/transcript.jsonl` (newest one; same lookup for CLI and dashboard) | `session watch`, `session export`, `dashboard` (dashboard events show only type, step, tool and status), `analytics` (in-memory metrics and secret redaction) |
 | Session memory | `.agents/session/` in your project (`state.md`, `todo.md`, `decisions.md`, `checkpoints.json`) | `session`, `checkpoint`, `rollback`, `dashboard` |
 | Git metadata | `git config user.name` / `user.email`, the project's repository | `doctor`, `checkpoint`, `rollback`, `hook` |
 | Chrome tabs | CDP on `127.0.0.1:9222` (tab titles and URLs of the isolated profile) | `browser`, `dashboard` |
 | Host facts | OS, architecture, display, `npx` presence, running `antigravity` processes | `doctor` |
 
-The dashboard (`agyo dashboard`) serves this data over HTTP on `127.0.0.1` only. It does not send it anywhere else.
+The dashboard (`agyo dashboard`) serves this data over HTTP on `127.0.0.1` only. It does not send it anywhere else. Transcript parsing (`internal/analytics`) operates strictly in-memory on local transcripts to compute aggregate metrics (tool counts, durations, status). Common secret patterns (API keys, tokens, credentials) are automatically scrubbed when aggregating commands.
 
 ### 1.3. What `agyo` writes locally
 
