@@ -20,20 +20,26 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version-file: go.mod
           cache: true
 
       - name: Build Cross-Platform Static Binaries
         run: |
           mkdir -p dist
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="dev-${GITHUB_SHA::7}"
+          fi
+          LDFLAGS="-s -w -X main.Version=${VERSION}"
           # Darwin (macOS)
-          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o dist/agyo_darwin_arm64 ./cmd/agyo
-          CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o dist/agyo_darwin_amd64 ./cmd/agyo
+          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags="${LDFLAGS}" -o dist/agyo_darwin_arm64 ./cmd/agyo
+          CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags="${LDFLAGS}" -o dist/agyo_darwin_amd64 ./cmd/agyo
           # Linux
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o dist/agyo_linux_amd64 ./cmd/agyo
-          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o dist/agyo_linux_arm64 ./cmd/agyo
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="${LDFLAGS}" -o dist/agyo_linux_amd64 ./cmd/agyo
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="${LDFLAGS}" -o dist/agyo_linux_arm64 ./cmd/agyo
           # Windows
-          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o dist/agyo_windows_amd64.exe ./cmd/agyo
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="${LDFLAGS}" -o dist/agyo_windows_amd64.exe ./cmd/agyo
 
           # Package archives
           cd dist
@@ -42,7 +48,18 @@ jobs:
           tar -czf agyo_linux_amd64.tar.gz agyo_linux_amd64
           tar -czf agyo_linux_arm64.tar.gz agyo_linux_arm64
           zip agyo_windows_amd64.zip agyo_windows_amd64.exe
+          sha256sum *.tar.gz *.zip > checksums.txt
+          cat checksums.txt
           cd ..
+
+      - name: Smoke Test Injected Version
+        run: |
+          out="$(./dist/agyo_linux_amd64 version)"
+          echo "$out"
+          case "$out" in
+            *"v${GITHUB_REF_NAME#v}"*|*"vdev-"*) ;;
+            *) echo "version not injected"; exit 1 ;;
+          esac
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -51,6 +68,7 @@ jobs:
           files: |
             dist/*.tar.gz
             dist/*.zip
+            dist/checksums.txt
           generate_release_notes: true
           draft: false
           prerelease: false

@@ -9,14 +9,14 @@ class Agyo < Formula
   depends_on "go" => :build
 
   def install
-    system "go", "build", "-ldflags", "-s -w", "-o", bin/"agyo", "./cmd/agyo"
+    system "go", "build", "-ldflags", "-s -w -X main.Version=#{version}", "-o", bin/"agyo", "./cmd/agyo"
     bin.install_symlink bin/"agyo" => "antigravity-operator"
 
     generate_completions_from_executable(bin/"agyo", "completion")
   end
 
   test do
-    assert_match "agyo (Antigravity Operator)", shell_output("#{bin}/agyo version")
+    assert_match "agyo (Antigravity Operator) v#{version}", shell_output("#{bin}/agyo version")
     assert_match "Antigravity Operator Doctor", shell_output("#{bin}/agyo doctor")
   end
 end
