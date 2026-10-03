@@ -40,4 +40,12 @@ check fail "no entry for the file" verify_checksum "$TMP/agyo_linux_amd64.tar.gz
 printf '%s  xagyo_linux_amd64.tar.gz\n' "$good" > "$TMP/sums-prefix"
 check fail "similar name is not a match" verify_checksum "$TMP/agyo_linux_amd64.tar.gz" "$TMP/sums-prefix" agyo_linux_amd64.tar.gz
 
+eq() {
+  local want="$1" got="$2" desc="$3"
+  if [ "$got" = "$want" ]; then echo "ok   - $desc"; else echo "FAIL - $desc (want '$want', got '$got')"; fail=1; fi
+}
+eq v0.4.5 "$(latest_tag_from_url https://github.com/o/r/releases/tag/v0.4.5)" "tag from releases/latest redirect"
+eq "" "$(latest_tag_from_url https://github.com/o/r/releases)" "no release yet gives no tag"
+eq "" "$(latest_tag_from_url '')" "failed request gives no tag"
+
 exit "$fail"

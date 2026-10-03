@@ -49,6 +49,14 @@ verify_checksum() {
   fi
 }
 
+# latest_tag_from_url URL prints the tag from a GitHub ".../releases/tag/<tag>"
+# URL (where /releases/latest redirects), or nothing for any other URL.
+latest_tag_from_url() {
+  case "$1" in
+    */releases/tag/*) printf '%s\n' "${1##*/releases/tag/}" ;;
+  esac
+}
+
 # Tests source this file with AGYO_INSTALL_LIB=1 to get the functions only.
 if [ "${AGYO_INSTALL_LIB:-}" = "1" ]; then
   # shellcheck disable=SC2317 # exit is the fallback when executed, not sourced
@@ -62,8 +70,11 @@ if [ ! -w "$INSTALL_DIR" ]; then
   mkdir -p "$INSTALL_DIR"
 fi
 
-# Try to download the latest release binary from GitHub Releases
-LATEST_TAG=$(curl -fsS "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' || true)
+# Resolve the latest release tag from the github.com redirect, not the REST API:
+# the anonymous API limit (60 requests/hour per IP) returns 403 behind shared
+# NAT or CI runners, which silently skipped the verified binary.
+LATEST_URL="$(curl -fsSLI -o /dev/null -w '%{url_effective}' "https://github.com/$REPO/releases/latest" || true)"
+LATEST_TAG="$(latest_tag_from_url "$LATEST_URL")"
 
 DOWNLOADED=0
 if [ -n "$LATEST_TAG" ]; then
