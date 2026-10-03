@@ -184,3 +184,29 @@ func TestCheckpoint_RequiresInitialCommit(t *testing.T) {
 		t.Error("esperava erro ao criar checkpoint em repositório sem commits")
 	}
 }
+
+// Rollback de um checkpoint sem alterações rastreadas, com HEAD no mesmo
+// commit, não pode destacar o HEAD da branch.
+func TestRollback_CleanCheckpointKeepsBranch(t *testing.T) {
+	repoDir := setupTestGitRepo(t)
+
+	if _, err := checkpoint.Create(repoDir, "clean", ""); err != nil {
+		t.Fatalf("Create falhou: %v", err)
+	}
+	_ = os.WriteFile(filepath.Join(repoDir, "main.go"), []byte("quebrado"), 0644)
+
+	if _, err := checkpoint.Rollback(repoDir, "latest"); err != nil {
+		t.Fatalf("Rollback falhou: %v", err)
+	}
+
+	cmd := exec.Command("git", "symbolic-ref", "-q", "HEAD")
+	cmd.Dir = repoDir
+	if out, err := cmd.Output(); err != nil {
+		t.Errorf("rollback destacou o HEAD da branch (git symbolic-ref falhou: %v)", err)
+	} else if !strings.HasPrefix(string(out), "refs/heads/") {
+		t.Errorf("HEAD inesperado após rollback: %s", out)
+	}
+	if b, _ := os.ReadFile(filepath.Join(repoDir, "main.go")); !strings.Contains(string(b), "func main()") {
+		t.Errorf("main.go não foi revertido: %s", b)
+	}
+}

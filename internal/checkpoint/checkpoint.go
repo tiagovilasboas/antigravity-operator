@@ -173,7 +173,8 @@ func Rollback(targetDir string, targetIDOrName string) (*Checkpoint, error) {
 			_ = execGit(targetDir, "reset", "--hard", targetChk.CommitSHA)
 			return nil, fmt.Errorf("falha ao reaplicar as alterações do checkpoint (stash %s); working tree restaurada ao commit %s: %w", targetChk.StashSHA, targetChk.CommitSHA, err)
 		}
-	} else if targetChk.CommitSHA != "" {
+	} else if targetChk.CommitSHA != "" && runGit(targetDir, "rev-parse", targetChk.CommitSHA+"^{commit}") != runGit(targetDir, "rev-parse", "HEAD") {
+		// Só troca de commit se HEAD andou; senão o checkout destacaria o HEAD da branch.
 		_ = execGit(targetDir, "checkout", targetChk.CommitSHA)
 	}
 
