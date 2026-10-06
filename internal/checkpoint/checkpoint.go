@@ -52,7 +52,8 @@ func Create(targetDir string, name string, description string) (*Checkpoint, err
 	}
 
 	now := time.Now()
-	id := fmt.Sprintf("chk-%s", now.Format("20060102-150405"))
+	list, _ := List(targetDir)
+	id := uniqueCheckpointID(list, now)
 	if name == "" {
 		name = fmt.Sprintf("checkpoint-%s", now.Format("150405"))
 	}
@@ -79,7 +80,6 @@ func Create(targetDir string, name string, description string) (*Checkpoint, err
 	_ = os.MkdirAll(sessionDir, 0755)
 	chkFile := filepath.Join(sessionDir, "checkpoints.json")
 
-	list, _ := List(targetDir)
 	list = append(list, *chk)
 
 	data, err := json.MarshalIndent(list, "", "  ")
@@ -92,6 +92,25 @@ func Create(targetDir string, name string, description string) (*Checkpoint, err
 	}
 
 	return chk, nil
+}
+
+// uniqueCheckpointID builds chk-YYYYMMDD-HHMMSS, appending -2, -3, ... when that
+// second already has an ID in the existing list so rapid creates stay distinct.
+func uniqueCheckpointID(existing []Checkpoint, now time.Time) string {
+	base := fmt.Sprintf("chk-%s", now.Format("20060102-150405"))
+	used := make(map[string]struct{}, len(existing))
+	for _, chk := range existing {
+		used[chk.ID] = struct{}{}
+	}
+	if _, ok := used[base]; !ok {
+		return base
+	}
+	for n := 2; ; n++ {
+		candidate := fmt.Sprintf("%s-%d", base, n)
+		if _, ok := used[candidate]; !ok {
+			return candidate
+		}
+	}
 }
 
 // List retorna a lista de todos os checkpoints salvos, do mais recente para o mais antigo.

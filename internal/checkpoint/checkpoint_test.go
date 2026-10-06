@@ -326,3 +326,40 @@ func TestRollback_RefusesOtherBranchWhenMoved(t *testing.T) {
 		t.Errorf("rollback recusado moveu a branch other para %s", got)
 	}
 }
+
+func TestCreate_DistinctIDsSameSecond(t *testing.T) {
+	repoDir := setupTestGitRepo(t)
+
+	chk1, err := checkpoint.Create(repoDir, "a", "")
+	if err != nil {
+		t.Fatalf("Create a: %v", err)
+	}
+	chk2, err := checkpoint.Create(repoDir, "b", "")
+	if err != nil {
+		t.Fatalf("Create b: %v", err)
+	}
+	if chk1.ID == chk2.ID {
+		t.Fatalf("expected distinct IDs in the same second, both got %q", chk1.ID)
+	}
+
+	list, err := checkpoint.List(repoDir)
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	ids := map[string]int{}
+	for _, chk := range list {
+		ids[chk.ID]++
+	}
+	if ids[chk1.ID] != 1 || ids[chk2.ID] != 1 {
+		t.Fatalf("IDs not uniquely stored: %+v", ids)
+	}
+
+	// Rollback by exact ID must restore that checkpoint, not an ambiguous neighbour.
+	res, err := checkpoint.Rollback(repoDir, chk2.ID)
+	if err != nil {
+		t.Fatalf("Rollback(%s): %v", chk2.ID, err)
+	}
+	if res.Checkpoint.ID != chk2.ID {
+		t.Fatalf("Rollback restored %q, want %q", res.Checkpoint.ID, chk2.ID)
+	}
+}
