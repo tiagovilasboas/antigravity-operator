@@ -157,6 +157,7 @@ antigravity-operator/
 │   ├── profile/              # SRP: Chrome lifecycle management, PID tracking & CDP port
 │   ├── watcher/              # SRP: Brain streaming, subagent tree hierarchy & OS notifications
 │   ├── exporter/             # SRP: Consolidated session report generator (Markdown & HTML)
+│   ├── analytics/            # SRP: Transcript parsing, tool call metrics aggregation & secret redaction
 │   ├── dashboard/            # SRP: Pure-Go embedded HTTP server, web UI & REST API
 │   ├── completion/           # SRP: Shell autocompletion generator (Bash, Zsh, Fish)
 │   ├── hook/                 # SRP: Git pre-commit continuity sensor & safeguards
