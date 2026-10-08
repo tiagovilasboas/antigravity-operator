@@ -144,7 +144,7 @@ func EvalTab(port int, tabID string, expression string) (string, error) {
 		return "", err
 	}
 	for _, t := range tabs {
-		if t.ID == tabID {
+		if t.ID == tabID || strings.HasPrefix(t.ID, tabID) {
 			if t.WebSocketDebuggerURL == "" {
 				return "", fmt.Errorf("a aba %s não possui endpoint de depuração WebSocket", tabID)
 			}

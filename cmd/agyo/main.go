@@ -596,11 +596,19 @@ func runBrowser(info *platform.Info, args []string) {
 
 	case "eval":
 		if len(args) < 2 {
-			fmt.Println("Usage: agyo browser eval \"<javascript>\"")
+			fmt.Println("Usage: agyo browser eval [tab-id] \"<javascript>\"")
 			os.Exit(1)
 		}
-		expr := args[1]
-		val, err := profile.Eval(profile.DefaultDebugPort, expr)
+		var val string
+		var err error
+		if len(args) >= 3 {
+			tabID := args[1]
+			expr := strings.Join(args[2:], " ")
+			val, err = profile.EvalTab(profile.DefaultDebugPort, tabID, expr)
+		} else {
+			expr := args[1]
+			val, err = profile.Eval(profile.DefaultDebugPort, expr)
+		}
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error evaluating JS via CDP: %v\n", err)
 			os.Exit(1)
