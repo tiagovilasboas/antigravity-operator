@@ -4,11 +4,11 @@
 - Implementar a integração nativa com o Google NotebookLM no `agyo` (`agyo notebooklm` CLI e servidor MCP stdio) seguindo Clean Code, KISS, YAGNI e SRP.
 
 ## Status em Tempo Real
-- **Fase Atual:** PR #31 aberto e documentação 100% atualizada destacando `agyo notebooklm`
+- **Fase Atual:** PR #31 mesclado na main com sucesso; subagentes do Harness Central concluíram validação tripla (FinOps, AppSec e Fullstack); binário v0.5.0 ativo.
 - **Bloqueios:** Nenhum
-- **Última Validação:** Suíte completa de testes passando em verde (`go test -count=1 ./...`); binário compilado e sincronizado em `~/.local/bin/agyo`; MCP `notebooklm` registrado em `~/.gemini/config/mcp_config.json`; PR #31 aberto no GitHub.
+- **Última Validação:** PR #31 mesclado após CI 100% verde no GitHub Actions; suíte completa de testes locais com race detector (`go test -race ./...`) 100% verde; binário atualizado em `~/.local/bin/agyo`; AppSec aprovado com hardening aplicado (`d43c60f`).
 
 ## Próximos Passos Imediatos
-1. Acompanhar revisão/merge do PR #31.
-2. Utilizar `agyo notebooklm open` quando o usuário desejar navegar nos cadernos.
+1. Iniciar ingestão de vídeos e links no NotebookLM (`agyo notebooklm open`).
+2. Usufruir da integração para transformar vídeos em artigos técnicos e materiais de estudo em `/Users/tiago.boas/Estudos`.
 
