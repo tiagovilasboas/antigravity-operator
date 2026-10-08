@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/tiagoboas/antigravity-operator/internal/platform"
+	"github.com/tiagovilasboas/antigravity-operator/internal/platform"
 )
 
 // JSONRPCRequest modela uma requisição JSON-RPC 2.0 do MCP.

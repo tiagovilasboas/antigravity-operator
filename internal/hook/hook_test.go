@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/tiagoboas/antigravity-operator/internal/hook"
+	"github.com/tiagovilasboas/antigravity-operator/internal/hook"
 )
 
 func TestHookInstallAndUninstall(t *testing.T) {

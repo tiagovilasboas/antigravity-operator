@@ -12,21 +12,26 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/tiagoboas/antigravity-operator/internal/checkpoint"
-	"github.com/tiagoboas/antigravity-operator/internal/completion"
-	"github.com/tiagoboas/antigravity-operator/internal/dashboard"
-	"github.com/tiagoboas/antigravity-operator/internal/doctor"
-	"github.com/tiagoboas/antigravity-operator/internal/exporter"
-	"github.com/tiagoboas/antigravity-operator/internal/hook"
-	"github.com/tiagoboas/antigravity-operator/internal/installer"
-	"github.com/tiagoboas/antigravity-operator/internal/notebook"
-	"github.com/tiagoboas/antigravity-operator/internal/platform"
-	"github.com/tiagoboas/antigravity-operator/internal/profile"
-	"github.com/tiagoboas/antigravity-operator/internal/session"
-	"github.com/tiagoboas/antigravity-operator/internal/watcher"
+	"github.com/tiagovilasboas/antigravity-operator/internal/checkpoint"
+	"github.com/tiagovilasboas/antigravity-operator/internal/completion"
+	"github.com/tiagovilasboas/antigravity-operator/internal/dashboard"
+	"github.com/tiagovilasboas/antigravity-operator/internal/doctor"
+	"github.com/tiagovilasboas/antigravity-operator/internal/exporter"
+	"github.com/tiagovilasboas/antigravity-operator/internal/hook"
+	"github.com/tiagovilasboas/antigravity-operator/internal/installer"
+	"github.com/tiagovilasboas/antigravity-operator/internal/notebook"
+	"github.com/tiagovilasboas/antigravity-operator/internal/platform"
+	"github.com/tiagovilasboas/antigravity-operator/internal/profile"
+	"github.com/tiagovilasboas/antigravity-operator/internal/session"
+	"github.com/tiagovilasboas/antigravity-operator/internal/watcher"
 )
 
-const Version = "0.5.0"
+// Version is set at build time from the git tag:
+//
+//	go build -ldflags "-X main.Version=0.4.5" ./cmd/agyo
+//
+// Builds without the flag report "dev".
+var Version = "dev"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -60,7 +65,7 @@ func main() {
 	case "notebook", "notebooklm", "nblm":
 		runNotebook(info, os.Args[2:])
 	case "sync":
-		runSync(info)
+		runSync(info, os.Args[2:])
 	case "hook":
 		runHook(os.Args[2:])
 	case "completion":
@@ -112,7 +117,8 @@ Available commands:
   notebooklm ask <id> Ask a grounded query to a NotebookLM notebook
   notebooklm push <id> Push markdown or text file as a source to a notebook
   notebooklm mcp      Serve stdio Model Context Protocol (MCP) server for agents
-  sync                Synchronize canonical rules and MCP manifests to Google Antigravity
+  sync [--update-mcp] Synchronize canonical rules and MCP manifests to Google Antigravity
+                      (--update-mcp backs up and rewrites an outdated MCP manifest)
   hook install [dir]  Install git pre-commit hook to safeguard session continuity
   hook uninstall [dir] Remove agyo git pre-commit hook
   completion [shell]  Generate shell autocompletion script (bash, zsh, fish)
@@ -362,6 +368,15 @@ func runSessionCompact(args []string) {
 	fmt.Println("-----------------------------------------------------------------")
 }
 
+// homeDir returns the user's home for transcript discovery.
+func homeDir(info *platform.Info) string {
+	if info.HomeDir != "" {
+		return info.HomeDir
+	}
+	home, _ := os.UserHomeDir()
+	return home
+}
+
 func runSessionWatch(info *platform.Info, args []string) {
 	watchCmd := flag.NewFlagSet("session watch", flag.ExitOnError)
 	once := watchCmd.Bool("once", false, "Exibe os passos recentes e encerra sem acompanhar em tempo real")
@@ -370,7 +385,7 @@ func runSessionWatch(info *platform.Info, args []string) {
 	tree := watchCmd.Bool("tree", false, "Exibe a árvore de subagentes e mensagens inter-agentes")
 	_ = watchCmd.Parse(args)
 
-	tInfo, err := watcher.FindActiveTranscript(info.GeminiDir)
+	tInfo, err := watcher.FindLatestTranscript(homeDir(info))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Erro localizando transcrição: %v\n", err)
 		os.Exit(1)
@@ -738,7 +753,11 @@ Subcommands:
   mcp                  Run stdio Model Context Protocol (MCP) server for agents`)
 }
 
-func runSync(info *platform.Info) {
+func runSync(info *platform.Info, args []string) {
+	syncCmd := flag.NewFlagSet("sync", flag.ExitOnError)
+	updateMCP := syncCmd.Bool("update-mcp", false, "Back up the installed MCP manifest and rewrite it from the built-in template")
+	_ = syncCmd.Parse(args)
+
 	fmt.Println("🔄 Synchronizing rules and manifests into Google Antigravity...")
 	res, err := installer.Sync(info)
 	if err != nil {
@@ -746,8 +765,25 @@ func runSync(info *platform.Info) {
 		os.Exit(1)
 	}
 	fmt.Printf("✅ Rules synchronized at: %s\n", res.RulesPath)
-	if res.MCPPath != "" {
+	if *updateMCP {
+		backup, changed, err := installer.UpdateMCP(info, time.Now())
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error updating MCP manifest: %v\n", err)
+			os.Exit(1)
+		}
+		if backup != "" {
+			fmt.Printf("🗂️  Previous MCP manifest backed up to: %s\n", backup)
+		}
+		if changed {
+			fmt.Printf("✅ MCP manifest rewritten from the built-in template: %s\n", installer.MCPPath(info))
+		} else {
+			fmt.Printf("✅ MCP manifest already matches the built-in template: %s\n", installer.MCPPath(info))
+		}
+	} else if res.MCPPath != "" {
 		fmt.Printf("✅ MCP manifest prepared at: %s\n", res.MCPPath)
+		if installer.CheckMCP(info).NeedsUpdate() {
+			fmt.Println("⚠️  Existing MCP manifest differs from the built-in template (kept as is). Run 'agyo sync --update-mcp' to back it up and rewrite it.")
+		}
 	}
 	if res.SkillsPath != "" {
 		fmt.Printf("✅ Antigravity skill installed at: %s\n", res.SkillsPath)
@@ -796,7 +832,7 @@ func runSessionExport(info *platform.Info, args []string) {
 	}
 
 	transcriptPath := ""
-	if tInfo, err := watcher.FindActiveTranscript(info.GeminiDir); err == nil {
+	if tInfo, err := watcher.FindLatestTranscript(homeDir(info)); err == nil {
 		transcriptPath = tInfo.Path
 	}
 
@@ -941,7 +977,12 @@ func runCheckpoint(args []string) {
 	fmt.Printf("   Nome      : %s\n", chk.Name)
 	fmt.Printf("   Branch    : %s (%s)\n", chk.Branch, chk.CommitSHA)
 	if len(chk.DirtyFiles) > 0 {
-		fmt.Printf("   Modificados: %d arquivos preservados no stash commit (%s)\n", len(chk.DirtyFiles), chk.StashSHA)
+		if chk.StashSHA != "" {
+			fmt.Printf("   Modificados: alterações rastreadas preservadas no stash commit (%s)\n", chk.StashSHA)
+		}
+		if len(chk.Untracked) > 0 {
+			fmt.Printf("   Não rastreados: %d arquivos mantidos no rollback (conteúdo não versionado no checkpoint)\n", len(chk.Untracked))
+		}
 	} else {
 		fmt.Printf("   Modificados: Working tree limpa (clean tree)\n")
 	}
@@ -978,5 +1019,7 @@ func runRollback(args []string) {
 	if len(res.DirtyFiles) > 0 {
 		fmt.Printf("   Arquivos  : %d modificações restauradas na working tree\n", len(res.DirtyFiles))
 	}
+	if w := res.Warning(); w != "" {
+		fmt.Print(w)
+	}
 }
-

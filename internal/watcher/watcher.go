@@ -42,7 +42,42 @@ type TranscriptInfo struct {
 	Size           int64
 }
 
-// FindActiveTranscript localiza a sessão mais recente em ~/.gemini/antigravity/brain/*/transcript.jsonl.
+// AppDataDirs lists the Antigravity app data directories under home whose
+// brain/<conversation-id>/.system_generated/logs/transcript.jsonl hold session
+// transcripts: ~/.gemini/antigravity (Antigravity 2.0), ~/.gemini/antigravity-cli
+// (CLI) and ~/.gemini/antigravity-ide (IDE), per the transcriptPath field in
+// https://antigravity.google/docs/hooks/. It is the single source of truth for
+// where agyo looks for transcripts.
+func AppDataDirs(home string) []string {
+	return []string{
+		filepath.Join(home, ".gemini", "antigravity"),
+		filepath.Join(home, ".gemini", "antigravity-cli"),
+		filepath.Join(home, ".gemini", "antigravity-ide"),
+	}
+}
+
+// FindLatestTranscript returns the most recently modified transcript across
+// every directory in AppDataDirs(home).
+func FindLatestTranscript(home string) (*TranscriptInfo, error) {
+	var latest *TranscriptInfo
+	dirs := AppDataDirs(home)
+	for _, dir := range dirs {
+		t, err := FindActiveTranscript(dir)
+		if err != nil {
+			continue
+		}
+		if latest == nil || t.ModTime.After(latest.ModTime) {
+			latest = t
+		}
+	}
+	if latest == nil {
+		return nil, fmt.Errorf("nenhum transcript ativo encontrado em %s", strings.Join(dirs, ", "))
+	}
+	return latest, nil
+}
+
+// FindActiveTranscript localiza a sessão mais recente em <appDataDir>/brain/*/transcript.jsonl.
+// Prefer FindLatestTranscript, which searches every Antigravity app data dir.
 func FindActiveTranscript(geminiDir string) (*TranscriptInfo, error) {
 	brainDir := filepath.Join(geminiDir, "brain")
 	entries, err := os.ReadDir(brainDir)
@@ -185,6 +220,39 @@ func (e *Event) Summary() string {
 	}
 
 	return sb.String()
+}
+
+// MetadataSummary descreve o evento só com tipo, passo, ferramenta e status,
+// sem texto de prompt, raciocínio, argumentos ou saída. Use em superfícies
+// servidas por HTTP (dashboard), onde o texto da sessão não deve vazar.
+func (e *Event) MetadataSummary() string {
+	switch e.Type {
+	case "USER_INPUT":
+		return fmt.Sprintf("👤 [User #%d]", e.StepIndex)
+	case "PLANNER_RESPONSE":
+		var lines []string
+		if e.Thinking != "" {
+			lines = append(lines, fmt.Sprintf("💭 [Think #%d]", e.StepIndex))
+		}
+		for _, tc := range e.ToolCalls {
+			if tc.Name == "ask_question" {
+				lines = append(lines, fmt.Sprintf("🔔 [INTERAÇÃO #%d] O agente precisa da sua resposta!", e.StepIndex))
+			} else {
+				lines = append(lines, fmt.Sprintf("🛠️  [Tool #%d] %s", e.StepIndex, tc.Name))
+			}
+		}
+		if len(lines) == 0 {
+			return fmt.Sprintf("🤖 [Agent #%d] Planejando próxima ação...", e.StepIndex)
+		}
+		return strings.Join(lines, "\n")
+	case "GENERIC":
+		if e.Status == "" {
+			return fmt.Sprintf("⚡ [Step #%d]", e.StepIndex)
+		}
+		return fmt.Sprintf("⚡ [Step #%d] Status: %s", e.StepIndex, e.Status)
+	default:
+		return fmt.Sprintf("ℹ️  [%s #%d] Status: %s", e.Type, e.StepIndex, e.Status)
+	}
 }
 
 func extractArgsSummary(toolName string, rawArgs json.RawMessage) string {

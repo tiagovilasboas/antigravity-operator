@@ -4,7 +4,7 @@
 Arquiteto de Sistemas responsável pelo design, portabilidade cross-platform e integridade estrutural do `antigravity-operator`.
 
 ## Competências
-- Especialista em Go moderno (1.22+), compilação estática (`CGO_ENABLED=0`) e biblioteca padrão.
+- Especialista em Go moderno (versão do `go.mod`, hoje 1.27+), compilação estática (`CGO_ENABLED=0`) e biblioteca padrão.
 - Conhecimento profundo de sistemas operacionais: Darwin (macOS) e distribuições Linux (Ubuntu, Debian, Fedora, Arch).
 - Guardião do Outer Harness de Martin Fowler (Guia × Sensor) e dos princípios KISS, YAGNI, SRP e DRY.
 

@@ -213,6 +213,26 @@
     </div>
 
     <script>
+        // Session, doctor, tab and transcript strings are untrusted: escape before any innerHTML.
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        // Only http(s) tab URLs become links; anything else (javascript:, data:, chrome:) is shown as text.
+        function safeHttpUrl(value) {
+            try {
+                const u = new URL(String(value));
+                return (u.protocol === 'http:' || u.protocol === 'https:') ? u.href : '';
+            } catch (e) {
+                return '';
+            }
+        }
+
         async function fetchDashboardData() {
             try {
                 const res = await fetch('/api/all');
@@ -233,17 +253,17 @@
                 let pendingHtml = '';
                 if (s.pendingList && s.pendingList.length > 0) {
                     pendingHtml = '<div style="margin-top: 10px;"><strong>Próximos passos:</strong>' +
-                        s.pendingList.slice(0, 3).map(p => '<div class="pending-item">⏳ ' + p + '</div>').join('') + '</div>';
+                        s.pendingList.slice(0, 3).map(p => '<div class="pending-item">⏳ ' + escapeHtml(p) + '</div>').join('') + '</div>';
                 }
                 sDiv.innerHTML = `
-                    <div style="font-weight: 600; margin-bottom: 4px;">${s.objective || 'Definir objetivo'}</div>
-                    <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px;">Fase: ${s.status || 'Planejamento'}</div>
+                    <div style="font-weight: 600; margin-bottom: 4px;">${escapeHtml(s.objective || 'Definir objetivo')}</div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px;">Fase: ${escapeHtml(s.status || 'Planejamento')}</div>
                     <div class="progress-bar-container">
-                        <div class="progress-bar" style="width: ${s.progress}%"></div>
+                        <div class="progress-bar" style="width: ${Number(s.progress) || 0}%"></div>
                     </div>
                     <div style="font-size: 0.85rem; display: flex; justify-content: space-between;">
-                        <span>Concluídas: ${s.doneTasks} / ${s.totalTasks}</span>
-                        <strong style="color: var(--accent-green);">${s.progress}%</strong>
+                        <span>Concluídas: ${escapeHtml(s.doneTasks)} / ${escapeHtml(s.totalTasks)}</span>
+                        <strong style="color: var(--accent-green);">${Number(s.progress) || 0}%</strong>
                     </div>
                     ${pendingHtml}
                 `;
@@ -265,8 +285,8 @@
                         <div class="check-item">
                             <span style="font-size: 1rem;">${icon}</span>
                             <div>
-                                <strong style="color: ${color}">${c.name}</strong>
-                                <div style="color: var(--text-muted); font-size: 0.8rem;">${c.message}</div>
+                                <strong style="color: ${color}">${escapeHtml(c.name)}</strong>
+                                <div style="color: var(--text-muted); font-size: 0.8rem;">${escapeHtml(c.message)}</div>
                             </div>
                         </div>
                     `;
@@ -277,12 +297,18 @@
             const tabs = data.tabs || [];
             const tDiv = document.getElementById('tabs-content');
             if (tabs.length > 0) {
-                tDiv.innerHTML = tabs.map(t => `
+                tDiv.innerHTML = tabs.map(t => {
+                    const href = safeHttpUrl(t.url);
+                    const urlHtml = href
+                        ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(t.url)}</a>`
+                        : `<span>${escapeHtml(t.url)}</span>`;
+                    return `
                     <div class="tab-item">
-                        <strong>${t.title || 'Sem título'}</strong><br>
-                        <a href="${t.url}" target="_blank" rel="noreferrer">${t.url}</a>
+                        <strong>${escapeHtml(t.title || 'Sem título')}</strong><br>
+                        ${urlHtml}
                     </div>
-                `).join('');
+                `;
+                }).join('');
             } else {
                 tDiv.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem;">Nenhuma aba aberta ou Chrome DevTools inativo na porta 9222.<br>Execute <code>agyo browser start</code> para iniciar.</p>';
             }
@@ -291,7 +317,7 @@
             const evts = data.events || [];
             const eDiv = document.getElementById('events-content');
             if (evts.length > 0) {
-                eDiv.innerHTML = evts.map(e => `<div class="event-line">${e}</div>`).join('');
+                eDiv.innerHTML = evts.map(e => `<div class="event-line">${escapeHtml(e)}</div>`).join('');
             } else {
                 eDiv.innerHTML = 'Aguardando atividade do agente no Antigravity Brain...';
             }

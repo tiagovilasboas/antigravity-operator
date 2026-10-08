@@ -13,7 +13,7 @@ O `antigravity-operator` é um motor de execução e gerenciamento de **Session 
 
 1. **Outer Harness (Guia × Sensor):**
    * **Guias:** Este documento, regras de arquitetura e steerings. Leia-os antes de gerar código.
-   * **Sensores:** Todo código deve ser validado computacionalmente (`go test -v ./...`, `go vet ./...`, `agyo doctor`) antes de declarar a tarefa concluída.
+   * **Sensores:** Todo código deve ser validado computacionalmente (`gofmt -l .`, `go vet ./...`, `go test -race ./...`, `agyo doctor`) antes de declarar a tarefa concluída.
 2. **Sem Afirmação Sem Fonte (No Assumptions):**
    * Nunca assuma o estado do sistema ou caminhos de arquivos. Inspecione com ferramentas ou comandos reais.
 3. **Mínima Alteração Necessária (Minimal Change Principle / SRP / KISS / YAGNI):**
@@ -31,13 +31,25 @@ O `antigravity-operator` é um motor de execução e gerenciamento de **Session 
 
 | Pacote / Arquivo | Responsabilidade Canônica |
 |---|---|
-| `cmd/agyo/main.go` | Entrypoint da CLI, roteamento de subcomandos e saída ao usuário |
-| `internal/platform/` | Detecção de SO, arquitetura, display gráfico (X11/Wayland) e caminhos do Chrome |
-| `internal/session/` | Criação e garantia de integridade da pasta `.agents/session/` e `.agents/.gitignore` |
-| `internal/profile/` | Gerenciamento do Chrome com perfil isolado e comunicação via CDP (porta 9222) |
-| `internal/installer/` | Instalação idempotente de regras canônicas e manifestos MCP no host |
-| `internal/doctor/` | Sensores de diagnóstico (Git, Chrome, NPX, Conexão com Harness Core) |
-| `templates/` | Fonte estática de templates embutidos via `embed.FS` |
+| `cmd/agyo/` | Entrypoint da CLI: roteamento de subcomandos, flags e saída ao usuário |
+| `internal/platform/` | Detecção de SO, arquitetura, display (X11/Wayland) e caminhos canônicos (Chrome, `~/.gemini`) |
+| `internal/session/` | Memória `.agents/session/`: init, status, compact, archive/restore, `.agentignore` |
+| `internal/checkpoint/` | Snapshots atômicos da working tree e `rollback` |
+| `internal/watcher/` | Localização e tailing do transcript do Antigravity, árvore de subagentes, notificações |
+| `internal/exporter/` | Relatório consolidado da sessão (Markdown/HTML) |
+| `internal/analytics/` | Parser de transcripts, agregação de métricas de tool calls e redação de segredos |
+| `internal/dashboard/` | Servidor HTTP local (localhost, Host/Origin allowlist), UI embutida e API JSON |
+| `internal/profile/` | Chrome com perfil isolado e cliente CDP em Go puro (porta 9222) |
+| `internal/doctor/` | Sensores de diagnóstico do host e `doctor --fix` |
+| `internal/notebook/` | Integração com Google NotebookLM: CDP headless/interativo, list/ask/push e servidor MCP |
+| `internal/installer/` | `agyo sync`: regras, skill e manifesto MCP no host |
+| `internal/hook/` | Hook git pre-commit de continuidade de sessão |
+| `internal/completion/` | Scripts de autocompletar (bash, zsh, fish) |
+| `templates/` | Templates embutidos via `embed.FS` (regras, sessão, MCPs, skills) |
+| `scripts/` | `install.sh` (verifica `checksums.txt`), setup de dev e checagem de pacotes MCP no npm |
+| `.github/workflows/` | CI (gofmt, vet, testes com race) e release (binários, checksums) |
+
+Detalhes por subsistema: [`docs/spec/`](docs/spec/README.md).
 
 ---
 
@@ -46,11 +58,12 @@ O `antigravity-operator` é um motor de execução e gerenciamento de **Session 
 Antes de finalizar qualquer alteração ou propor commits, o agente DEVE executar:
 
 ```bash
-# 1. Análise estática do Go
+# 1. Formatação (deve imprimir nada) e análise estática do Go
+gofmt -l .
 go vet ./...
 
-# 2. Bateria completa de testes unitários
-go test -v ./...
+# 2. Bateria completa de testes unitários com race detector
+go test -race ./...
 
 # 3. Compilação do binário local
 make build
@@ -70,3 +83,19 @@ make build-linux
   - `feat(browser): add support for custom debug port flag`
   - `fix(platform): properly detect Wayland socket on Ubuntu 24.04`
   - `docs: update cross-platform compatibility matrix`
+
+---
+
+## 🤝 Contribution rules for AI agents
+
+Same rules as [CONTRIBUTING.md](CONTRIBUTING.md#-what-gets-accepted); they apply to any agent working here.
+
+- **Scope:** supervision, observability and session persistence for Antigravity. Pick work tied to a real operator pain.
+- **Out of scope:** unredacted prompts, transcript content or commands in the API/UI; reading undocumented internal logs without an approved proposal; new dependencies (`go.mod` is stdlib only).
+- **Dashboard:** stays the simple embedded single-file UI (spec 06). No frameworks, build steps or CDN assets.
+- **Privacy by default** ([PRIVACY.md](PRIVACY.md)): local only, dashboard on localhost, redact before showing anything from a session.
+- **One subject per PR**, ~400 lines of code (excluding tests/generated). Slice anything bigger; never bundle features.
+- **Issue first** for a new feature or any UI/API change; agree on scope before coding.
+- **Sensors before done:** `gofmt -l .` empty, `go vet ./...`, `go test -race ./...`, with tests for new behavior.
+- **Keep only what delivers clear operator value.** Drop nice-to-have, cosmetic or unrequested changes; don't bundle or self-expand scope. When in doubt, ask the maintainer in an issue first.
+- **The human author reviews and owns every line** an agent produces.

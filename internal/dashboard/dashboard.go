@@ -7,17 +7,19 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
+	"strconv"
+	"strings"
 	"time"
 
-	"github.com/tiagoboas/antigravity-operator/internal/doctor"
-	"github.com/tiagoboas/antigravity-operator/internal/platform"
-	"github.com/tiagoboas/antigravity-operator/internal/profile"
-	"github.com/tiagoboas/antigravity-operator/internal/session"
-	"github.com/tiagoboas/antigravity-operator/internal/watcher"
+	"github.com/tiagovilasboas/antigravity-operator/internal/doctor"
+	"github.com/tiagovilasboas/antigravity-operator/internal/platform"
+	"github.com/tiagovilasboas/antigravity-operator/internal/profile"
+	"github.com/tiagovilasboas/antigravity-operator/internal/session"
+	"github.com/tiagovilasboas/antigravity-operator/internal/watcher"
 )
 
 //go:embed dashboard.html
@@ -36,6 +38,7 @@ type Server struct {
 	cfg      Config
 	server   *http.Server
 	listener net.Listener
+	port     int // port actually bound, used by the Host/Origin allowlist
 }
 
 // ConsolidatedData agrupa todos os dados para consumo da UI em 1 requisição.
@@ -73,6 +76,7 @@ func NewServer(cfg Config) (*Server, error) {
 	s := &Server{
 		cfg:      cfg,
 		listener: listener,
+		port:     listener.Addr().(*net.TCPAddr).Port,
 	}
 
 	mux.HandleFunc("/", s.handleIndex)
@@ -83,12 +87,48 @@ func NewServer(cfg Config) (*Server, error) {
 	mux.HandleFunc("/api/events", s.handleEvents)
 
 	s.server = &http.Server{
-		Handler:      mux,
+		Handler:      s.localOnly(mux),
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
 
 	return s, nil
+}
+
+// localOnly rejects requests whose Host or Origin is not this loopback server.
+// Binding to 127.0.0.1 is not enough: with DNS rebinding a remote page can
+// reach the port under its own hostname and read the JSON APIs.
+func (s *Server) localOnly(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !s.isLocalHost(r.Host) {
+			http.Error(w, "forbidden: non-local Host header", http.StatusForbidden)
+			return
+		}
+		if origin := r.Header.Get("Origin"); origin != "" {
+			u, err := url.Parse(origin)
+			if err != nil || u.Scheme != "http" || !s.isLocalHost(u.Host) {
+				http.Error(w, "forbidden: non-local Origin", http.StatusForbidden)
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// isLocalHost reports whether hostport names this server on loopback:
+// localhost, 127.0.0.1 or [::1], on the bound port.
+func (s *Server) isLocalHost(hostport string) bool {
+	host, port, err := net.SplitHostPort(hostport)
+	if err != nil {
+		// No port: the client used the scheme default (80 for http).
+		host, port = strings.Trim(hostport, "[]"), "80"
+	}
+	switch strings.ToLower(host) {
+	case "localhost", "127.0.0.1", "::1":
+		return port == strconv.Itoa(s.port)
+	default:
+		return false
+	}
 }
 
 // Addr retorna o endereço TCP resolvido do listener.
@@ -207,10 +247,14 @@ func (s *Server) getDoctorData() map[string]interface{} {
 	rep := doctor.Run(s.cfg.PlatformInfo)
 	checks := make([]map[string]interface{}, 0, len(rep.Checks))
 	for _, c := range rep.Checks {
+		msg := c.Details
+		if c.PublicDetails != "" {
+			msg = c.PublicDetails
+		}
 		checks = append(checks, map[string]interface{}{
 			"name":    c.Name,
 			"status":  c.Status,
-			"message": c.Details,
+			"message": msg,
 		})
 	}
 	return map[string]interface{}{
@@ -235,8 +279,7 @@ func (s *Server) getEventsData() []string {
 	if err != nil {
 		return events
 	}
-	geminiDir := filepath.Join(home, ".gemini")
-	tInfo, err := watcher.FindActiveTranscript(geminiDir)
+	tInfo, err := watcher.FindLatestTranscript(home)
 	if err != nil {
 		return events
 	}
@@ -251,7 +294,7 @@ func (s *Server) getEventsData() []string {
 	}
 
 	_ = watcher.Stream(ctx, tInfo.Path, opts, func(evt *watcher.Event) {
-		sm := evt.Summary()
+		sm := evt.MetadataSummary()
 		if sm != "" {
 			events = append(events, sm)
 		}

@@ -4,9 +4,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
-	"github.com/tiagoboas/antigravity-operator/internal/platform"
+	"github.com/tiagovilasboas/antigravity-operator/internal/platform"
 )
 
 func TestCLI_PrintUsage(t *testing.T) {
@@ -37,8 +38,9 @@ func TestCLI_RunInitAndSession(t *testing.T) {
 	// 4. Session archive
 	runSession(info, []string{"archive", targetDir})
 
-	// 5. Session watch with prepared brain log
-	brainDir := filepath.Join(info.GeminiDir, "brain", "conv-test", ".system_generated", "logs")
+	// 5. Session watch with prepared brain log (Antigravity 2.0 app data dir)
+	info.HomeDir = t.TempDir()
+	brainDir := filepath.Join(info.HomeDir, ".gemini", "antigravity", "brain", "conv-test", ".system_generated", "logs")
 	_ = os.MkdirAll(brainDir, 0755)
 	_ = os.WriteFile(filepath.Join(brainDir, "transcript.jsonl"), []byte(`{"step_index":1,"type":"USER_INPUT","content":"Hi"}`+"\n"), 0644)
 	runSession(info, []string{"watch", "--once", "--steps", "1"})
@@ -69,7 +71,20 @@ func TestCLI_RunSync(t *testing.T) {
 	info := &platform.Info{
 		GeminiDir: tempGemini,
 	}
-	runSync(info)
+	runSync(info, nil)
+
+	// --update-mcp backs up a legacy manifest and rewrites it.
+	mcp := filepath.Join(tempGemini, "mcp", "default-servers.json")
+	legacy := `{"mcpServers":{"playwright":{"command":"npx","args":["-y","@executeautomation/playwright-mcp-server"]}}}`
+	_ = os.WriteFile(mcp, []byte(legacy), 0644)
+	runSync(info, []string{"--update-mcp"})
+	backups, _ := filepath.Glob(mcp + ".bak-*")
+	if len(backups) != 1 {
+		t.Fatalf("expected one backup, got %v", backups)
+	}
+	if cur, _ := os.ReadFile(mcp); strings.Contains(string(cur), "executeautomation") {
+		t.Fatalf("manifest not rewritten: %s", cur)
+	}
 }
 
 func TestCLI_RunBrowserCommands(t *testing.T) {
@@ -112,11 +127,12 @@ func TestCLI_RunSessionExport(t *testing.T) {
 
 func TestCLI_RunWatchTree(t *testing.T) {
 	info := &platform.Info{
-		OS:        "darwin",
-		GeminiDir: t.TempDir(),
+		OS:      "darwin",
+		HomeDir: t.TempDir(),
 	}
 
-	brainDir := filepath.Join(info.GeminiDir, "brain", "conv-test", ".system_generated", "logs")
+	// CLI app data dir: the CLI must find it too, not only ~/.gemini/antigravity.
+	brainDir := filepath.Join(info.HomeDir, ".gemini", "antigravity-cli", "brain", "conv-test", ".system_generated", "logs")
 	_ = os.MkdirAll(brainDir, 0755)
 	_ = os.WriteFile(filepath.Join(brainDir, "transcript.jsonl"), []byte(`{"step_index":1,"type":"PLANNER_RESPONSE","tool_calls":[{"function":{"name":"invoke_subagent","arguments":"{\"Subagents\":[{\"Role\":\"Tester\",\"TypeName\":\"research\",\"Prompt\":\"Check tests\"}]}"}}]}`+"\n"), 0644)
 

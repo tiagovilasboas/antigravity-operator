@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tiagoboas/antigravity-operator/internal/checkpoint"
+	"github.com/tiagovilasboas/antigravity-operator/internal/checkpoint"
 )
 
 func setupTestGitRepo(t *testing.T) string {
@@ -136,3 +136,230 @@ func TestCheckpoint_WithDirtyFiles(t *testing.T) {
 	}
 }
 
+// Rollback não pode apagar a memória da sessão (.agents/) nem arquivos que já
+// existiam sem rastreio no checkpoint; só os criados depois dele.
+func TestRollback_KeepsSessionAndPreexistingUntracked(t *testing.T) {
+	repoDir := setupTestGitRepo(t)
+
+	stateFile := filepath.Join(repoDir, ".agents", "session", "state.md")
+	_ = os.MkdirAll(filepath.Dir(stateFile), 0755)
+	_ = os.WriteFile(stateFile, []byte("# objetivo\n"), 0644)
+	notes := filepath.Join(repoDir, "notes.txt")
+	_ = os.WriteFile(notes, []byte("anotações do usuário"), 0644)
+
+	if _, err := checkpoint.Create(repoDir, "pre", ""); err != nil {
+		t.Fatalf("Create falhou: %v", err)
+	}
+
+	mainFile := filepath.Join(repoDir, "main.go")
+	_ = os.WriteFile(mainFile, []byte("quebrado"), 0644)
+	agentFile := filepath.Join(repoDir, "agent_tmp.go")
+	_ = os.WriteFile(agentFile, []byte("lixo"), 0644)
+
+	if _, err := checkpoint.Rollback(repoDir, "latest"); err != nil {
+		t.Fatalf("Rollback falhou: %v", err)
+	}
+
+	for _, keep := range []string{stateFile, notes, filepath.Join(repoDir, ".agents", "session", "checkpoints.json")} {
+		if _, err := os.Stat(keep); err != nil {
+			t.Errorf("rollback apagou %s: %v", keep, err)
+		}
+	}
+	if _, err := os.Stat(agentFile); !os.IsNotExist(err) {
+		t.Errorf("arquivo criado após o checkpoint deveria ter sido removido")
+	}
+	if b, _ := os.ReadFile(mainFile); !strings.Contains(string(b), "func main()") {
+		t.Errorf("main.go não foi revertido: %s", b)
+	}
+}
+
+func TestCheckpoint_RequiresInitialCommit(t *testing.T) {
+	dir := t.TempDir()
+	cmd := exec.Command("git", "init")
+	cmd.Dir = dir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v %s", err, out)
+	}
+	if _, err := checkpoint.Create(dir, "x", ""); err == nil {
+		t.Error("esperava erro ao criar checkpoint em repositório sem commits")
+	}
+}
+
+// Rollback de um checkpoint sem alterações rastreadas, com HEAD no mesmo
+// commit, não pode destacar o HEAD da branch.
+func TestRollback_CleanCheckpointKeepsBranch(t *testing.T) {
+	repoDir := setupTestGitRepo(t)
+
+	if _, err := checkpoint.Create(repoDir, "clean", ""); err != nil {
+		t.Fatalf("Create falhou: %v", err)
+	}
+	_ = os.WriteFile(filepath.Join(repoDir, "main.go"), []byte("quebrado"), 0644)
+
+	if _, err := checkpoint.Rollback(repoDir, "latest"); err != nil {
+		t.Fatalf("Rollback falhou: %v", err)
+	}
+
+	cmd := exec.Command("git", "symbolic-ref", "-q", "HEAD")
+	cmd.Dir = repoDir
+	if out, err := cmd.Output(); err != nil {
+		t.Errorf("rollback destacou o HEAD da branch (git symbolic-ref falhou: %v)", err)
+	} else if !strings.HasPrefix(string(out), "refs/heads/") {
+		t.Errorf("HEAD inesperado após rollback: %s", out)
+	}
+	if b, _ := os.ReadFile(filepath.Join(repoDir, "main.go")); !strings.Contains(string(b), "func main()") {
+		t.Errorf("main.go não foi revertido: %s", b)
+	}
+}
+
+func git(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %s: %v %s", strings.Join(args, " "), err, out)
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// HEAD andou desde o checkpoint (o agente commitou): o rollback move a branch
+// de volta ao commit do checkpoint, sem destacar o HEAD, e diz como desfazer.
+func TestRollback_HeadMovedMovesBranchBack(t *testing.T) {
+	repoDir := setupTestGitRepo(t)
+	branch := git(t, repoDir, "symbolic-ref", "--short", "HEAD")
+
+	// .agents/ versionado no commit do checkpoint, para provar que não muda.
+	stateFile := filepath.Join(repoDir, ".agents", "session", "state.md")
+	_ = os.MkdirAll(filepath.Dir(stateFile), 0o755)
+	_ = os.WriteFile(stateFile, []byte("# antes\n"), 0o644)
+	git(t, repoDir, "add", ".agents/session/state.md")
+	git(t, repoDir, "commit", "-m", "session")
+	base := git(t, repoDir, "rev-parse", "HEAD")
+
+	if _, err := checkpoint.Create(repoDir, "pre", ""); err != nil {
+		t.Fatalf("Create falhou: %v", err)
+	}
+	_ = os.WriteFile(filepath.Join(repoDir, "main.go"), []byte("commit do agente"), 0o644)
+	_ = os.WriteFile(stateFile, []byte("# depois\n"), 0o644)
+	git(t, repoDir, "commit", "-am", "agent commit")
+	moved := git(t, repoDir, "rev-parse", "HEAD")
+	_ = os.WriteFile(filepath.Join(repoDir, "main.go"), []byte("edição não commitada"), 0o644)
+
+	res, err := checkpoint.Rollback(repoDir, "latest")
+	if err != nil {
+		t.Fatalf("Rollback falhou: %v", err)
+	}
+
+	cmd := exec.Command("git", "symbolic-ref", "-q", "--short", "HEAD")
+	cmd.Dir = repoDir
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("rollback destacou o HEAD (git symbolic-ref falhou: %v)", err)
+	}
+	if got := strings.TrimSpace(string(out)); got != branch {
+		t.Fatalf("HEAD em %q, esperava a branch %q", got, branch)
+	}
+	if got := git(t, repoDir, "rev-parse", branch); got != base {
+		t.Fatalf("branch %s em %s, esperava o commit do checkpoint %s", branch, got, base)
+	}
+	if b, _ := os.ReadFile(filepath.Join(repoDir, "main.go")); !strings.Contains(string(b), "func main()") {
+		t.Errorf("main.go não foi revertido: %s", b)
+	}
+	if b, _ := os.ReadFile(stateFile); !strings.HasPrefix(string(b), "# depois\n") {
+		t.Errorf("rollback alterou .agents/session/state.md: %q", b)
+	}
+
+	if res.MovedFrom != moved || res.MovedBranch != branch {
+		t.Fatalf("MovedFrom=%q MovedBranch=%q, esperava %q %q", res.MovedFrom, res.MovedBranch, moved, branch)
+	}
+	w := res.Warning()
+	if !strings.Contains(w, "git reset --hard "+moved) || !strings.Contains(w, "reflog") || !strings.Contains(w, "git stash apply "+res.BackupStash) || res.BackupStash == "" {
+		t.Fatalf("aviso incompleto (stash %q): %s", res.BackupStash, w)
+	}
+
+	// O commit antigo e a edição não commitada continuam recuperáveis.
+	// Desfazer como o aviso manda: volta a branch e reaplica o backup.
+	git(t, repoDir, "cat-file", "-e", moved+"^{commit}")
+	git(t, repoDir, "reset", "--hard", moved)
+	git(t, repoDir, "stash", "apply", res.BackupStash)
+	if b, _ := os.ReadFile(filepath.Join(repoDir, "main.go")); string(b) != "edição não commitada" {
+		t.Errorf("backup não restaurou a edição: %s", b)
+	}
+}
+
+func TestRollback_RefusesDetachedHeadWhenMoved(t *testing.T) {
+	repoDir := setupTestGitRepo(t)
+	if _, err := checkpoint.Create(repoDir, "pre", ""); err != nil {
+		t.Fatalf("Create falhou: %v", err)
+	}
+	_ = os.WriteFile(filepath.Join(repoDir, "main.go"), []byte("x"), 0o644)
+	git(t, repoDir, "commit", "-am", "agent commit")
+	git(t, repoDir, "checkout", "-q", "--detach")
+	head := git(t, repoDir, "rev-parse", "HEAD")
+	_ = os.WriteFile(filepath.Join(repoDir, "main.go"), []byte("não commitado"), 0o644)
+
+	if _, err := checkpoint.Rollback(repoDir, "latest"); err == nil || !strings.Contains(err.Error(), "detached") {
+		t.Fatalf("esperava recusa por HEAD destacado, obteve %v", err)
+	}
+	if got := git(t, repoDir, "rev-parse", "HEAD"); got != head {
+		t.Errorf("rollback recusado moveu o HEAD para %s", got)
+	}
+	if b, _ := os.ReadFile(filepath.Join(repoDir, "main.go")); string(b) != "não commitado" {
+		t.Errorf("rollback recusado mexeu na working tree: %s", b)
+	}
+}
+
+func TestRollback_RefusesOtherBranchWhenMoved(t *testing.T) {
+	repoDir := setupTestGitRepo(t)
+	if _, err := checkpoint.Create(repoDir, "pre", ""); err != nil {
+		t.Fatalf("Create falhou: %v", err)
+	}
+	git(t, repoDir, "checkout", "-q", "-b", "other")
+	_ = os.WriteFile(filepath.Join(repoDir, "main.go"), []byte("x"), 0o644)
+	git(t, repoDir, "commit", "-am", "other commit")
+	head := git(t, repoDir, "rev-parse", "HEAD")
+
+	if _, err := checkpoint.Rollback(repoDir, "latest"); err == nil || !strings.Contains(err.Error(), "branch") {
+		t.Fatalf("esperava recusa por branch diferente, obteve %v", err)
+	}
+	if got := git(t, repoDir, "rev-parse", "other"); got != head {
+		t.Errorf("rollback recusado moveu a branch other para %s", got)
+	}
+}
+
+func TestCreate_DistinctIDsSameSecond(t *testing.T) {
+	repoDir := setupTestGitRepo(t)
+
+	chk1, err := checkpoint.Create(repoDir, "a", "")
+	if err != nil {
+		t.Fatalf("Create a: %v", err)
+	}
+	chk2, err := checkpoint.Create(repoDir, "b", "")
+	if err != nil {
+		t.Fatalf("Create b: %v", err)
+	}
+	if chk1.ID == chk2.ID {
+		t.Fatalf("expected distinct IDs in the same second, both got %q", chk1.ID)
+	}
+
+	list, err := checkpoint.List(repoDir)
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	ids := map[string]int{}
+	for _, chk := range list {
+		ids[chk.ID]++
+	}
+	if ids[chk1.ID] != 1 || ids[chk2.ID] != 1 {
+		t.Fatalf("IDs not uniquely stored: %+v", ids)
+	}
+
+	// Rollback by exact ID must restore that checkpoint, not an ambiguous neighbour.
+	res, err := checkpoint.Rollback(repoDir, chk2.ID)
+	if err != nil {
+		t.Fatalf("Rollback(%s): %v", chk2.ID, err)
+	}
+	if res.Checkpoint.ID != chk2.ID {
+		t.Fatalf("Rollback restored %q, want %q", res.Checkpoint.ID, chk2.ID)
+	}
+}

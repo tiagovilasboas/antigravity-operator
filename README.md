@@ -4,43 +4,39 @@
   <a href="https://github.com/tiagovilasboas/antigravity-operator/releases"><img src="https://img.shields.io/github/v/release/tiagovilasboas/antigravity-operator?style=flat-square&logo=github&color=blue" alt="Release" /></a>
   <a href="https://github.com/tiagovilasboas/antigravity-operator/actions"><img src="https://img.shields.io/github/actions/workflow/status/tiagovilasboas/antigravity-operator/ci.yml?style=flat-square&logo=githubactions&logoColor=white&label=CI" alt="CI" /></a>
   <a href="https://goreportcard.com/report/github.com/tiagovilasboas/antigravity-operator"><img src="https://goreportcard.com/badge/github.com/tiagovilasboas/antigravity-operator?style=flat-square" alt="Go Report Card" /></a>
-  <img src="https://img.shields.io/badge/Go-1.22+-00ADD8?style=flat-square&logo=go" alt="Go Version" />
+  <img src="https://img.shields.io/badge/Go-1.27+-00ADD8?style=flat-square&logo=go" alt="Go Version" />
   <img src="https://img.shields.io/badge/Platform-macOS%20%7C%20Linux%20%7C%20Windows-000000?style=flat-square&logo=apple&logoColor=white" alt="Platform" />
   <img src="https://img.shields.io/badge/Architecture-Single%20Binary%20(No%20CGO)-success?style=flat-square" alt="Binary" />
-  <img src="https://img.shields.io/badge/Coverage->80%25-brightgreen?style=flat-square" alt="Coverage" />
   <img src="https://img.shields.io/badge/Pattern-Fowler%20Outer%20Harness-blueviolet?style=flat-square" alt="Pattern" />
   <img src="https://img.shields.io/badge/Sponsor-GitHub%20Sponsors-ea4aaa?style=flat-square&logo=githubsponsors" alt="Sponsor" />
   <img src="https://img.shields.io/badge/License-MIT-blue?style=flat-square" alt="License" />
 </p>
 
-> **The Autonomous Session Agent Engine & OS Runtime for Google Antigravity**  
-> *Deterministic governance, filesystem operational memory, and Chrome DevTools isolation with seamless parity across macOS and Linux.*
+A small Go CLI that keeps Google Antigravity sessions on track: session memory on disk, git checkpoints with rollback, a local dashboard and a separate Chrome profile for the agent.
 
-```text
-┌─── Antigravity Operator (agyo) ────────────────────────────────────────────────────────┐
-│ $ agyo doctor                                                                          │
-│ 🔍 Antigravity Operator Doctor [OS: darwin | Arch: arm64]                             │
-│ 🖥️  Display Server: Detected (Desktop GUI)                                             │
-│ -----------------------------------------------------------------                      │
-│ ✅ Git                          : git version 2.39.5 (Tiago Vilas Boas)                │
-│ ✅ Google Antigravity           : Ativo (5 processos detectados, PID primário: 71409)   │
-│ ✅ Google Chrome                : Localizado em: /Applications/Google Chrome.app       │
-│ ✅ Chrome DevTools (Port 9222)  : Ativo (Chrome/153.0) no perfil isolado               │
-│ ✅ NPX (MCP Runtime)            : Versão 10.8.2 disponível                             │
-│ ℹ️  Gemini API Key (BYOK)        : Configurada via GEMINI_API_KEY (AIza...9876)         │
-│ ✅ Harness Core                 : Conectado em ~/Github/harness-core                   │
-│                                                                                        │
-│ $ agyo session watch --once --steps 2                                                  │
-│ 📡 Streaming Antigravity Brain [db9011ea]                                              │
-│ 💭 [Think #1242] Analyzing architecture trade-offs...                                  │
-│ 🛠️  [Tool #1242] replace_file_content(watcher.go)                                       │
-│ 🔔 [INTERAÇÃO #1243] O agente precisa da sua resposta! (Alerta visual + sonoro)        │
-│                                                                                        │
-│ $ agyo browser tabs                                                                    │
-│ 🌐 Open Chrome Tabs (1 active):                                                        │
-│ [7F13B00E] Google AI Developers Forum : https://discuss.ai.google.dev                 │
-└────────────────────────────────────────────────────────────────────────────────────────┘
+Agents: read [AGENTS.md](AGENTS.md) first.
+
+## Quickstart
+
+Install a release binary (macOS/Linux, verified against `checksums.txt`) or use Homebrew:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/tiagovilasboas/antigravity-operator/main/scripts/install.sh | bash
+# or
+brew install tiagovilasboas/tap/agyo
 ```
+
+Then, inside any git repo:
+
+```bash
+agyo init             # creates .agents/session/ and .agentignore
+agyo session status   # objective, phase and task progress
+agyo dashboard        # local UI on http://127.0.0.1:8080 (add --open=false on a headless box)
+```
+
+None of these need Chrome. Chrome is only needed for `agyo browser ...`. The activity panel fills in once Antigravity writes a session transcript. The Homebrew Formula builds from source and can trail the latest release; other options are in [Getting Started](#-getting-started--installation).
+
+![agyo dashboard right after agyo init, with a sample transcript in the activity panel](docs/assets/dashboard.png)
 
 <p align="center">
   <a href="README.pt-BR.md">🇧🇷 <b>Leia em Português</b></a> | <a href="#-getting-started--installation"><b>Getting Started</b></a> | <a href="#-student-research--google-ai-pro-edition"><b>Student Edition</b></a> | <a href="#-sponsor--support"><b>Sponsor</b></a> | <a href="#-how-to-contribute"><b>Contributing</b></a>
@@ -59,24 +55,26 @@
 - [The Solution: Core Capabilities](#-the-solution-what-antigravity-operator-solves)
 - [Landscape & Benchmark](#-landscape-how-agyo-compares)
 - [Student, Research & Google AI Pro Edition](#-student-research--google-ai-pro-edition)
-- [System Architecture (SRP, KISS, YAGNI, DRY)](#-system-architecture-srp-kiss-yagni-dry)
+- [System Architecture (SRP, KISS, YAGNI, DRY)](#️-system-architecture-srp-kiss-yagni-dry)
+- [AI-Assisted Development & Agent Ecosystem](#-ai-assisted-development--agent-ecosystem)
 - [Getting Started & Installation](#-getting-started--installation)
 - [CLI Reference & Usage](#-cli-reference--usage)
+- [Canonical Operating Principles](#️-canonical-operating-principles)
 - [How to Contribute](#-how-to-contribute)
 - [Sponsor & Support](#-sponsor--support)
-- [Security & License](#-security--license)
+- [Security, Privacy & License](#-security-privacy--license)
 
 ---
 
 ## 🔭 Overview
 
-**Antigravity Operator** (`agyo`) turns the raw power of Google Antigravity into an autonomous, safe, and persistent **Operating System Operator** (Claude Computer Use / OS Agent style).
+**Antigravity Operator** (`agyo`) wraps Google Antigravity sessions with on-disk memory, git checkpoints, a local dashboard and a supervised Chrome profile. It does not sandbox the agent: commands the agent runs still have your user's permissions.
 
 By implementing the canonical **Outer Harness (Martin Fowler)** model, `agyo` provides:
 1. **Deterministic Session Memory:** State persists directly in `.agents/session/` on disk (`state.md`, `decisions.md`, `todo.md`), eliminating context amnesia.
-2. **Zero-Pollution Chrome Isolation:** Automatically launches and supervises a dedicated Chrome instance on port `9222` (`~/.gemini/antigravity-browser-profile`), keeping your personal browsing safe and untouched.
+2. **Separate Chrome Profile:** Launches and supervises a dedicated Chrome instance on port `9222` (`~/.gemini/antigravity-browser-profile`), so agent browsing stays out of your personal profile. This is a separate profile, not a sandbox: anything that can reach the DevTools port controls that browser.
 3. **Headless & Server Linux Parity:** Automatically detects missing graphical environments (`$DISPLAY` / `$WAYLAND_DISPLAY`) and activates robust server flags (`--headless=new`, `--disable-dev-shm-usage`, `--no-sandbox`).
-4. **Single-Binary Portability:** Written in pure Go with `CGO_ENABLED=0` and embedded templates (`//go:embed`), producing a self-contained ~6MB executable requiring zero dependencies.
+4. **Single-Binary Portability:** Written in pure Go with `CGO_ENABLED=0` and embedded templates (`//go:embed`), producing a single self-contained executable with no runtime dependencies.
 
 ---
 
@@ -109,12 +107,12 @@ Google Antigravity provides state-of-the-art atomic tooling: arbitrary bash exec
 
 | Capability | Engineering Implementation |
 |---|---|
-| **Outer Harness (Fowler)** | **Guide × Sensor:** Deterministic directives guide the model; automated tests (`go test`, linters, runtime probes) validate every change before completion. |
+| **Outer Harness (Fowler)** | **Guide × Sensor:** Deterministic directives guide the model; the rules ask the agent to run tests (`go test`, linters, runtime probes) before calling a change done. `agyo` provides the rules and sensors; it does not enforce them. |
 | **Brain & Hands Symbiosis** | **Google NotebookLM + Antigravity:** Connects NotebookLM as the grounded research brain and Antigravity as the autonomous coding hands, avoiding context window bloat. |
 | **Filesystem Memory** | **`.agents/session/`:** Real-time state (`state.md`), architecture log (`decisions.md`), and task tracker (`todo.md`) persist across chat resets. |
 | **Browser Supervision** | **Chrome DevTools Protocol (CDP):** Dedicated profile on port `9222`, PID tracking, and graceful shutdown (`agyo browser stop`). |
 | **Auto-Headless Mode** | **Dynamic Display Probe:** Injects `--headless=new`, `--disable-dev-shm-usage`, and `--no-sandbox` automatically in server environments. |
-| **Zero Runtime Deps** | **Pure Go (`CGO_ENABLED=0`):** Single static ~6MB binary containing all embedded rules and templates. |
+| **Zero Runtime Deps** | **Pure Go (`CGO_ENABLED=0`):** Single static binary containing all embedded rules and templates. |
 
 ---
 
@@ -127,7 +125,7 @@ Google Antigravity provides state-of-the-art atomic tooling: arbitrary bash exec
 | **Grounded RAG Bridge (NotebookLM)** | ❌ No | ❌ No | ❌ No | **✅ Native (`agyo notebooklm` & MCP)** |
 | **Isolated Browser Profile** | ❌ Uses personal | ⚠️ Heavy Docker | ❌ No | **✅ Dedicated Profile (`9222`)** |
 | **macOS / Linux Parity** | ⚠️ Fragile | ⚠️ Docker-only | ⚠️ Dep conflicts | **✅ Native & Auto-Headless** |
-| **Runtime Footprint** | Multi-tooling | Docker / APIs | Python / venv | **✅ Single Static Binary (~6MB)** |
+| **Runtime Footprint** | Multi-tooling | Docker / APIs | Python / venv | **✅ Single Static Binary** |
 | **Integrated Diagnostics (`doctor`)** | ❌ No | ❌ No | ❌ No | **✅ Built into CLI** |
 
 ---
@@ -136,11 +134,11 @@ Google Antigravity provides state-of-the-art atomic tooling: arbitrary bash exec
 
 For computer science students and researchers leveraging academic benefits such as **Google AI Pro**, `agyo` is the ultimate productivity multiplier:
 
-1. **Token Quota Conservation:** Prevents infinite retry loops and verbose repetitive code outputs, ensuring your Gemini Pro quota lasts the entire semester.
+1. **Token Quota Conservation:** `.agentignore` keeps dependencies, lockfiles and dumps out of the prompt, and `agyo session compact` keeps `todo.md` short.
 2. **Zero-Root Portability in University Labs (Linux):** University labs often run locked-down Linux machines without `sudo` access to install Docker or system packages. The static `agyo-linux-amd64` binary runs directly from user space (`~/`).
 3. **Academic Logbook & Portfolio:** The `.agents/session/` folder preserves architectural rationales and algorithm trade-offs, turning daily coding into documented learning logs.
-4. **Safe Sandbox:** Isolated Chrome automation protects personal university credentials and institutional logins.
-5. **Symbiosis with Google NotebookLM (Zero-Context-Bloat Grounded RAG):** Ingest entire textbooks, papers, and assignment specs into NotebookLM. With `agyo notebooklm`, Antigravity queries authoritative sources with exact citations before writing code.
+4. **Separate Browser Profile:** Agent browsing runs in its own Chrome profile, away from your personal logins. It is not a sandbox.
+5. **Symbiosis with Google NotebookLM (Zero-Context-Bloat Grounded RAG):** Ingest entire textbooks, papers, assignment specs, and YouTube videos into NotebookLM. With `agyo notebooklm`, Antigravity queries authoritative sources with exact citations before writing code.
 
 ### 🎁 Bonus Student Skills Included (`skills/`):
 This repository includes 3 canonical skills out-of-the-box:
@@ -158,9 +156,11 @@ antigravity-operator/
 ├── internal/
 │   ├── platform/             # SRP: OS detection, X11/Wayland check, Chrome binary resolution
 │   ├── session/              # SRP: .agents/session/ scaffold & gitignore protection
+│   ├── checkpoint/           # SRP: Atomic working-tree snapshots & rollback
 │   ├── profile/              # SRP: Chrome lifecycle management, PID tracking & CDP port
 │   ├── watcher/              # SRP: Brain streaming, subagent tree hierarchy & OS notifications
 │   ├── exporter/             # SRP: Consolidated session report generator (Markdown & HTML)
+│   ├── analytics/            # SRP: Transcript parsing, tool call metrics aggregation & secret redaction
 │   ├── dashboard/            # SRP: Pure-Go embedded HTTP server, web UI & REST API
 │   ├── completion/           # SRP: Shell autocompletion generator (Bash, Zsh, Fish)
 │   ├── hook/                 # SRP: Git pre-commit continuity sensor & safeguards
@@ -183,12 +183,22 @@ antigravity-operator/
 ├── SECURITY.md               # Responsible vulnerability disclosure policy
 ├── PRIVACY.md                # Zero-telemetry local-first privacy policy (LGPD & GDPR)
 ├── CONTRIBUTING.md           # Contribution guide and testing protocol
+└── Makefile                  # Native build, lint, coverage and cross-compilation targets
 ```
 
 > 📖 **Comprehensive Engineering Specification:**  
 > For an in-depth breakdown of every subsystem, RFC 6455 WebSocket CDP implementation, $O(1)$ memory algorithms, and design decisions, read the [System Specification Index (docs/spec/)](docs/spec/README.md).
 
 ---
+
+## 🤖 AI-Assisted Development & Agent Ecosystem
+
+The project follows an **Agent-as-Code** approach:
+- **`AGENTS.md`:** Operating contract for any AI assistant (Antigravity, Cursor, Claude, Copilot): Go conventions, the sensor checklist and commit rules.
+- **Specialist roster (`agents/`):**
+  - **`operator-architect`:** Guardian of OS behavior, macOS/Linux parity and KISS/YAGNI.
+  - **`cdp-engineer`:** Chrome DevTools Protocol, browser flags and debugging sockets.
+  - **`qa-sentinel`:** Automated tests and regression sensors.
 
 ---
 
@@ -199,13 +209,14 @@ Install pre-compiled static binaries directly on macOS or Linux (no Go required)
 ```bash
 curl -fsSL https://raw.githubusercontent.com/tiagovilasboas/antigravity-operator/main/scripts/install.sh | bash
 ```
+Archives are also on the [Releases](https://github.com/tiagovilasboas/antigravity-operator/releases) page. From v0.4.6 on they carry a build provenance attestation; see [SECURITY.md](SECURITY.md) to verify one with `gh attestation verify`.
 
 ### Option 2: Homebrew (macOS & Linuxbrew)
 ```bash
 brew install tiagovilasboas/tap/agyo
 ```
 
-### Option 3: Build from Source (Go 1.22+)
+### Option 3: Build from Source (Go 1.27+, see go.mod)
 ```bash
 git clone https://github.com/tiagovilasboas/antigravity-operator.git
 cd antigravity-operator
@@ -242,12 +253,14 @@ Files created:
 - `.agents/session/decisions.md` (Architecture log and trade-offs)
 - `.agents/session/todo.md` (Task tracker)
 - `.agents/.gitignore` (Protects runtime logs and sensitive credentials)
+- `.agentignore` (Token blacklist: excludes `node_modules/`, `vendor/`, lockfiles and dumps; see section 5)
 
 ### 3. Inspect & Manage Session Memory (`session`)
 Monitor your agent's active progress, stream reasoning in real time, or archive completed missions:
 ```bash
-# View active mission objective, phase, and task completion percentage:
+# View active mission objective, phase, and task completion percentage (supports --json):
 agyo session status
+agyo session status --json
 
 # Stream active agent reasoning and tool executions live with desktop notifications:
 agyo session watch
@@ -267,8 +280,9 @@ agyo session compact --threshold 5 --keep 3
 # Archive completed session to historical log and reset templates for the next task:
 agyo session archive
 
-# List all archived historical sessions:
+# List all archived historical sessions (supports --json):
 agyo session list
+agyo session list --json
 
 # Restore a past archived session into active memory (creates safety backup automatically):
 agyo session restore session-2026-10-01-113140.md
@@ -276,22 +290,25 @@ agyo session restore latest
 ```
 
 ### 4. Filesystem Safety Net & Atomic Checkpoints (`checkpoint` & `rollback`)
-Protect your repository against hallucinated or destructive agent refactorings. Take an atomic snapshot before an agent begins risky edits, and rollback instantaneously if things go sideways:
+Take a snapshot before an agent starts risky edits and roll back if things go sideways. Rollback restores tracked files, removes files created after the checkpoint, and keeps `.agents/` and files that were already untracked (they are kept, not snapshotted):
 ```bash
 # Create an atomic snapshot before starting a complex multi-file edit:
-agyo checkpoint "pre-refactor" --desc="Before database schema migration"
+# (flags go before the name)
+agyo checkpoint --desc="Before database schema migration" pre-refactor
 
-# List all saved checkpoints:
+# List all saved checkpoints (supports --json):
 agyo checkpoint --list
+agyo checkpoint --list --json
 
-# Instant panic button: Safely undo agent changes and restore exact working tree:
+# Undo agent changes back to the latest (or a given) checkpoint:
 agyo rollback
 agyo rollback chk-20261001-113000
 ```
+If you committed after the checkpoint, `rollback` moves the current branch back to the checkpoint commit (it refuses on a detached HEAD or another branch). It saves uncommitted changes to a stash first and prints how to undo (`git reset --hard <old>`, also in `git reflog`). `.agents/` is never changed.
 
 ### 5. Token Waste Protection (`.agentignore`)
 When running `agyo init`, a pre-configured `.agentignore` blacklist is automatically scaffolded to prevent agents from loading heavyweight dependencies into prompt context:
-- Excludes `node_modules/`, `vendor/`, `dist/`, `.git/`
+- Excludes build output and dependencies (`node_modules/`, `vendor/`, `dist/`, `build/`, `target/`)
 - Excludes lockfiles (`package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`)
 - Excludes large dumps, datasets, minified bundles (`*.min.js`), and local `.env` files
 
@@ -305,7 +322,7 @@ agyo dashboard
 agyo dashboard --port 8090 --open=false
 ```
 
-### 5. Manage Isolated Chrome Lifecycle & CDP (`browser`)
+### 7. Manage Isolated Chrome Lifecycle & CDP (`browser`)
 Full process supervision with PID tracking, graceful shutdown, and pure-Go Chrome DevTools Protocol inspection:
 ```bash
 # Launch isolated Chrome on port 9222 (Desktop GUI):
@@ -329,8 +346,8 @@ agyo browser shot screenshot.png     # Capture PNG screenshot via CDP
 agyo browser stop
 ```
 
-### 6. Native Google NotebookLM Integration (`notebooklm`)
-Connects Google Antigravity agents and terminal sessions directly to your **Google NotebookLM** notebooks and grounded sources with automated CDP session handling (zero Python/Node dependencies):
+### 8. Native Google NotebookLM Integration (`notebooklm`)
+Connects Google Antigravity agents and terminal sessions directly to your **Google NotebookLM** notebooks and grounded sources with automated CDP session handling (zero Python/Node dependencies). Turn YouTube videos, research papers, and technical books into structured articles, study notes, and runnable code:
 ```bash
 # Check connection and authentication status with Google NotebookLM:
 agyo notebooklm status
@@ -352,8 +369,8 @@ agyo notebooklm mcp
 ```
 *(Short aliases supported: `agyo notebook` and `agyo nblm`)*
 
-### 7. Git Pre-Commit Continuity Hook (`hook`)
-Installs an automated session sensor into `.git/hooks/pre-commit` to prevent committing code without updating session objectives and task progress:
+### 9. Git Pre-Commit Continuity Hook (`hook`)
+Installs a `.git/hooks/pre-commit` script that prints the session status when `agyo` is on your PATH. When `todo.md` has 5 or more done tasks, it also runs `agyo session compact` and then `git add .agents/session/`, so the compacted session files are staged into that same commit. It is a reminder, not a gate: it always exits 0 and never blocks a commit:
 ```bash
 # Install hook in current repository (or specific target dir):
 agyo hook install
@@ -362,13 +379,17 @@ agyo hook install
 agyo hook uninstall
 ```
 
-### 7. Sync Rules, Skills, and MCP Manifestos (`sync`)
+### 10. Sync Rules, Skills, and MCP Manifestos (`sync`)
 Provisions canonical rules and automation manifests into Google Antigravity:
 ```bash
 agyo sync
 ```
+`sync` never overwrites an existing MCP manifest (`~/.gemini/antigravity/mcp/default-servers.json`). `agyo doctor` warns when that file has unpinned `npx` packages or differs from the built-in template. To back it up (`default-servers.json.bak-<UTC timestamp>`) and rewrite it:
+```bash
+agyo sync --update-mcp
+```
 
-### 8. Shell Autocompletion (`completion`)
+### 11. Shell Autocompletion (`completion`)
 Generate command and flag autocompletion for Bash, Zsh, or Fish:
 ```bash
 # Zsh (add to ~/.zshrc):
@@ -381,10 +402,21 @@ source <(agyo completion bash)
 agyo completion fish | source
 ```
 
-### 9. Project Manifesto (`about`)
+### 12. Project Manifesto (`about`)
 ```bash
 agyo about
 ```
+
+---
+
+## 🛡️ Canonical Operating Principles
+
+When Antigravity runs under `agyo`, it follows 5 rules:
+1. **Investigate first:** Look for facts in the terminal, browser and logs before asking trivial questions.
+2. **Multi-tool orchestration:** Identify -> Investigate -> Implement -> Test -> Validate in the browser.
+3. **Rigorous validation:** A task is done only when the result is validated end to end with evidence.
+4. **Separate profile:** Never drive the user's personal Chrome.
+5. **Concise communication:** Direct, technical and grounded in data.
 
 ---
 
@@ -420,7 +452,7 @@ We welcome contributions from engineers, students, and open-source enthusiasts! 
 * **MCP Integrations:** Create templates for popular community Model Context Protocol servers in `templates/mcps/`.
 * **Linux Distribution Testing:** Verify and document compatibility on Arch Linux, Alpine, Fedora, or NixOS.
 
-Please review our [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), [AUTHORS](AUTHORS), and [CONTRIBUTORS](CONTRIBUTORS).
+Please review our [CONTRIBUTING.md](CONTRIBUTING.md) (what gets accepted), [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), [AUTHORS](AUTHORS), and [CONTRIBUTORS](CONTRIBUTORS).
 
 ---
 

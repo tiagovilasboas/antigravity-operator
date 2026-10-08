@@ -14,23 +14,40 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        go: ['1.22', '1.23']
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
-          go-version: ${{ matrix.go }}
+          go-version-file: go.mod
           cache: true
+
+      - name: Gofmt (Formatting Gate)
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "These files need gofmt:"
+            echo "$unformatted"
+            exit 1
+          fi
 
       - name: Go Vet (Static Analysis)
         run: go vet ./...
 
+      - name: MCP Template Packages Exist on npm
+        run: bash scripts/check-mcp-packages.sh
+
       - name: Run Unit Tests
         run: go test -v -race ./...
+
+      - name: Installer Checksum Tests
+        run: bash scripts/install_test.sh
+
+      - name: Tap Formula Bump Tests
+        run: bash scripts/bump-tap-formula_test.sh
 
       - name: Build Native Binary
         run: make build

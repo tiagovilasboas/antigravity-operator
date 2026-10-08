@@ -5,8 +5,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
-	"github.com/tiagoboas/antigravity-operator/internal/platform"
+	"github.com/tiagovilasboas/antigravity-operator/internal/installer"
+	"github.com/tiagovilasboas/antigravity-operator/internal/platform"
 )
 
 func TestRun(t *testing.T) {
@@ -208,5 +210,44 @@ func TestFix(t *testing.T) {
 
 	if len(res2.Skipped) == 0 {
 		t.Errorf("esperava arquivos identificados como intactos")
+	}
+}
+
+func TestRun_WarnsOnOutdatedMCPManifest(t *testing.T) {
+	info := &platform.Info{OS: "linux", GeminiDir: t.TempDir()}
+	mcp := filepath.Join(info.GeminiDir, "mcp")
+	_ = os.MkdirAll(mcp, 0o755)
+	legacy := `{"mcpServers":{"chrome-devtools":{"command":"npx","args":["-y","@modelcontextprotocol/server-chrome-devtools"]}}}`
+	_ = os.WriteFile(filepath.Join(mcp, "default-servers.json"), []byte(legacy), 0o644)
+
+	var got *CheckItem
+	for _, c := range Run(info).Checks {
+		if c.Name == "MCP Manifest" {
+			c := c
+			got = &c
+		}
+	}
+	if got == nil {
+		t.Fatal("doctor has no MCP Manifest check")
+	}
+	if got.Status != "WARN" || !strings.Contains(got.Details, "@modelcontextprotocol/server-chrome-devtools") || !strings.Contains(got.Details, "agyo sync --update-mcp") {
+		t.Fatalf("want WARN naming the unpinned package and the fix, got %+v", got)
+	}
+}
+
+func TestCheckMCPManifest_States(t *testing.T) {
+	info := &platform.Info{GeminiDir: t.TempDir()}
+	if c := checkMCPManifest(info); c.Status != "INFO" {
+		t.Fatalf("missing manifest: %+v", c)
+	}
+	if _, _, err := installer.UpdateMCP(info, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if c := checkMCPManifest(info); c.Status != "OK" {
+		t.Fatalf("built-in manifest: %+v", c)
+	}
+	_ = os.WriteFile(installer.MCPPath(info), []byte(`{"mcpServers":{}}`), 0o644)
+	if c := checkMCPManifest(info); c.Status != "WARN" || !strings.Contains(c.Details, "Differs") {
+		t.Fatalf("custom manifest: %+v", c)
 	}
 }

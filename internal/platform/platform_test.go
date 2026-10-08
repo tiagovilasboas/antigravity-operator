@@ -3,7 +3,7 @@ package platform_test
 import (
 	"testing"
 
-	"github.com/tiagoboas/antigravity-operator/internal/platform"
+	"github.com/tiagovilasboas/antigravity-operator/internal/platform"
 )
 
 func TestDetect(t *testing.T) {

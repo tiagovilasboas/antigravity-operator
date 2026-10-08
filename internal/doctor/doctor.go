@@ -6,10 +6,11 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/tiagoboas/antigravity-operator/internal/notebook"
-	"github.com/tiagoboas/antigravity-operator/internal/platform"
-	"github.com/tiagoboas/antigravity-operator/internal/profile"
-	"github.com/tiagoboas/antigravity-operator/internal/session"
+	"github.com/tiagovilasboas/antigravity-operator/internal/installer"
+	"github.com/tiagovilasboas/antigravity-operator/internal/notebook"
+	"github.com/tiagovilasboas/antigravity-operator/internal/platform"
+	"github.com/tiagovilasboas/antigravity-operator/internal/profile"
+	"github.com/tiagovilasboas/antigravity-operator/internal/session"
 )
 
 // CheckItem representa o resultado de uma verificação individual.
@@ -17,6 +18,9 @@ type CheckItem struct {
 	Name    string `json:"name"`
 	Status  string `json:"status"` // "OK", "WARN", "FAIL", "INFO"
 	Details string `json:"details"`
+	// PublicDetails, when set, replaces Details on surfaces served over HTTP
+	// (dashboard) because Details carries personal data such as the git email.
+	PublicDetails string `json:"-"`
 }
 
 // Report agrega todas as verificações do sistema.
@@ -65,6 +69,9 @@ func Run(info *platform.Info) *Report {
 	// 5. Node e NPX (para MCPs)
 	rep.add(checkNode())
 
+	// 5b. Manifesto MCP instalado vs. template embutido
+	rep.add(checkMCPManifest(info))
+
 	// 6. Gemini API Keys (BYOK)
 	rep.add(checkAPIKeys())
 
@@ -109,6 +116,8 @@ func checkGit() CheckItem {
 		Name:    "Git",
 		Status:  "OK",
 		Details: fmt.Sprintf("%s (%s <%s>)", version, name, email),
+		// Name and email stay in the local CLI output only.
+		PublicDetails: fmt.Sprintf("%s (identity configured)", version),
 	}
 }
 
@@ -181,6 +190,25 @@ func checkHarnessCore(info *platform.Info) CheckItem {
 	}
 }
 
+func checkMCPManifest(info *platform.Info) CheckItem {
+	const name = "MCP Manifest"
+	const fix = " Run 'agyo sync --update-mcp' (backs up the current file)."
+	st := installer.CheckMCP(info)
+	switch {
+	case !st.Exists:
+		return CheckItem{Name: name, Status: "INFO", Details: "Not installed. Run 'agyo sync'."}
+	case st.ReadError != nil:
+		return CheckItem{Name: name, Status: "WARN", Details: "Unreadable: " + st.ReadError.Error(), PublicDetails: "Unreadable"}
+	case st.Invalid:
+		return CheckItem{Name: name, Status: "WARN", Details: "Not valid JSON." + fix}
+	case len(st.Unpinned) > 0:
+		return CheckItem{Name: name, Status: "WARN", Details: fmt.Sprintf("%d unpinned npx package(s) (%s).%s", len(st.Unpinned), strings.Join(st.Unpinned, "; "), fix)}
+	case st.Differs:
+		return CheckItem{Name: name, Status: "WARN", Details: "Differs from the built-in template." + fix}
+	}
+	return CheckItem{Name: name, Status: "OK", Details: "Matches the built-in template (packages pinned)"}
+}
+
 func checkAntigravity(info *platform.Info) CheckItem {
 	out, err := exec.Command("pgrep", "-i", "antigravity").Output()
 	if err == nil && len(strings.TrimSpace(string(out))) > 0 {
@@ -226,6 +254,8 @@ func checkAPIKeys() CheckItem {
 			Name:    "Gemini API Key (BYOK)",
 			Status:  "OK",
 			Details: fmt.Sprintf("Configurada via %s (%s)", source, masked),
+			// No key characters over HTTP; the masked value stays in the local CLI.
+			PublicDetails: fmt.Sprintf("Configured via %s", source),
 		}
 	}
 

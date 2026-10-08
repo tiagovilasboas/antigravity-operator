@@ -321,3 +321,50 @@ func TestSubagentTreeConcurrent(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+func TestFindLatestTranscript_AcrossAppDataDirs(t *testing.T) {
+	home := t.TempDir()
+	write := func(rel, conv string, mod time.Time) string {
+		dir := filepath.Join(home, rel, "brain", conv, ".system_generated", "logs")
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		p := filepath.Join(dir, "transcript.jsonl")
+		if err := os.WriteFile(p, []byte(`{"step_index":1}`), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chtimes(p, mod, mod); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+
+	if _, err := FindLatestTranscript(home); err == nil {
+		t.Fatal("expected an error when no app data dir has transcripts")
+	}
+
+	base := time.Now().Add(-time.Hour)
+	write(".gemini/antigravity", "app", base)
+	// ~/.gemini/brain is not an Antigravity location and must be ignored,
+	// even when it holds the newest file.
+	write(".gemini", "stray", base.Add(30*time.Minute))
+	cli := write(".gemini/antigravity-cli", "cli", base.Add(10*time.Minute))
+
+	got, err := FindLatestTranscript(home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Path != cli || got.ConversationID != "cli" {
+		t.Fatalf("want newest CLI transcript %s, got %s (%s)", cli, got.Path, got.ConversationID)
+	}
+
+	ide := write(".gemini/antigravity-ide", "ide", base.Add(20*time.Minute))
+	if got, _ = FindLatestTranscript(home); got.Path != ide {
+		t.Fatalf("want newest IDE transcript %s, got %s", ide, got.Path)
+	}
+
+	dirs := AppDataDirs(home)
+	if len(dirs) != 3 || dirs[0] != filepath.Join(home, ".gemini", "antigravity") {
+		t.Fatalf("unexpected app data dirs: %v", dirs)
+	}
+}

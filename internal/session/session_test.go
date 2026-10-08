@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/tiagoboas/antigravity-operator/internal/session"
+	"github.com/tiagovilasboas/antigravity-operator/internal/session"
 )
 
 func TestInit(t *testing.T) {
