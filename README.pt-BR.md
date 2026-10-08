@@ -142,7 +142,8 @@ Para estudantes de tecnologia, computação e engenharia que utilizam os benefí
 5. **Simbiose com o Google NotebookLM (Grounded RAG sem Custo de Contexto):** Estudantes e engenheiros podem carregar vídeos do YouTube, livros inteiros, papers e ementas no NotebookLM. Com o `agyo notebooklm`, o agente do Antigravity pesquisa diretamente nos cadernos para transformar vídeos e referências em artigos técnicos, guias de estudo e código fundamentado antes de programar, sem estourar a janela de contexto.
 
 ### 🎁 Skills para Estudantes Incluídas de Brinde (`skills/`):
-O repositório já inclui 3 skills prontas para acelerar a rotina acadêmica:
+O repositório já inclui 4 skills prontas para acelerar a rotina acadêmica:
+* **`video-to-article`:** Transforma vídeos do YouTube, palestras e conferências técnicas em artigos de estudo estruturados, spikes de arquitetura e POCs executáveis utilizando o Google NotebookLM e o `agyo`.
 * **`feynman-code-tutor`:** Tutor sênior baseado na Técnica Feynman. Explica algoritmos, estruturas de dados e Big-O com analogias do mundo real e perguntas de fixação.
 * **`student-study-planner`:** Decompõe ementas pesadas, projetos finais e matérias complexas em sprints gerenciáveis de estudo focado (20% teoria, 80% código).
 * **`token-budget-guard`:** Guardião cirúrgico que impede respostas repetitivas ou leitura desnecessária de arquivos, estendendo a longevidade da sua cota do Google AI Pro.

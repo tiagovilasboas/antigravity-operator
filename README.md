@@ -142,7 +142,8 @@ For computer science students and researchers leveraging academic benefits such 
 5. **Symbiosis with Google NotebookLM (Zero-Context-Bloat Grounded RAG):** Ingest entire textbooks, papers, assignment specs, and YouTube videos into NotebookLM. With `agyo notebooklm`, Antigravity queries authoritative sources with exact citations before writing code.
 
 ### 🎁 Bonus Student Skills Included (`skills/`):
-This repository includes 3 canonical skills out-of-the-box:
+This repository includes 4 canonical skills out-of-the-box:
+* **`video-to-article`:** Transforms YouTube videos, conference talks, and dense papers into structured study guides, architecture spikes, and runnable POCs using Google NotebookLM and `agyo`.
 * **`feynman-code-tutor`:** Senior tutor based on the Feynman Technique. Explains complex algorithms, data structures, and Big-O using real-world analogies and comprehension checkpoints.
 * **`student-study-planner`:** Breaks down complex college syllabi, final projects, and technical interview prep into focused sprint cycles (20% theory, 80% deliberate coding).
 * **`token-budget-guard`:** Surgical token optimizer ensuring context efficiency and zero repetitive code waste.
