@@ -3,12 +3,15 @@ package notebook
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/tiagovilasboas/antigravity-operator/internal/platform"
 	"github.com/tiagovilasboas/antigravity-operator/internal/profile"
 )
+
+var validNotebookID = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 
 // ListNotebooks extrai a lista de cadernos disponíveis no NotebookLM através do Chrome isolado.
 func ListNotebooks(info *platform.Info, port int) ([]Notebook, error) {
@@ -81,12 +84,15 @@ func AskNotebook(info *platform.Info, port int, notebookID, query string) (*AskR
 	if strings.TrimSpace(notebookID) == "" {
 		return nil, fmt.Errorf("ID do caderno não pode ser vazio")
 	}
+	if !validNotebookID.MatchString(notebookID) {
+		return nil, fmt.Errorf("identificador de caderno inválido: %s", notebookID)
+	}
 	if strings.TrimSpace(query) == "" {
 		return nil, fmt.Errorf("pergunta não pode ser vazia")
 	}
 
 	targetURL := fmt.Sprintf("%s/notebook/%s", NotebookLMBaseURL, notebookID)
-	tab, err := profile.EnsureTab(port, targetURL, notebookID)
+	tab, err := profile.EnsureTab(port, targetURL, "notebooklm.google.com/notebook/"+notebookID)
 	if err != nil {
 		return nil, fmt.Errorf("falha ao acessar caderno %s: %w", notebookID, err)
 	}
@@ -191,12 +197,15 @@ func PushSource(info *platform.Info, port int, notebookID, title, content string
 	if strings.TrimSpace(notebookID) == "" {
 		return fmt.Errorf("ID do caderno não pode ser vazio")
 	}
+	if !validNotebookID.MatchString(notebookID) {
+		return fmt.Errorf("identificador de caderno inválido: %s", notebookID)
+	}
 	if strings.TrimSpace(content) == "" {
 		return fmt.Errorf("conteúdo da fonte não pode ser vazio")
 	}
 
 	targetURL := fmt.Sprintf("%s/notebook/%s", NotebookLMBaseURL, notebookID)
-	tab, err := profile.EnsureTab(port, targetURL, notebookID)
+	tab, err := profile.EnsureTab(port, targetURL, "notebooklm.google.com/notebook/"+notebookID)
 	if err != nil {
 		return fmt.Errorf("falha ao acessar caderno %s: %w", notebookID, err)
 	}
@@ -208,7 +217,11 @@ func PushSource(info *platform.Info, port int, notebookID, title, content string
 		const t = %s;
 		const c = %s;
 		// Procura botão "Adicionar nota" ou "Adicionar fonte"
-		const addBtn = document.querySelector('button[aria-label*="Adicionar nota"], button[aria-label*="Add note"], button:has-text("Adicionar nota")');
+		let addBtn = document.querySelector('button[aria-label*="Adicionar nota"], button[aria-label*="Add note"]');
+		if (!addBtn) {
+			const buttons = Array.from(document.querySelectorAll('button'));
+			addBtn = buttons.find(b => b.textContent && (b.textContent.includes('Adicionar nota') || b.textContent.includes('Add note')));
+		}
 		if (addBtn) {
 			addBtn.click();
 			return { ok: true, method: "button" };

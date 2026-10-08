@@ -203,3 +203,27 @@ func TestNotebook_ServeMCP_Lifecycle(t *testing.T) {
 		t.Errorf("expected error code -32601 for unknown method, got: %+v", errResp.Error)
 	}
 }
+
+func TestNotebook_InputValidation(t *testing.T) {
+	info := &platform.Info{}
+
+	// ID inválido com caracteres perigosos
+	if _, err := notebook.AskNotebook(info, 9222, "id; injection", "query"); err == nil {
+		t.Errorf("expected error on invalid notebook ID in AskNotebook")
+	}
+
+	if err := notebook.PushSource(info, 9222, "id/../../traversal", "title", "content"); err == nil {
+		t.Errorf("expected error on invalid notebook ID in PushSource")
+	}
+
+	// Campos vazios
+	if _, err := notebook.AskNotebook(info, 9222, "", "query"); err == nil {
+		t.Errorf("expected error on empty notebook ID")
+	}
+	if _, err := notebook.AskNotebook(info, 9222, "valid-id", ""); err == nil {
+		t.Errorf("expected error on empty query")
+	}
+	if err := notebook.PushSource(info, 9222, "valid-id", "title", ""); err == nil {
+		t.Errorf("expected error on empty content")
+	}
+}
