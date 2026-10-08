@@ -74,6 +74,7 @@ A especificação completa está modularizada por domínios de responsabilidade 
 | **05. Chrome & CDP** | [05-SUPERVISAO-CHROME-E-CDP-PURO.md](05-SUPERVISAO-CHROME-E-CDP-PURO.md) | Perfil isolado, flags headless dinâmicas, PID tracking e implementação nativa de cliente WebSocket RFC 6455 para Chrome DevTools Protocol. |
 | **06. Observabilidade & Watch** | [06-OBSERVABILIDADE-WATCHER-E-DASHBOARD.md](06-OBSERVABILIDADE-WATCHER-E-DASHBOARD.md) | Streaming JSONL reativo de transcript, árvore de subagentes concorrente, alertas nativos de SO e Dashboard Web HTTP. |
 | **07. Sensores & Self-Healing** | [07-SENSORES-DOCTOR-E-SELF-HEALING.md](07-SENSORES-DOCTOR-E-SELF-HEALING.md) | Diagnóstico computacional, pre-commit hook de continuidade, autorrecuperação (`doctor --fix`) e contrato machine-readable `--json`. |
+| **08. NotebookLM & MCP** | [08-NOTEBOOKLM-E-MCP-SERVER.md](08-NOTEBOOKLM-E-MCP-SERVER.md) | Ponte nativa com Google NotebookLM via CDP, extração de fontes e servidor MCP stdio JSON-RPC 2.0. |
 
 ---
 
@@ -91,6 +92,7 @@ flowchart TD
         Subsystems -->|init / session| SessionMod["internal/session (Memória Operacional, Compact, Archive, Restore)"]
         Subsystems -->|checkpoint / rollback| ChkMod["internal/checkpoint (Git Stash Commit Porcelain)"]
         Subsystems -->|browser| ProfileMod["internal/profile (Chrome Supervisor & Pure Go CDP WebSocket)"]
+        Subsystems -->|notebook| NotebookMod["internal/notebook (NotebookLM Bridge & Stdio MCP Server)"]
         Subsystems -->|doctor| DoctorMod["internal/doctor (Sensores de Diagnóstico & Self-Healing Fix)"]
         Subsystems -->|watch / dashboard| WatchMod["internal/watcher & dashboard (Transcript Stream & Web UI)"]
         Subsystems -->|hook| HookMod["internal/hook (Git Pre-Commit Outer Harness Gate)"]

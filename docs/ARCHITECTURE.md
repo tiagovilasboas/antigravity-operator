@@ -79,15 +79,21 @@ graph TD
    * Installs an outer harness sensor into `.git/hooks/pre-commit`.
    * Verifies that `.agents/session/state.md` and `todo.md` have been updated before allowing code commits.
 
-9. **Rules & Manifesto Sync (`agyo sync`):**
+9. **Rules & MCP Manifest Sync (`agyo sync`):**
    * Deploys canonical Session Agent directives into `~/.gemini/antigravity/rules/session-agent.md`.
-   * Configures standard Model Context Protocol servers in `~/.gemini/antigravity/mcp/default-servers.json`.
+   * Configures standard Model Context Protocol servers and automatically registers `notebooklm` in `mcp_config.json`.
+
+10. **Native Google NotebookLM Bridge & Stdio MCP (`agyo notebook`):**
+    * Bridges Antigravity agents and terminal sessions to Google NotebookLM notebooks and grounded sources.
+    * Manages authentication and session readiness over CDP in dedicated Chrome without manual cookie extraction.
+    * Exposes high-level commands: `status`, `open`, `list`, `ask`, and `push`.
+    * Implements standard stdio MCP JSON-RPC 2.0 server (`agyo notebook mcp`), allowing direct tool calls from Antigravity, Cursor, and Claude.
 
 ---
 
 ## 3. Engineering Decisions & Principles
 
-- **Single Responsibility Principle (SRP):** Each internal package (`platform`, `session`, `checkpoint`, `profile`, `installer`, `doctor`, `hook`, `watcher`, `dashboard`, `exporter`) is strictly decoupled.
+- **Single Responsibility Principle (SRP):** Each internal package (`platform`, `session`, `checkpoint`, `profile`, `installer`, `doctor`, `hook`, `watcher`, `dashboard`, `exporter`, `notebook`) is strictly decoupled.
 - **Embedded Assets (`//go:embed`):** Eliminates external filesystem dependencies at runtime, ensuring offline, self-contained single-binary execution.
 - **Pure Go / Zero CGO (`CGO_ENABLED=0`):** Guarantees dynamic linker independence across glibc, musl, and diverse Linux kernel distributions.
 - **Zero Third-Party Runtime Dependencies:** All networking, WebSockets (RFC 6455), and JSONL streaming are implemented directly on Go's standard library.
