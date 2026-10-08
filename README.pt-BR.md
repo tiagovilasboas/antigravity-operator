@@ -317,27 +317,28 @@ agyo browser shot screenshot.png     # Captura screenshot PNG da aba ativa
 agyo browser stop
 ```
 
-### 6. Integração Nativa com Google NotebookLM (`notebook`)
+### 6. Integração Nativa com Google NotebookLM (`notebooklm`)
 Conecta os agentes do Google Antigravity e sessões de terminal aos seus cadernos e fontes do **Google NotebookLM** sem dependências de Python ou Node:
 ```bash
-# Verificar status de autenticação e conexão com o NotebookLM:
-agyo notebook status
+# Verificar status de autenticação e conexão com o Google NotebookLM:
+agyo notebooklm status
 
-# Abrir o NotebookLM no Chrome isolado (sessão Google persistida):
-agyo notebook open
+# Abrir o Google NotebookLM no Chrome isolado (sessão Google persistida):
+agyo notebooklm open
 
 # Listar todos os cadernos da conta ativa:
-agyo notebook list
+agyo notebooklm list
 
 # Fazer perguntas fundamentadas às fontes de um caderno:
-agyo notebook ask <notebook-id> "Qual é a arquitetura descrita nas especificações?"
+agyo notebooklm ask <notebook-id> "Qual é a arquitetura descrita nas especificações?"
 
 # Enviar arquivos ou notas locais como fontes para um caderno:
-agyo notebook push <notebook-id> docs/spec/ARCHITECTURE.md
+agyo notebooklm push <notebook-id> docs/spec/ARCHITECTURE.md
 
 # Servidor stdio MCP JSON-RPC para agentes (Antigravity / Cursor / Claude):
-agyo notebook mcp
+agyo notebooklm mcp
 ```
+*(Aliases curtos suportados: `agyo notebook` e `agyo nblm`)*
 
 ### 7. Git Pre-Commit Hook de Continuidade (`hook`)
 Instala um sensor automático em `.git/hooks/pre-commit` para evitar commits sem atualizar o objetivo e as tarefas concluídas da sessão:

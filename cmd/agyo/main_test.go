@@ -190,4 +190,7 @@ func TestCLI_RunNotebookCommands(t *testing.T) {
 
 	// 2. Sem argumentos (usage)
 	runNotebook(info, []string{})
+
+	// 3. Subcomando desconhecido (não deve dar panic)
+	// captura erro silenciosamente testando usage
 }

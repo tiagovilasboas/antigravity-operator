@@ -57,7 +57,7 @@ func main() {
 		runDoctor(info, os.Args[2:])
 	case "browser":
 		runBrowser(info, os.Args[2:])
-	case "notebook":
+	case "notebook", "notebooklm", "nblm":
 		runNotebook(info, os.Args[2:])
 	case "sync":
 		runSync(info)
@@ -106,12 +106,12 @@ Available commands:
   browser close <id>  Close a specific tab by ID
   browser eval "<js>" Evaluate JavaScript expression in the active tab (pure Go CDP)
   browser shot [file] Capture PNG screenshot of active tab without external libraries
-  notebook status     Inspect Google NotebookLM connection and auth readiness
-  notebook open       Launch isolated Chrome directly into Google NotebookLM
-  notebook list       List all notebooks available in the active Google account
-  notebook ask <id> q Ask a grounded query to a NotebookLM notebook
-  notebook push <id>  Push markdown or text file as a source to a notebook
-  notebook mcp        Serve stdio Model Context Protocol (MCP) server for agents
+  notebooklm status   Inspect Google NotebookLM connection and auth readiness
+  notebooklm open     Launch isolated Chrome directly into Google NotebookLM
+  notebooklm list     List all notebooks available in the active Google account
+  notebooklm ask <id> Ask a grounded query to a NotebookLM notebook
+  notebooklm push <id> Push markdown or text file as a source to a notebook
+  notebooklm mcp      Serve stdio Model Context Protocol (MCP) server for agents
   sync                Synchronize canonical rules and MCP manifests to Google Antigravity
   hook install [dir]  Install git pre-commit hook to safeguard session continuity
   hook uninstall [dir] Remove agyo git pre-commit hook
@@ -726,13 +726,13 @@ func runNotebook(info *platform.Info, args []string) {
 }
 
 func printNotebookUsage() {
-	fmt.Println(`Usage: agyo notebook <subcommand> [options]
+	fmt.Println(`Usage: agyo notebooklm <subcommand> [options] (aliases: agyo notebook, agyo nblm)
 
 Subcommands:
-  status               Check connection and authentication status with NotebookLM
+  status               Check connection and authentication status with Google NotebookLM
   open, login          Launch isolated Chrome and open Google NotebookLM
-  list                 List all notebooks available in your account
-  ask <id> "<query>"   Ask a grounded question to a notebook
+  list                 List all notebooks available in your Google account
+  ask <id> "<query>"   Ask a grounded question to a NotebookLM notebook
   push <id> <file>     Push markdown note/file content into a notebook
   mcp                  Run stdio Model Context Protocol (MCP) server for agents`)
 }

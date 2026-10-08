@@ -25,7 +25,7 @@ sequenceDiagram
     participant Chrome as Chrome Isolado (:9222)
     participant NLM as Google NotebookLM Web
 
-    Dev->>CLI: agyo notebook ask <id> "query" (ou tools/call)
+    Dev->>CLI: agyo notebooklm ask <id> "query" (ou tools/call)
     CLI->>Svc: AskNotebook(info, port, id, query)
     Svc->>CDP: EnsureTab(port, notebookURL, id)
     CDP->>Chrome: HTTP GET /json (ou /json/new)
@@ -75,7 +75,7 @@ type AskResult struct {
 
 ## 4. Servidor Stdio MCP JSON-RPC 2.0 (`mcp.go`)
 
-O `agyo notebook mcp` implementa a especificação canônica do **Model Context Protocol**:
+O `agyo notebooklm mcp` (ou `agyo notebook mcp`) implementa a especificação canônica do **Model Context Protocol**:
 - **Transporte:** Stdio (leitura de `os.Stdin`, escrita em `os.Stdout`)
 - **Protocolo:** JSON-RPC 2.0 delimitado por quebras de linha (`\n`)
 - **Ferramentas Expostas:**
@@ -91,7 +91,7 @@ Ao rodar `agyo sync`, o instalador inspeciona `~/.gemini/config/mcp_config.json`
   "mcpServers": {
     "notebooklm": {
       "command": "agyo",
-      "args": ["notebook", "mcp"]
+      "args": ["notebooklm", "mcp"]
     }
   }
 }

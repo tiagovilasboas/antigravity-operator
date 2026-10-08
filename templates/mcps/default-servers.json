@@ -10,7 +10,7 @@
     },
     "notebooklm": {
       "command": "agyo",
-      "args": ["notebook", "mcp"]
+      "args": ["notebooklm", "mcp"]
     }
   }
 }

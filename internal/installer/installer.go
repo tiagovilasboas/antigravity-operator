@@ -117,7 +117,7 @@ func RegisterNotebookLMMCP(mcpConfigPath string) error {
 	if _, exists := servers["notebooklm"]; !exists {
 		servers["notebooklm"] = map[string]interface{}{
 			"command": "agyo",
-			"args":    []string{"notebook", "mcp"},
+			"args":    []string{"notebooklm", "mcp"},
 		}
 
 		updatedBytes, err := json.MarshalIndent(root, "", "  ")

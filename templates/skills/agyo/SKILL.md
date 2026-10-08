@@ -82,24 +82,25 @@ agyo browser stop
 
 ### 4. Integração Nativa com Google NotebookLM
 ```bash
-# Verificar status de conexão e autenticação no NotebookLM:
-agyo notebook status
+# Verificar status de conexão e autenticação no Google NotebookLM:
+agyo notebooklm status
 
-# Abrir NotebookLM no Chrome isolado:
-agyo notebook open
+# Abrir o Google NotebookLM no Chrome isolado:
+agyo notebooklm open
 
 # Listar cadernos disponíveis na conta:
-agyo notebook list
+agyo notebooklm list
 
 # Consultar fontes e fazer perguntas fundamentadas a um caderno:
-agyo notebook ask <notebook-id> "<pergunta>"
+agyo notebooklm ask <notebook-id> "<pergunta>"
 
 # Adicionar arquivos ou notas locais como fontes em um caderno:
-agyo notebook push <notebook-id> <arquivo-ou-texto>
+agyo notebooklm push <notebook-id> <arquivo-ou-texto>
 
 # Executar como servidor MCP stdio para o Antigravity / Cursor / Claude:
-agyo notebook mcp
+agyo notebooklm mcp
 ```
+*(Aliases curtos suportados: `agyo notebook` e `agyo nblm`)*
 
 ### 5. Proteção de Continuidade Git (Pre-Commit Sensor)
 ```bash

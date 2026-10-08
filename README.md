@@ -326,27 +326,28 @@ agyo browser shot screenshot.png     # Capture PNG screenshot via CDP
 agyo browser stop
 ```
 
-### 6. Native Google NotebookLM Integration (`notebook`)
+### 6. Native Google NotebookLM Integration (`notebooklm`)
 Connects Google Antigravity agents and terminal sessions directly to your **Google NotebookLM** notebooks and grounded sources with automated CDP session handling (zero Python/Node dependencies):
 ```bash
-# Check connection and authentication status with NotebookLM:
-agyo notebook status
+# Check connection and authentication status with Google NotebookLM:
+agyo notebooklm status
 
 # Launch isolated Chrome and open Google NotebookLM (persisted Google profile):
-agyo notebook open
+agyo notebooklm open
 
 # List all available notebooks in your active Google account:
-agyo notebook list
+agyo notebooklm list
 
 # Ask a grounded question to a specific notebook:
-agyo notebook ask <notebook-id> "What is the architecture described in the specifications?"
+agyo notebooklm ask <notebook-id> "What is the architecture described in the specifications?"
 
 # Push local markdown or text files as sources to a notebook:
-agyo notebook push <notebook-id> docs/spec/ARCHITECTURE.md
+agyo notebooklm push <notebook-id> docs/spec/ARCHITECTURE.md
 
 # Run stdio Model Context Protocol (MCP) server for agents (Antigravity / Cursor / Claude):
-agyo notebook mcp
+agyo notebooklm mcp
 ```
+*(Short aliases supported: `agyo notebook` and `agyo nblm`)*
 
 ### 7. Git Pre-Commit Continuity Hook (`hook`)
 Installs an automated session sensor into `.git/hooks/pre-commit` to prevent committing code without updating session objectives and task progress:
