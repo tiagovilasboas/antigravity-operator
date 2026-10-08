@@ -78,3 +78,52 @@ func TestSync_CreateDirectoryError(t *testing.T) {
 		t.Error("expected error when GeminiDir cannot be created, got nil")
 	}
 }
+
+func TestRegisterNotebookLMMCP(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfgPath := filepath.Join(tmpDir, "mcp_config.json")
+
+	initialJSON := []byte(`{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx"
+    }
+  }
+}`)
+	if err := os.WriteFile(cfgPath, initialJSON, 0644); err != nil {
+		t.Fatalf("failed to write initial config: %v", err)
+	}
+
+	if err := RegisterNotebookLMMCP(cfgPath); err != nil {
+		t.Fatalf("RegisterNotebookLMMCP failed: %v", err)
+	}
+
+	data, err := os.ReadFile(cfgPath)
+	if err != nil {
+		t.Fatalf("failed to read updated config: %v", err)
+	}
+
+	if !os.FileMode(0644).IsDir() && (!stringContains(string(data), "notebooklm") || !stringContains(string(data), "agyo")) {
+		t.Errorf("expected updated config to contain 'notebooklm' and 'agyo', got: %s", string(data))
+	}
+}
+
+func stringContains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > 0 && bytesContains([]byte(s), []byte(substr)))
+}
+
+func bytesContains(b, sub []byte) bool {
+	for i := 0; i+len(sub) <= len(b); i++ {
+		match := true
+		for j := 0; j < len(sub); j++ {
+			if b[i+j] != sub[j] {
+				match = false
+				break
+			}
+		}
+		if match {
+			return true
+		}
+	}
+	return false
+}

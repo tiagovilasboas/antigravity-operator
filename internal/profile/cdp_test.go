@@ -250,3 +250,76 @@ func handleMockCDPConn(conn net.Conn, port int) {
 	}
 }
 
+func TestCDP_FindTabAndEnsureTab(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/json" {
+			tabs := []profile.Tab{
+				{
+					ID:    "tab-nlm",
+					Title: "NotebookLM",
+					Type:  "page",
+					URL:   "https://notebooklm.google.com/notebook/123",
+				},
+				{
+					ID:    "tab-other",
+					Title: "Google",
+					Type:  "page",
+					URL:   "https://google.com",
+				},
+			}
+			_ = json.NewEncoder(w).Encode(tabs)
+			return
+		}
+		if strings.HasPrefix(r.URL.Path, "/json/new") {
+			_ = json.NewEncoder(w).Encode(profile.Tab{
+				ID:    "tab-created",
+				Title: "New Target",
+				Type:  "page",
+				URL:   "https://notebooklm.google.com",
+			})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	parts := strings.Split(server.URL, ":")
+	port, _ := strconv.Atoi(parts[len(parts)-1])
+
+	// 1. Find existing tab
+	tab, err := profile.FindTab(port, "notebooklm.google.com")
+	if err != nil {
+		t.Fatalf("FindTab failed: %v", err)
+	}
+	if tab == nil || tab.ID != "tab-nlm" {
+		t.Fatalf("expected tab-nlm, got %+v", tab)
+	}
+
+	// 2. Find nonexistent tab
+	notFound, err := profile.FindTab(port, "not-found.domain.com")
+	if err != nil {
+		t.Fatalf("FindTab failed on not found: %v", err)
+	}
+	if notFound != nil {
+		t.Fatalf("expected nil tab for not-found, got %+v", notFound)
+	}
+
+	// 3. EnsureTab when exists
+	ensured, err := profile.EnsureTab(port, "https://notebooklm.google.com", "notebooklm.google.com")
+	if err != nil {
+		t.Fatalf("EnsureTab failed: %v", err)
+	}
+	if ensured.ID != "tab-nlm" {
+		t.Fatalf("expected existing tab-nlm, got %s", ensured.ID)
+	}
+
+	// 4. EnsureTab when does not exist
+	ensuredNew, err := profile.EnsureTab(port, "https://notebooklm.google.com", "missing-url")
+	if err != nil {
+		t.Fatalf("EnsureTab failed on new: %v", err)
+	}
+	if ensuredNew.ID != "tab-created" {
+		t.Fatalf("expected newly opened tab-created, got %s", ensuredNew.ID)
+	}
+}
+

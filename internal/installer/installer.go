@@ -1,6 +1,7 @@
 package installer
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -58,6 +59,23 @@ func Sync(info *platform.Info) (*SyncResult, error) {
 		result.MCPPath = mcpDefaultTarget
 	}
 
+	// 3.1 Registra notebooklm no mcp_config.json ativo do Antigravity se existir
+	homeDir := info.HomeDir
+	if homeDir == "" {
+		homeDir = filepath.Dir(filepath.Dir(info.GeminiDir))
+	}
+	activeConfigPaths := []string{
+		filepath.Join(info.GeminiDir, "mcp_config.json"),
+		filepath.Join(homeDir, ".gemini", "config", "mcp_config.json"),
+	}
+	for _, cfgPath := range activeConfigPaths {
+		if fi, err := os.Stat(cfgPath); err == nil && !fi.IsDir() {
+			if err := RegisterNotebookLMMCP(cfgPath); err == nil {
+				result.Updated = append(result.Updated, cfgPath)
+			}
+		}
+	}
+
 	// 4. Instalar skill nativa do Antigravity (agyo)
 	skillContent, err := templates.FS.ReadFile("skills/agyo/SKILL.md")
 	if err == nil {
@@ -76,4 +94,39 @@ func Sync(info *platform.Info) (*SyncResult, error) {
 	}
 
 	return result, nil
+}
+
+// RegisterNotebookLMMCP assegura que a entrada do servidor MCP notebooklm esteja configurada no arquivo informado.
+func RegisterNotebookLMMCP(mcpConfigPath string) error {
+	data, err := os.ReadFile(mcpConfigPath)
+	if err != nil {
+		return err
+	}
+
+	var root map[string]interface{}
+	if err := json.Unmarshal(data, &root); err != nil {
+		return err
+	}
+
+	servers, ok := root["mcpServers"].(map[string]interface{})
+	if !ok || servers == nil {
+		servers = make(map[string]interface{})
+		root["mcpServers"] = servers
+	}
+
+	if _, exists := servers["notebooklm"]; !exists {
+		servers["notebooklm"] = map[string]interface{}{
+			"command": "agyo",
+			"args":    []string{"notebook", "mcp"},
+		}
+
+		updatedBytes, err := json.MarshalIndent(root, "", "  ")
+		if err != nil {
+			return err
+		}
+
+		return os.WriteFile(mcpConfigPath, updatedBytes, 0644)
+	}
+
+	return nil
 }

@@ -145,6 +145,7 @@ antigravity-operator/
 │   ├── completion/           # SRP: Gerador de autocompletion de shell (Bash, Zsh, Fish)
 │   ├── hook/                 # SRP: Sensor e guarda de continuidade de sessão para o Git pre-commit
 │   ├── installer/            # SRP: Sincronização idempotente de regras e manifestos MCP
+│   ├── notebook/             # SRP: Integração nativa com Google NotebookLM e servidor MCP stdio
 │   └── doctor/               # SRP: Sensor computacional de diagnóstico completo da máquina
 ├── templates/                # Embutido no binário estático via //go:embed (zero dependências)
 │   ├── rules/                # Regras canônicas de Session Agent
@@ -316,7 +317,29 @@ agyo browser shot screenshot.png     # Captura screenshot PNG da aba ativa
 agyo browser stop
 ```
 
-### 6. Git Pre-Commit Hook de Continuidade (`hook`)
+### 6. Integração Nativa com Google NotebookLM (`notebook`)
+Conecta os agentes do Google Antigravity e sessões de terminal aos seus cadernos e fontes do **Google NotebookLM** sem dependências de Python ou Node:
+```bash
+# Verificar status de autenticação e conexão com o NotebookLM:
+agyo notebook status
+
+# Abrir o NotebookLM no Chrome isolado (sessão Google persistida):
+agyo notebook open
+
+# Listar todos os cadernos da conta ativa:
+agyo notebook list
+
+# Fazer perguntas fundamentadas às fontes de um caderno:
+agyo notebook ask <notebook-id> "Qual é a arquitetura descrita nas especificações?"
+
+# Enviar arquivos ou notas locais como fontes para um caderno:
+agyo notebook push <notebook-id> docs/spec/ARCHITECTURE.md
+
+# Servidor stdio MCP JSON-RPC para agentes (Antigravity / Cursor / Claude):
+agyo notebook mcp
+```
+
+### 7. Git Pre-Commit Hook de Continuidade (`hook`)
 Instala um sensor automático em `.git/hooks/pre-commit` para evitar commits sem atualizar o objetivo e as tarefas concluídas da sessão:
 ```bash
 # Instalar o hook no repositório atual (ou diretório especificado):

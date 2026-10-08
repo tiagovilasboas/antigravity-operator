@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/tiagoboas/antigravity-operator/internal/notebook"
 	"github.com/tiagoboas/antigravity-operator/internal/platform"
 	"github.com/tiagoboas/antigravity-operator/internal/profile"
 	"github.com/tiagoboas/antigravity-operator/internal/session"
@@ -70,7 +71,10 @@ func Run(info *platform.Info) *Report {
 	// 7. Integração com Harness Core
 	rep.add(checkHarnessCore(info))
 
-	// 8. Memória Operacional de Sessão (.agents/session/)
+	// 8. Google NotebookLM Readiness
+	rep.add(checkNotebookLM(info))
+
+	// 9. Memória Operacional de Sessão (.agents/session/)
 	rep.add(checkSessionMemory("."))
 
 	return rep
@@ -255,5 +259,35 @@ func checkSessionMemory(dir string) CheckItem {
 		Name:    "Session Memory (.agents/session/)",
 		Status:  status,
 		Details: details,
+	}
+}
+
+func checkNotebookLM(info *platform.Info) CheckItem {
+	st := notebook.CheckSession(info, 0)
+	if !st.ChromeRunning {
+		return CheckItem{
+			Name:    "Google NotebookLM",
+			Status:  "INFO",
+			Details: "Chrome DevTools inativo (use 'agyo notebook open' para conectar)",
+		}
+	}
+	if !st.HasTab {
+		return CheckItem{
+			Name:    "Google NotebookLM",
+			Status:  "INFO",
+			Details: "Chrome ativo, sem aba do NotebookLM (use 'agyo notebook open')",
+		}
+	}
+	if !st.IsLoggedIn {
+		return CheckItem{
+			Name:    "Google NotebookLM",
+			Status:  "WARN",
+			Details: "Aba aberta aguardando login na conta Google",
+		}
+	}
+	return CheckItem{
+		Name:    "Google NotebookLM",
+		Status:  "OK",
+		Details: "Conectado e autenticado",
 	}
 }

@@ -162,6 +162,7 @@ antigravity-operator/
 │   ├── completion/           # SRP: Shell autocompletion generator (Bash, Zsh, Fish)
 │   ├── hook/                 # SRP: Git pre-commit continuity sensor & safeguards
 │   ├── installer/            # SRP: Idempotent rule and MCP manifesto synchronization
+│   ├── notebook/             # SRP: Native Google NotebookLM integration & stdio MCP server
 │   └── doctor/               # SRP: Machine diagnostic computational sensors
 ├── templates/                # Embedded static assets via //go:embed (zero external deps)
 │   ├── rules/                # Canonical Session Agent rules
@@ -325,7 +326,29 @@ agyo browser shot screenshot.png     # Capture PNG screenshot via CDP
 agyo browser stop
 ```
 
-### 6. Git Pre-Commit Continuity Hook (`hook`)
+### 6. Native Google NotebookLM Integration (`notebook`)
+Connects Google Antigravity agents and terminal sessions directly to your **Google NotebookLM** notebooks and grounded sources with automated CDP session handling (zero Python/Node dependencies):
+```bash
+# Check connection and authentication status with NotebookLM:
+agyo notebook status
+
+# Launch isolated Chrome and open Google NotebookLM (persisted Google profile):
+agyo notebook open
+
+# List all available notebooks in your active Google account:
+agyo notebook list
+
+# Ask a grounded question to a specific notebook:
+agyo notebook ask <notebook-id> "What is the architecture described in the specifications?"
+
+# Push local markdown or text files as sources to a notebook:
+agyo notebook push <notebook-id> docs/spec/ARCHITECTURE.md
+
+# Run stdio Model Context Protocol (MCP) server for agents (Antigravity / Cursor / Claude):
+agyo notebook mcp
+```
+
+### 7. Git Pre-Commit Continuity Hook (`hook`)
 Installs an automated session sensor into `.git/hooks/pre-commit` to prevent committing code without updating session objectives and task progress:
 ```bash
 # Install hook in current repository (or specific target dir):

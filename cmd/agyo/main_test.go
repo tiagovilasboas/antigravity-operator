@@ -180,3 +180,14 @@ func TestCLI_SessionListAndRestore(t *testing.T) {
 	// Restaura sessão
 	runSession(info, []string{"restore", "latest", targetDir})
 }
+
+func TestCLI_RunNotebookCommands(t *testing.T) {
+	info := &platform.Info{
+		BrowserProfile: t.TempDir(),
+	}
+	// 1. Status
+	runNotebook(info, []string{"status"})
+
+	// 2. Sem argumentos (usage)
+	runNotebook(info, []string{})
+}

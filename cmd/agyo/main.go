@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -17,13 +19,14 @@ import (
 	"github.com/tiagoboas/antigravity-operator/internal/exporter"
 	"github.com/tiagoboas/antigravity-operator/internal/hook"
 	"github.com/tiagoboas/antigravity-operator/internal/installer"
+	"github.com/tiagoboas/antigravity-operator/internal/notebook"
 	"github.com/tiagoboas/antigravity-operator/internal/platform"
 	"github.com/tiagoboas/antigravity-operator/internal/profile"
 	"github.com/tiagoboas/antigravity-operator/internal/session"
 	"github.com/tiagoboas/antigravity-operator/internal/watcher"
 )
 
-const Version = "0.4.4"
+const Version = "0.5.0"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -54,6 +57,8 @@ func main() {
 		runDoctor(info, os.Args[2:])
 	case "browser":
 		runBrowser(info, os.Args[2:])
+	case "notebook":
+		runNotebook(info, os.Args[2:])
 	case "sync":
 		runSync(info)
 	case "hook":
@@ -101,6 +106,12 @@ Available commands:
   browser close <id>  Close a specific tab by ID
   browser eval "<js>" Evaluate JavaScript expression in the active tab (pure Go CDP)
   browser shot [file] Capture PNG screenshot of active tab without external libraries
+  notebook status     Inspect Google NotebookLM connection and auth readiness
+  notebook open       Launch isolated Chrome directly into Google NotebookLM
+  notebook list       List all notebooks available in the active Google account
+  notebook ask <id> q Ask a grounded query to a NotebookLM notebook
+  notebook push <id>  Push markdown or text file as a source to a notebook
+  notebook mcp        Serve stdio Model Context Protocol (MCP) server for agents
   sync                Synchronize canonical rules and MCP manifests to Google Antigravity
   hook install [dir]  Install git pre-commit hook to safeguard session continuity
   hook uninstall [dir] Remove agyo git pre-commit hook
@@ -595,6 +606,135 @@ func runBrowser(info *platform.Info, args []string) {
 		fmt.Fprintf(os.Stderr, "Unknown browser subcommand: %s\n", sub)
 		os.Exit(1)
 	}
+}
+
+func runNotebook(info *platform.Info, args []string) {
+	if len(args) == 0 {
+		printNotebookUsage()
+		return
+	}
+
+	sub := args[0]
+	switch sub {
+	case "status":
+		st := notebook.CheckSession(info, profile.DefaultDebugPort)
+		if st.IsLoggedIn {
+			fmt.Printf("✅ Google NotebookLM CONNECTED and AUTHENTICATED\n")
+			fmt.Printf("   Active URL: %s\n", st.ActiveURL)
+			if st.TabID != "" {
+				fmt.Printf("   Tab ID: %s\n", st.TabID)
+			}
+		} else if st.HasTab {
+			fmt.Printf("⚠️  Google NotebookLM tab open, but awaiting Google login\n")
+			fmt.Printf("   URL: %s\n", st.ActiveURL)
+			fmt.Printf("   Please complete login in the Chrome window.\n")
+		} else if st.ChromeRunning {
+			fmt.Printf("ℹ️  Chrome DevTools is running, but no NotebookLM tab is open.\n")
+			fmt.Printf("   To open, run: agyo notebook open\n")
+		} else {
+			fmt.Printf("⚠️  Chrome DevTools is inactive.\n")
+			fmt.Printf("   To start and open NotebookLM, run: agyo notebook open\n")
+		}
+
+	case "open", "login":
+		fmt.Println("🚀 Opening Google NotebookLM in isolated Chrome...")
+		tab, err := notebook.OpenSession(info, profile.DefaultDebugPort)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error opening NotebookLM: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("✅ NotebookLM tab ready at: %s\n", tab.URL)
+		fmt.Println("   If needed, log in with your Google account. Sessions are preserved in your isolated profile.")
+
+	case "list":
+		fmt.Println("🔍 Fetching notebooks from Google NotebookLM...")
+		notebooks, err := notebook.ListNotebooks(info, profile.DefaultDebugPort)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error listing notebooks: %v\n", err)
+			os.Exit(1)
+		}
+		if len(notebooks) == 0 {
+			fmt.Println("ℹ️  No notebooks found on current page. Ensure you are logged in and on the NotebookLM homepage.")
+			return
+		}
+		fmt.Printf("📚 Found %d Notebook(s):\n", len(notebooks))
+		fmt.Println("-----------------------------------------------------------------")
+		for _, nb := range notebooks {
+			fmt.Printf("[%s] %s\n    URL: %s\n", nb.ID, nb.Title, nb.URL)
+		}
+		fmt.Println("-----------------------------------------------------------------")
+
+	case "ask":
+		if len(args) < 3 {
+			fmt.Fprintln(os.Stderr, "Usage: agyo notebook ask <notebook-id> \"<query>\"")
+			os.Exit(1)
+		}
+		notebookID := args[1]
+		query := strings.Join(args[2:], " ")
+		fmt.Printf("❓ Submitting query to notebook [%s]...\n", notebookID)
+		res, err := notebook.AskNotebook(info, profile.DefaultDebugPort, notebookID, query)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error querying notebook: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println("\n💬 Answer:")
+		fmt.Println(res.Answer)
+		if len(res.Citations) > 0 {
+			fmt.Println("\n📌 Citations / Sources:")
+			for _, c := range res.Citations {
+				fmt.Printf(" - %s\n", c)
+			}
+		}
+
+	case "push":
+		if len(args) < 3 {
+			fmt.Fprintln(os.Stderr, "Usage: agyo notebook push <notebook-id> <file-or-note>")
+			os.Exit(1)
+		}
+		notebookID := args[1]
+		filePath := args[2]
+
+		contentBytes, err := os.ReadFile(filePath)
+		var content string
+		var title string
+		if err == nil {
+			content = string(contentBytes)
+			title = filepath.Base(filePath)
+		} else {
+			content = strings.Join(args[2:], " ")
+			title = "Note"
+		}
+
+		fmt.Printf("📤 Pushing note [%s] to notebook [%s]...\n", title, notebookID)
+		if err := notebook.PushSource(info, profile.DefaultDebugPort, notebookID, title, content); err != nil {
+			fmt.Fprintf(os.Stderr, "Error pushing note: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println("✅ Note successfully submitted to notebook.")
+
+	case "mcp":
+		if err := notebook.ServeMCP(info, os.Stdin, os.Stdout); err != nil {
+			fmt.Fprintf(os.Stderr, "MCP server exited with error: %v\n", err)
+			os.Exit(1)
+		}
+
+	default:
+		fmt.Fprintf(os.Stderr, "Unknown notebook subcommand: %s\n\n", sub)
+		printNotebookUsage()
+		os.Exit(1)
+	}
+}
+
+func printNotebookUsage() {
+	fmt.Println(`Usage: agyo notebook <subcommand> [options]
+
+Subcommands:
+  status               Check connection and authentication status with NotebookLM
+  open, login          Launch isolated Chrome and open Google NotebookLM
+  list                 List all notebooks available in your account
+  ask <id> "<query>"   Ask a grounded question to a notebook
+  push <id> <file>     Push markdown note/file content into a notebook
+  mcp                  Run stdio Model Context Protocol (MCP) server for agents`)
 }
 
 func runSync(info *platform.Info) {
