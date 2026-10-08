@@ -740,6 +740,20 @@ func runNotebook(info *platform.Info, args []string) {
 		}
 		fmt.Println("✅ Note successfully submitted to notebook.")
 
+	case "add-source", "source":
+		if len(args) < 3 {
+			fmt.Fprintln(os.Stderr, "Usage: agyo notebook add-source <notebook-id> <url>")
+			os.Exit(1)
+		}
+		notebookID := args[1]
+		sourceURL := args[2]
+		fmt.Printf("📥 Ingesting URL source into notebook [%s]...\n", notebookID)
+		if err := notebook.AddSourceURL(info, profile.DefaultDebugPort, notebookID, sourceURL); err != nil {
+			fmt.Fprintf(os.Stderr, "Error adding source URL: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println("✅ Source URL successfully submitted to Google NotebookLM.")
+
 	case "mcp":
 		if err := notebook.ServeMCP(info, os.Stdin, os.Stdout); err != nil {
 			fmt.Fprintf(os.Stderr, "MCP server exited with error: %v\n", err)
@@ -762,6 +776,7 @@ Subcommands:
   list                 List all notebooks available in your Google account
   ask <id> "<query>"   Ask a grounded question to a NotebookLM notebook
   push <id> <file>     Push markdown note/file content into a notebook
+  add-source <id> <url> Add a YouTube or Web URL directly as a source to a notebook
   mcp                  Run stdio Model Context Protocol (MCP) server for agents`)
 }
 

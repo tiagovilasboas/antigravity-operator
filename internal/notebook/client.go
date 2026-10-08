@@ -132,9 +132,10 @@ func AskNotebook(info *platform.Info, port int, notebookID, query string) (*AskR
 			input.dispatchEvent(new InputEvent('input', { bubbles: true, data: q }));
 		}
 
-		// Procura botão de envio ou simula Enter
-		const btn = document.querySelector('button[aria-label*="Enviar"], button[aria-label*="Send"], button.send-button');
-		if (btn && !btn.disabled) {
+		// Procura botão de envio ativo
+		const buttons = Array.from(document.querySelectorAll('button[aria-label*="Enviar"], button[aria-label*="Send"], button.send-button'));
+		const btn = buttons.find(b => !b.disabled && !b.hasAttribute('disabled'));
+		if (btn) {
 			btn.click();
 			return { ok: true, submittedVia: "click" };
 		}
@@ -277,3 +278,110 @@ func PushSource(info *platform.Info, port int, notebookID, title, content string
 
 	return nil
 }
+
+// AddSourceURL adiciona uma URL (YouTube ou web) como fonte no caderno informado via interface do NotebookLM.
+func AddSourceURL(info *platform.Info, port int, notebookID, sourceURL string) error {
+	if port <= 0 {
+		port = profile.DefaultDebugPort
+	}
+	if strings.TrimSpace(notebookID) == "" {
+		return fmt.Errorf("ID do caderno não pode ser vazio")
+	}
+	if !validNotebookID.MatchString(notebookID) {
+		return fmt.Errorf("identificador de caderno inválido: %s", notebookID)
+	}
+	if strings.TrimSpace(sourceURL) == "" {
+		return fmt.Errorf("URL da fonte não pode ser vazia")
+	}
+
+	targetURL := fmt.Sprintf("%s/notebook/%s", NotebookLMBaseURL, notebookID)
+	tab, err := profile.EnsureTab(port, targetURL, "/notebook/"+notebookID)
+	if err != nil {
+		return fmt.Errorf("falha ao acessar caderno %s: %w", notebookID, err)
+	}
+
+	escapedURL, _ := json.Marshal(sourceURL)
+
+	jsAddURL := fmt.Sprintf(`(function() {
+		const u = %s;
+		// 1. Clica no botão "Adicionar fontes" se o modal não estiver aberto
+		const panel = document.querySelector('.mat-mdc-dialog-panel');
+		if (!panel) {
+			const addBtn = Array.from(document.querySelectorAll('button')).find(b => 
+				b.getAttribute('aria-label') === 'Adicionar fonte' || b.innerText.includes('Adicionar fontes')
+			);
+			if (!addBtn) return { ok: false, error: "Botão 'Adicionar fonte' não encontrado" };
+			addBtn.click();
+		}
+		return { ok: true, step: "modal_opened" };
+	})()`, string(escapedURL))
+
+	if _, err := profile.EvalTab(port, tab.ID, jsAddURL); err != nil {
+		return fmt.Errorf("falha ao abrir modal de fontes: %w", err)
+	}
+
+	time.Sleep(800 * time.Millisecond)
+
+	jsSelectYouTubeAndInsert := fmt.Sprintf(`(function() {
+		const u = %s;
+		// 2. Procura botão de YouTube / Sites se o campo de texto ainda não estiver visível
+		let ta = document.querySelector('textarea[aria-label*="URLs"], textarea[placeholder*="links"], textarea[placeholder*="URLs"]');
+		if (!ta) {
+			const panel = document.querySelector('.mat-mdc-dialog-panel') || document.body;
+			const ytBtn = Array.from(panel.querySelectorAll('button, [role="button"], .source-type-card')).find(el => 
+				el.innerText.includes('video_youtube') || el.innerText.includes('Sites') || el.innerText.toLowerCase().includes('youtube')
+			);
+			if (ytBtn) {
+				ytBtn.click();
+			}
+		}
+
+		// Aguarda o textarea aparecer
+		ta = document.querySelector('textarea[aria-label*="URLs"], textarea[placeholder*="links"], textarea[placeholder*="URLs"]');
+		if (!ta) {
+			return { ok: false, error: "Campo de inserção de URL não encontrado" };
+		}
+
+		ta.focus();
+		ta.value = u;
+		ta.dispatchEvent(new Event('input', { bubbles: true }));
+		ta.dispatchEvent(new Event('change', { bubbles: true }));
+
+		// 3. Clica no botão 'Inserir' / 'Insert'
+		const insertBtn = Array.from(document.querySelectorAll('button')).find(b => 
+			(b.innerText.includes('Inserir') || b.innerText.includes('Insert')) && !b.disabled && !b.hasAttribute('disabled')
+		);
+		if (insertBtn) {
+			insertBtn.click();
+			return { ok: true, step: "inserted" };
+		}
+
+		return { ok: false, error: "Botão 'Inserir' desabilitado ou não encontrado" };
+	})()`, string(escapedURL))
+
+	deadline := time.Now().Add(5 * time.Second)
+	var finalErr error
+	for time.Now().Before(deadline) {
+		time.Sleep(500 * time.Millisecond)
+		res, err := profile.EvalTab(port, tab.ID, jsSelectYouTubeAndInsert)
+		if err == nil {
+			var status struct {
+				OK    bool   `json:"ok"`
+				Step  string `json:"step"`
+				Error string `json:"error"`
+			}
+			if err := json.Unmarshal([]byte(res), &status); err == nil && status.OK {
+				finalErr = nil
+				break
+			} else if status.Error != "" {
+				finalErr = fmt.Errorf("%s", status.Error)
+			}
+		}
+	}
+	if finalErr != nil {
+		return fmt.Errorf("falha ao submeter URL no NotebookLM: %w", finalErr)
+	}
+
+	return nil
+}
+

@@ -170,6 +170,24 @@ func getToolDefinitions() []map[string]interface{} {
 				"required": []string{"notebook_id", "title", "content"},
 			},
 		},
+		{
+			"name":        "notebooklm_add_source",
+			"description": "Adiciona uma URL de site ou vídeo do YouTube diretamente como fonte no Google NotebookLM sem abrir o player de vídeo.",
+			"inputSchema": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"notebook_id": map[string]interface{}{
+						"type":        "string",
+						"description": "ID do caderno alvo no NotebookLM",
+					},
+					"url": map[string]interface{}{
+						"type":        "string",
+						"description": "URL do vídeo do YouTube ou página web a ser indexada",
+					},
+				},
+				"required": []string{"notebook_id", "url"},
+			},
+		},
 	}
 }
 
@@ -221,6 +239,19 @@ func executeTool(info *platform.Info, out io.Writer, id interface{}, name string
 			return
 		}
 		sendToolSuccess(out, id, fmt.Sprintf("Nota '%s' adicionada com sucesso ao caderno %s.", title, notebookID))
+
+	case "notebooklm_add_source":
+		notebookID, _ := args["notebook_id"].(string)
+		sourceURL, _ := args["url"].(string)
+		if notebookID == "" || sourceURL == "" {
+			sendToolError(out, id, "Os campos 'notebook_id' e 'url' são obrigatórios.")
+			return
+		}
+		if err := AddSourceURL(info, 0, notebookID, sourceURL); err != nil {
+			sendToolError(out, id, fmt.Sprintf("Erro ao adicionar fonte: %v", err))
+			return
+		}
+		sendToolSuccess(out, id, fmt.Sprintf("Fonte '%s' adicionada com sucesso ao caderno %s.", sourceURL, notebookID))
 
 	default:
 		sendToolError(out, id, fmt.Sprintf("Ferramenta '%s' não suportada.", name))
