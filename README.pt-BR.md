@@ -108,6 +108,7 @@ O Google Antigravity é uma das plataformas de desenvolvimento assistido por IA 
 O **`antigravity-operator`** (`agyo`) empacota toda a infraestrutura operacional, segurança e governança para que o seu agente atue como um **engenheiro de software e operador de sistemas sênior**:
 
 * **Outer Harness de Martin Fowler (Guia × Sensor):** O agente nunca assume nada sem evidência direta. Guias alimentam o agente antes da ação; sensores computacionais (`go test`, linters, verificação de runtime) são o que as regras pedem para o agente rodar antes de declarar a tarefa pronta. O `agyo` fornece as regras e os sensores; ele não os impõe.
+* **A Conexão Simbiótica "Cérebro & Mãos" (NotebookLM + Antigravity):** Em vez de entupir a janela de contexto do agente com dezenas de manuais e PDFs densos (gerando context bloat e degradação de atenção), o `agyo` conecta o agente ao **Google NotebookLM**. O NotebookLM atua como o **cérebro de pesquisa fundamentada com citações**, e o Antigravity como as **mãos executoras de código** com verificação e testes rigorosos.
 * **Memória Operacional Persistente (`.agents/session/`):** Transições de estado vivem no filesystem do projeto (`state.md`, `decisions.md`, `todo.md`). O agente mantém coerência perfeita mesmo se a janela de chat reiniciar.
 * **Perfil Separado do Chrome via DevTools MCP:** Lança uma instância dedicada do Chrome com porta de depuração (`9222`) e perfil próprio (`~/.gemini/antigravity-browser-profile`), separado do seu navegador pessoal. Não é uma sandbox.
 * **Adaptação Inteligente Headless (Linux & Servidores):** Detecta dinamicamente a presença de display gráfico (`$DISPLAY` / `$WAYLAND_DISPLAY`). Se não houver tela, ativa automaticamente `--headless=new`, `--disable-dev-shm-usage` e `--no-sandbox`.
@@ -121,6 +122,7 @@ O **`antigravity-operator`** (`agyo`) empacota toda a infraestrutura operacional
 |---|---|---|---|---|
 | **Governança Outer Harness** | ❌ Não | ❌ Não | ❌ Não | **✅ Nativo (Guia × Sensor)** |
 | **Memória Operacional em Disco** | ❌ Não | ❌ Não | ❌ Não | **✅ `.agents/session/` Canônico** |
+| **Ponte Grounded RAG (NotebookLM)** | ❌ Não | ❌ Não | ❌ Não | **✅ Nativo (`agyo notebooklm` & MCP)** |
 | **Browser Profile Isolado** | ❌ Usa pessoal | ⚠️ Container pesado | ❌ Não | **✅ Perfil Dedicado (`9222`)** |
 | **Paridade macOS / Linux** | ⚠️ Quebra fácil | ⚠️ Docker-only | ⚠️ Conflito de deps | **✅ Nativo & Headless Auto** |
 | **Dependências de Instalação** | Múltiplas | Docker / APIs | Python / venv / pip | **✅ Binário Único Estático** |
@@ -136,6 +138,7 @@ Para estudantes de tecnologia, computação e engenharia que utilizam os benefí
 2. **Ambiente Portátil para Laboratórios da Faculdade (Linux sem Root):** Computadores de universidades e centros de pesquisa rodam Linux onde o estudante não possui privilégios de administrador (`root`) para instalar Docker ou dependências globais. O binário estático `agyo-linux-amd64` roda direto da pasta do usuário (`~/`), sem necessitar de permissões especiais.
 3. **Diário de Bordo de Estudos & Portfólio:** A pasta `.agents/session/` registra o histórico técnico, trade-offs de algoritmos e decisões de código, servindo como documentação viva do aprendizado.
 4. **Perfil de Navegador Separado:** A navegação do agente roda num perfil próprio do Chrome, longe dos seus logins pessoais. Não é uma sandbox.
+5. **Simbiose com o Google NotebookLM (Grounded RAG sem Custo de Contexto):** Estudantes e engenheiros podem carregar vídeos do YouTube, livros inteiros, papers e ementas no NotebookLM. Com o `agyo notebooklm`, o agente do Antigravity pesquisa diretamente nos cadernos para transformar vídeos e referências em artigos técnicos, guias de estudo e código fundamentado antes de programar, sem estourar a janela de contexto.
 
 ### 🎁 Skills para Estudantes Incluídas de Brinde (`skills/`):
 O repositório já inclui 3 skills prontas para acelerar a rotina acadêmica:
@@ -162,6 +165,7 @@ antigravity-operator/
 │   ├── completion/           # SRP: Gerador de autocompletion de shell (Bash, Zsh, Fish)
 │   ├── hook/                 # SRP: Sensor e guarda de continuidade de sessão para o Git pre-commit
 │   ├── installer/            # SRP: Sincronização idempotente de regras e manifestos MCP
+│   ├── notebook/             # SRP: Integração nativa com Google NotebookLM e servidor MCP stdio
 │   └── doctor/               # SRP: Sensor computacional de diagnóstico completo da máquina
 ├── templates/                # Embutido no binário estático via //go:embed (zero dependências)
 │   ├── rules/                # Regras canônicas de Session Agent
@@ -342,7 +346,30 @@ agyo browser shot screenshot.png     # Captura screenshot PNG da aba ativa
 agyo browser stop
 ```
 
-### 8. Git Pre-Commit Hook de Continuidade (`hook`)
+### 8. Integração Nativa com Google NotebookLM (`notebooklm`)
+Conecta os agentes do Google Antigravity e sessões de terminal aos seus cadernos e fontes do **Google NotebookLM** sem dependências de Python ou Node. Transforme vídeos do YouTube, papers acadêmicos e livros técnicos em artigos estruturados, guias de estudo e código funcional com citações exatas:
+```bash
+# Verificar status de autenticação e conexão com o Google NotebookLM:
+agyo notebooklm status
+
+# Abrir o Google NotebookLM no Chrome isolado (sessão Google persistida):
+agyo notebooklm open
+
+# Listar todos os cadernos da conta ativa:
+agyo notebooklm list
+
+# Fazer perguntas fundamentadas às fontes de um caderno:
+agyo notebooklm ask <notebook-id> "Qual é a arquitetura descrita nas especificações?"
+
+# Enviar arquivos ou notas locais como fontes para um caderno:
+agyo notebooklm push <notebook-id> docs/spec/ARCHITECTURE.md
+
+# Servidor stdio MCP JSON-RPC para agentes (Antigravity / Cursor / Claude):
+agyo notebooklm mcp
+```
+*(Aliases curtos suportados: `agyo notebook` e `agyo nblm`)*
+
+### 9. Git Pre-Commit Hook de Continuidade (`hook`)
 Instala um script em `.git/hooks/pre-commit` que mostra o status da sessão quando o `agyo` está no seu PATH. Quando o `todo.md` tem 5 ou mais tarefas concluídas, ele também roda `agyo session compact` e depois `git add .agents/session/`, então os arquivos de sessão compactados entram no mesmo commit. É um lembrete, não um portão: sempre termina com exit 0 e nunca bloqueia um commit:
 ```bash
 # Instalar o hook no repositório atual (ou diretório especificado):
@@ -352,7 +379,7 @@ agyo hook install
 agyo hook uninstall
 ```
 
-### 9. Sincronizar regras, skills e MCPs no Antigravity (`sync`)
+### 10. Sincronizar regras, skills e MCPs no Antigravity (`sync`)
 Garante que as regras de governança e servidores de automação estejam instalados:
 ```bash
 agyo sync
@@ -362,7 +389,7 @@ O `sync` nunca sobrescreve um manifesto MCP existente (`~/.gemini/antigravity/mc
 agyo sync --update-mcp
 ```
 
-### 10. Autocompletar no Terminal (`completion`)
+### 11. Autocompletar no Terminal (`completion`)
 Gera scripts de autocompletion de comandos e flags para Zsh, Bash ou Fish:
 ```bash
 # Zsh (adicione ao seu ~/.zshrc):
@@ -375,7 +402,7 @@ source <(agyo completion bash)
 agyo completion fish | source
 ```
 
-### 11. Sobre o projeto e manifesto (`about`)
+### 12. Sobre o projeto e manifesto (`about`)
 ```bash
 agyo about
 ```

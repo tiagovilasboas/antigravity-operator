@@ -80,7 +80,29 @@ agyo browser shot screenshot.png
 agyo browser stop
 ```
 
-### 4. Proteção de Continuidade Git (Pre-Commit Sensor)
+### 4. Integração Nativa com Google NotebookLM
+```bash
+# Verificar status de conexão e autenticação no Google NotebookLM:
+agyo notebooklm status
+
+# Abrir o Google NotebookLM no Chrome isolado:
+agyo notebooklm open
+
+# Listar cadernos disponíveis na conta:
+agyo notebooklm list
+
+# Consultar fontes e fazer perguntas fundamentadas a um caderno:
+agyo notebooklm ask <notebook-id> "<pergunta>"
+
+# Adicionar arquivos ou notas locais como fontes em um caderno:
+agyo notebooklm push <notebook-id> <arquivo-ou-texto>
+
+# Executar como servidor MCP stdio para o Antigravity / Cursor / Claude:
+agyo notebooklm mcp
+```
+*(Aliases curtos suportados: `agyo notebook` e `agyo nblm`)*
+
+### 5. Proteção de Continuidade Git (Pre-Commit Sensor)
 ```bash
 # Instalar o hook de pre-commit no repositório:
 agyo hook install
@@ -89,7 +111,7 @@ agyo hook install
 agyo hook uninstall
 ```
 
-### 5. Sincronização de Regras e Manifestos
+### 6. Sincronização de Regras e Manifestos
 ```bash
 agyo sync
 ```

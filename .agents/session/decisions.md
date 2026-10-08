@@ -12,11 +12,15 @@
 - **Decisão:** Criado o repositório `antigravity-operator` com a CLI `agyo` contendo os subcomandos `init`, `doctor`, `browser` e `sync`.
 - **Trade-offs:** Escolha de Go em vez de Python/Bash para garantir portabilidade instantânea e zero dependência de interpretadores nas máquinas de destino.
 
-### [2026-09-28] Conformidade LGPD, GDPR e Zero Telemetria
-- **Contexto:** Garantir que o projeto e os agentes orquestrados por ele estejam em conformidade irrestrita com a LGPD (Lei 13.709/2018) e GDPR.
+### [2026-10-08] Integração Nativa com Google NotebookLM no agyo
+- **Contexto:** Necessidade de conectar os agentes do Google Antigravity e sessões locais de terminal aos cadernos e fontes do Google NotebookLM, sem depender de pacotes externos em Python ou Node, contornando a falta de API pública oficial.
 - **Decisão:**
-  1. Arquitetura 100% Local-First e Zero-Telemetry declarada em `PRIVACY.md` e referenciada em `SECURITY.md`.
-  2. Isolamento rígido de perfil de navegador (`~/.gemini/antigravity-browser-profile`) para impedir acesso a senhas, histórico e cookies pessoais do desenvolvedor.
-  3. Guarda explícita no template do `session-agent.md` proibindo a persistência de PII (dados de clientes, CPFs, cartões, credenciais) na memória de sessão e commits.
-- **Trade-offs:** Nenhuma telemetria centralizada; auditoria soberana e direito de eliminação imediata diretamente no filesystem do usuário.
+  1. Utilizar a infraestrutura já existente de Chrome isolado e CDP nativo (`internal/profile`) para orquestrar a sessão autenticada.
+  2. Implementar o pacote `internal/notebook` com separação estrita de responsabilidades (SRP):
+     - `session.go`: Verificação de status e autenticação da conta.
+     - `client.go`: Extração e interação com cadernos (list, ask, push).
+     - `mcp.go`: Servidor stdio MCP JSON-RPC 2.0 embutido no binário do `agyo`.
+  3. Integrar no `agyo sync` a autoconfiguração do servidor `notebooklm` no `mcp_config.json` do Antigravity.
+  4. Manter filosofia KISS/YAGNI: zero dependências de runtime de terceiros, 100% Go padrão.
+- **Trade-offs:** A interação com o NotebookLM web é feita via CDP no contexto do navegador já autenticado pelo usuário, eliminando a fragilidade de RPCs obfuscados sujeitos a rotações do Google e respeitando a privacidade/isolamento do perfil.
 

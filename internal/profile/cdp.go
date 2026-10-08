@@ -88,6 +88,49 @@ func CloseTab(port int, targetID string) error {
 	return nil
 }
 
+// FindTab localiza uma aba ativa cuja URL contenha a substring informada.
+func FindTab(port int, urlSubstr string) (*Tab, error) {
+	tabs, err := ListTabs(port)
+	if err != nil {
+		return nil, err
+	}
+	for i := range tabs {
+		if strings.Contains(tabs[i].URL, urlSubstr) {
+			return &tabs[i], nil
+		}
+	}
+	return nil, nil
+}
+
+// EnsureTab retorna a aba existente que casa com urlSubstr ou abre uma nova aba com targetURL.
+func EnsureTab(port int, targetURL string, urlSubstr string) (*Tab, error) {
+	tab, err := FindTab(port, urlSubstr)
+	if err != nil {
+		return nil, err
+	}
+	if tab != nil {
+		return tab, nil
+	}
+	return OpenTab(port, targetURL)
+}
+
+// EvalTab executa uma expressão JavaScript em uma aba específica identificada pelo ID.
+func EvalTab(port int, tabID string, expression string) (string, error) {
+	tabs, err := ListTabs(port)
+	if err != nil {
+		return "", err
+	}
+	for _, t := range tabs {
+		if t.ID == tabID {
+			if t.WebSocketDebuggerURL == "" {
+				return "", fmt.Errorf("a aba %s não possui endpoint de depuração WebSocket", tabID)
+			}
+			return evalWebSocket(t.WebSocketDebuggerURL, expression)
+		}
+	}
+	return "", fmt.Errorf("aba com ID '%s' não encontrada", tabID)
+}
+
 // Eval executa uma expressão JavaScript na primeira aba ativa e retorna o valor serializado.
 func Eval(port int, expression string) (string, error) {
 	tabs, err := ListTabs(port)
@@ -103,6 +146,10 @@ func Eval(port int, expression string) (string, error) {
 		return "", fmt.Errorf("a aba ativa não possui endpoint de depuração WebSocket")
 	}
 
+	return evalWebSocket(wsURL, expression)
+}
+
+func evalWebSocket(wsURL string, expression string) (string, error) {
 	client, err := dialCDP(wsURL)
 	if err != nil {
 		return "", fmt.Errorf("falha ao conectar no WebSocket do CDP: %w", err)

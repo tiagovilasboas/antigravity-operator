@@ -108,6 +108,7 @@ Google Antigravity provides state-of-the-art atomic tooling: arbitrary bash exec
 | Capability | Engineering Implementation |
 |---|---|
 | **Outer Harness (Fowler)** | **Guide × Sensor:** Deterministic directives guide the model; the rules ask the agent to run tests (`go test`, linters, runtime probes) before calling a change done. `agyo` provides the rules and sensors; it does not enforce them. |
+| **Brain & Hands Symbiosis** | **Google NotebookLM + Antigravity:** Connects NotebookLM as the grounded research brain and Antigravity as the autonomous coding hands, avoiding context window bloat. |
 | **Filesystem Memory** | **`.agents/session/`:** Real-time state (`state.md`), architecture log (`decisions.md`), and task tracker (`todo.md`) persist across chat resets. |
 | **Browser Supervision** | **Chrome DevTools Protocol (CDP):** Dedicated profile on port `9222`, PID tracking, and graceful shutdown (`agyo browser stop`). |
 | **Auto-Headless Mode** | **Dynamic Display Probe:** Injects `--headless=new`, `--disable-dev-shm-usage`, and `--no-sandbox` automatically in server environments. |
@@ -121,6 +122,7 @@ Google Antigravity provides state-of-the-art atomic tooling: arbitrary bash exec
 |---|---|---|---|---|
 | **Outer Harness Governance** | ❌ No | ❌ No | ❌ No | **✅ Native (Guide × Sensor)** |
 | **Filesystem Session Memory** | ❌ No | ❌ No | ❌ No | **✅ Canonical `.agents/session/`** |
+| **Grounded RAG Bridge (NotebookLM)** | ❌ No | ❌ No | ❌ No | **✅ Native (`agyo notebooklm` & MCP)** |
 | **Isolated Browser Profile** | ❌ Uses personal | ⚠️ Heavy Docker | ❌ No | **✅ Dedicated Profile (`9222`)** |
 | **macOS / Linux Parity** | ⚠️ Fragile | ⚠️ Docker-only | ⚠️ Dep conflicts | **✅ Native & Auto-Headless** |
 | **Runtime Footprint** | Multi-tooling | Docker / APIs | Python / venv | **✅ Single Static Binary** |
@@ -136,6 +138,7 @@ For computer science students and researchers leveraging academic benefits such 
 2. **Zero-Root Portability in University Labs (Linux):** University labs often run locked-down Linux machines without `sudo` access to install Docker or system packages. The static `agyo-linux-amd64` binary runs directly from user space (`~/`).
 3. **Academic Logbook & Portfolio:** The `.agents/session/` folder preserves architectural rationales and algorithm trade-offs, turning daily coding into documented learning logs.
 4. **Separate Browser Profile:** Agent browsing runs in its own Chrome profile, away from your personal logins. It is not a sandbox.
+5. **Symbiosis with Google NotebookLM (Zero-Context-Bloat Grounded RAG):** Ingest entire textbooks, papers, assignment specs, and YouTube videos into NotebookLM. With `agyo notebooklm`, Antigravity queries authoritative sources with exact citations before writing code.
 
 ### 🎁 Bonus Student Skills Included (`skills/`):
 This repository includes 3 canonical skills out-of-the-box:
@@ -162,6 +165,7 @@ antigravity-operator/
 │   ├── completion/           # SRP: Shell autocompletion generator (Bash, Zsh, Fish)
 │   ├── hook/                 # SRP: Git pre-commit continuity sensor & safeguards
 │   ├── installer/            # SRP: Idempotent rule and MCP manifesto synchronization
+│   ├── notebook/             # SRP: Native Google NotebookLM integration & stdio MCP server
 │   └── doctor/               # SRP: Machine diagnostic computational sensors
 ├── templates/                # Embedded static assets via //go:embed (zero external deps)
 │   ├── rules/                # Canonical Session Agent rules
@@ -342,7 +346,30 @@ agyo browser shot screenshot.png     # Capture PNG screenshot via CDP
 agyo browser stop
 ```
 
-### 8. Git Pre-Commit Continuity Hook (`hook`)
+### 8. Native Google NotebookLM Integration (`notebooklm`)
+Connects Google Antigravity agents and terminal sessions directly to your **Google NotebookLM** notebooks and grounded sources with automated CDP session handling (zero Python/Node dependencies). Turn YouTube videos, research papers, and technical books into structured articles, study notes, and runnable code:
+```bash
+# Check connection and authentication status with Google NotebookLM:
+agyo notebooklm status
+
+# Launch isolated Chrome and open Google NotebookLM (persisted Google profile):
+agyo notebooklm open
+
+# List all available notebooks in your active Google account:
+agyo notebooklm list
+
+# Ask a grounded question to a specific notebook:
+agyo notebooklm ask <notebook-id> "What is the architecture described in the specifications?"
+
+# Push local markdown or text files as sources to a notebook:
+agyo notebooklm push <notebook-id> docs/spec/ARCHITECTURE.md
+
+# Run stdio Model Context Protocol (MCP) server for agents (Antigravity / Cursor / Claude):
+agyo notebooklm mcp
+```
+*(Short aliases supported: `agyo notebook` and `agyo nblm`)*
+
+### 9. Git Pre-Commit Continuity Hook (`hook`)
 Installs a `.git/hooks/pre-commit` script that prints the session status when `agyo` is on your PATH. When `todo.md` has 5 or more done tasks, it also runs `agyo session compact` and then `git add .agents/session/`, so the compacted session files are staged into that same commit. It is a reminder, not a gate: it always exits 0 and never blocks a commit:
 ```bash
 # Install hook in current repository (or specific target dir):
@@ -352,7 +379,7 @@ agyo hook install
 agyo hook uninstall
 ```
 
-### 9. Sync Rules, Skills, and MCP Manifestos (`sync`)
+### 10. Sync Rules, Skills, and MCP Manifestos (`sync`)
 Provisions canonical rules and automation manifests into Google Antigravity:
 ```bash
 agyo sync
@@ -362,7 +389,7 @@ agyo sync
 agyo sync --update-mcp
 ```
 
-### 10. Shell Autocompletion (`completion`)
+### 11. Shell Autocompletion (`completion`)
 Generate command and flag autocompletion for Bash, Zsh, or Fish:
 ```bash
 # Zsh (add to ~/.zshrc):
@@ -375,7 +402,7 @@ source <(agyo completion bash)
 agyo completion fish | source
 ```
 
-### 11. Project Manifesto (`about`)
+### 12. Project Manifesto (`about`)
 ```bash
 agyo about
 ```

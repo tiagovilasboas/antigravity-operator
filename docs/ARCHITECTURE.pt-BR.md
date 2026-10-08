@@ -75,15 +75,21 @@ graph TD
    * Instala um sensor do outer harness em `.git/hooks/pre-commit`.
    * Bloqueia commits caso `.agents/session/state.md` e `todo.md` não tenham sido atualizados na sessão.
 
-9. **Sincronização de Regras (`agyo sync`):**
+9. **Sincronização de Regras e MCPs (`agyo sync`):**
    * Grava as regras canônicas do Session Agent em `~/.gemini/antigravity/rules/session-agent.md`.
-   * Prepara os manifestos padrão de MCPs em `~/.gemini/antigravity/mcp/default-servers.json`.
+   * Registra automaticamente os manifestos padrão de MCPs e o servidor `notebooklm` em `mcp_config.json`.
+
+10. **Ponte Nativa do Google NotebookLM & Servidor MCP stdio (`agyo notebook`):**
+    * Conecta os agentes de IA e o terminal aos cadernos e fontes do Google NotebookLM.
+    * Gerencia a autenticação e estado da sessão via CDP no Chrome isolado (sem copiar cookies manualmente).
+    * Fornece operações de alto nível: `status`, `open`, `list`, `ask` e `push`.
+    * Executa como servidor stdio MCP JSON-RPC 2.0 nativo (`agyo notebook mcp`), permitindo chamadas diretas de ferramentas a partir do Antigravity, Cursor ou Claude.
 
 ---
 
 ## 3. Padrões de Projeto e Decisões de Engenharia
 
-- **Single Responsibility Principle (SRP):** Cada pacote sob `internal/` (`platform`, `session`, `checkpoint`, `profile`, `installer`, `doctor`, `hook`, `watcher`, `dashboard`, `exporter`) possui um escopo estrito e não vaza detalhes de implementação para outros pacotes.
+- **Single Responsibility Principle (SRP):** Cada pacote sob `internal/` (`platform`, `session`, `checkpoint`, `profile`, `installer`, `doctor`, `hook`, `watcher`, `dashboard`, `exporter`, `notebook`) possui um escopo estrito e não vaza detalhes de implementação para outros pacotes.
 - **Embed Nativo (`//go:embed`):** Permite distribuição de binário único sem instaladores complexos ou necessidade de clonar o repositório em todas as máquinas.
 - **Zero CGO (`CGO_ENABLED=0`):** Garante compatibilidade binária entre qualquer versão de kernel Linux e biblioteca C (glibc ou musl).
 - **Zero Dependências Externas em Tempo de Execução:** Todo o código de rede, WebSockets (RFC 6455) e streaming de JSONL é implementado diretamente sobre a biblioteca padrão do Go.

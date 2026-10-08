@@ -92,7 +92,7 @@ func Start(info *platform.Info, opts StartOptions) error {
 	}
 
 	// 1. Assegurar que o diretório de perfil existe
-	if err := os.MkdirAll(info.BrowserProfile, 0755); err != nil {
+	if err := os.MkdirAll(info.BrowserProfile, 0700); err != nil {
 		return fmt.Errorf("falha ao criar pasta de perfil isolado: %w", err)
 	}
 
@@ -106,6 +106,7 @@ func Start(info *platform.Info, opts StartOptions) error {
 	args := []string{
 		fmt.Sprintf("--user-data-dir=%s", info.BrowserProfile),
 		fmt.Sprintf("--remote-debugging-port=%d", port),
+		"--remote-debugging-address=127.0.0.1",
 		"--no-first-run",
 		"--no-default-browser-check",
 	}

@@ -41,6 +41,7 @@ O `antigravity-operator` é um motor de execução e gerenciamento de **Session 
 | `internal/dashboard/` | Servidor HTTP local (localhost, Host/Origin allowlist), UI embutida e API JSON |
 | `internal/profile/` | Chrome com perfil isolado e cliente CDP em Go puro (porta 9222) |
 | `internal/doctor/` | Sensores de diagnóstico do host e `doctor --fix` |
+| `internal/notebook/` | Integração com Google NotebookLM: CDP headless/interativo, list/ask/push e servidor MCP |
 | `internal/installer/` | `agyo sync`: regras, skill e manifesto MCP no host |
 | `internal/hook/` | Hook git pre-commit de continuidade de sessão |
 | `internal/completion/` | Scripts de autocompletar (bash, zsh, fish) |

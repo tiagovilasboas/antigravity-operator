@@ -1,13 +1,14 @@
 # Estado da Sessão
 
 ## Objetivo Atual
-- Criação, arquitetura, portabilidade cross-platform (macOS/Linux), publicação open source no padrão Google e divulgação oficial do `antigravity-operator` (`agyo`).
+- Implementar a integração nativa com o Google NotebookLM no `agyo` (`agyo notebooklm` CLI e servidor MCP stdio) seguindo Clean Code, KISS, YAGNI e SRP.
 
 ## Status em Tempo Real
-- **Fase Atual:** Versão v0.4.1 Publicada e Homebrew Tap 100% Sincronizado (100% verificado)
+- **Fase Atual:** PR #31 aberto e documentação 100% atualizada destacando `agyo notebooklm`
 - **Bloqueios:** Nenhum
-- **Última Validação:** Release v0.4.1 gerada no GitHub com binários para 5 plataformas; Homebrew Tap (`tiagovilasboas/homebrew-tap`) atualizado com SHA256 canônico e autocompletion automático (`generate_completions_from_executable`); pipeline de release 100% verde.
+- **Última Validação:** Suíte completa de testes passando em verde (`go test -count=1 ./...`); binário compilado e sincronizado em `~/.local/bin/agyo`; MCP `notebooklm` registrado em `~/.gemini/config/mcp_config.json`; PR #31 aberto no GitHub.
 
 ## Próximos Passos Imediatos
-1. Divulgar no TabNews e LinkedIn.
+1. Acompanhar revisão/merge do PR #31.
+2. Utilizar `agyo notebooklm open` quando o usuário desejar navegar nos cadernos.
 
