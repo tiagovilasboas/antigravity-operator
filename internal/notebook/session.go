@@ -13,6 +13,20 @@ const (
 	NotebookLMDomain  = "notebooklm.google.com"
 )
 
+// FindNotebookLMTab localiza a aba ativa do NotebookLM aceitando os domínios conhecidos.
+func FindNotebookLMTab(port int) (*profile.Tab, error) {
+	for _, domain := range []string{NotebookLMDomain, "notebook.google.com", "notebooklm.google"} {
+		tab, err := profile.FindTab(port, domain)
+		if err != nil {
+			return nil, err
+		}
+		if tab != nil {
+			return tab, nil
+		}
+	}
+	return nil, nil
+}
+
 // CheckSession inspeciona a disponibilidade do Chrome isolado e o estado de autenticação no NotebookLM.
 func CheckSession(info *platform.Info, port int) Status {
 	if port <= 0 {
@@ -30,7 +44,7 @@ func CheckSession(info *platform.Info, port int) Status {
 		return st
 	}
 
-	tab, err := profile.FindTab(port, NotebookLMDomain)
+	tab, err := FindNotebookLMTab(port)
 	if err != nil {
 		st.Message = fmt.Sprintf("Falha ao inspecionar abas do Chrome: %v", err)
 		return st
@@ -46,14 +60,14 @@ func CheckSession(info *platform.Info, port int) Status {
 	st.TabID = tab.ID
 	st.ActiveURL = tab.URL
 
-	// Se a aba estiver em tela de login ou autenticação do Google
-	if strings.Contains(tab.URL, "accounts.google.com") || strings.Contains(tab.URL, "ServiceLogin") {
+	// Se a aba estiver em tela de login ou apresentação inicial
+	if strings.Contains(tab.URL, "accounts.google.com") || strings.Contains(tab.URL, "ServiceLogin") || strings.Contains(tab.URL, "trynow") {
 		st.IsLoggedIn = false
 		st.Message = "Aba do NotebookLM aberta, porém aguardando autenticação na sua conta Google."
 		return st
 	}
 
-	if strings.Contains(tab.URL, NotebookLMDomain) {
+	if strings.Contains(tab.URL, NotebookLMDomain) || strings.Contains(tab.URL, "notebook.google.com") {
 		st.IsLoggedIn = true
 		st.Message = "Sessão do NotebookLM conectada e autenticada com sucesso."
 		return st
@@ -78,7 +92,15 @@ func OpenSession(info *platform.Info, port int) (*profile.Tab, error) {
 	}
 
 	// 2. Garante a aba do NotebookLM
-	tab, err := profile.EnsureTab(port, NotebookLMBaseURL, NotebookLMDomain)
+	tab, err := FindNotebookLMTab(port)
+	if err != nil {
+		return nil, fmt.Errorf("falha ao verificar abas do Chrome: %w", err)
+	}
+	if tab != nil {
+		return tab, nil
+	}
+
+	tab, err = profile.OpenTab(port, NotebookLMBaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("falha ao abrir aba do NotebookLM: %w", err)
 	}

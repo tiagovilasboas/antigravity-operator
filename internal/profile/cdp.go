@@ -60,11 +60,24 @@ func OpenTab(port int, targetURL string) (*Tab, error) {
 	}
 	endpoint := fmt.Sprintf("http://127.0.0.1:%d/json/new?%s", port, url.QueryEscape(targetURL))
 	client := http.Client{Timeout: 3 * time.Second}
-	resp, err := client.Get(endpoint)
+	req, err := http.NewRequest(http.MethodPut, endpoint, nil)
+	if err != nil {
+		return nil, fmt.Errorf("falha ao criar requisição de nova aba: %w", err)
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("falha ao abrir nova aba no Chrome: %w", err)
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusMethodNotAllowed {
+		getResp, getErr := client.Get(endpoint)
+		if getErr != nil {
+			return nil, fmt.Errorf("falha ao abrir nova aba no Chrome: %w", getErr)
+		}
+		defer getResp.Body.Close()
+		resp = getResp
+	}
 
 	var tab Tab
 	if err := json.NewDecoder(resp.Body).Decode(&tab); err != nil {
@@ -80,11 +93,21 @@ func CloseTab(port int, targetID string) error {
 	}
 	endpoint := fmt.Sprintf("http://127.0.0.1:%d/json/close/%s", port, targetID)
 	client := http.Client{Timeout: 2 * time.Second}
-	resp, err := client.Get(endpoint)
+	req, err := http.NewRequest(http.MethodPut, endpoint, nil)
+	if err != nil {
+		return fmt.Errorf("falha ao criar requisição para fechar aba %s: %w", targetID, err)
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("falha ao fechar aba %s: %w", targetID, err)
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusMethodNotAllowed {
+		getResp, getErr := client.Get(endpoint)
+		if getErr == nil {
+			_ = getResp.Body.Close()
+		}
+	}
 	return nil
 }
 

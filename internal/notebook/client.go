@@ -19,7 +19,7 @@ func ListNotebooks(info *platform.Info, port int) ([]Notebook, error) {
 		port = profile.DefaultDebugPort
 	}
 
-	tab, err := profile.FindTab(port, NotebookLMDomain)
+	tab, err := FindNotebookLMTab(port)
 	if err != nil {
 		return nil, fmt.Errorf("falha ao consultar abas do Chrome: %w", err)
 	}

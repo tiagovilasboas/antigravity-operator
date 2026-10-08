@@ -133,8 +133,8 @@ func Start(info *platform.Info, opts StartOptions) error {
 		_ = SavePID(info.BrowserProfile, cmd.Process.Pid)
 	}
 
-	// 4. Aguardar até 5 segundos para o endpoint responder
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	// 4. Aguardar até 10 segundos para o endpoint responder
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	for {
