@@ -13,3 +13,5 @@
 - [x] Hardening de segurança AppSec aplicado (`--remote-debugging-address=127.0.0.1`, `0700` no perfil, validação de notebookID e fix DOM no `PushSource`)
 - [x] PR #31 aprovado pelo CI do GitHub Actions e mesclado na branch `main`
 - [x] Binário compilado e instalado localmente em `~/.local/bin/agyo` (v0.5.0)
+- [x] README.md e README.pt-BR.md refatorados para layout moderno e escaneável (176 linhas, diagrama Brain & Hands, tabela FinOps e tabela de CLI com links para specs; CI 100% verde)
+
