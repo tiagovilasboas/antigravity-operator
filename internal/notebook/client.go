@@ -46,17 +46,36 @@ func ListNotebooks(info *platform.Info, port int) ([]Notebook, error) {
 			seen.add(id);
 
 			let title = '';
-			const heading = a.querySelector('h1, h2, h3, [role="heading"], .title, span');
-			if (heading && heading.textContent.trim()) {
-				title = heading.textContent.trim();
-			} else {
-				const lines = a.innerText.split('\n').map(s => s.trim()).filter(Boolean);
-				title = lines.length > 0 ? lines[0] : ('Caderno ' + id.substring(0, 8));
+			const card = a.closest('mat-card, [role="listitem"], article') || a.parentElement;
+			if (card) {
+				const titleEl = card.querySelector('.project-button-title, [class*="title"], h1, h2, h3, [role="heading"]');
+				if (titleEl && titleEl.textContent.trim()) {
+					title = titleEl.textContent.trim();
+				}
+			}
+			if (!title) {
+				const heading = a.querySelector('h1, h2, h3, [role="heading"], .title, span');
+				if (heading && heading.textContent.trim()) {
+					title = heading.textContent.trim();
+				} else {
+					title = 'Caderno ' + id.substring(0, 8);
+				}
+			}
+
+			let sourceCount = 0;
+			if (card) {
+				const allText = Array.from(card.querySelectorAll('*')).map(el => el.textContent.trim());
+				const sourceText = allText.find(t => t.includes('fonte') || t.includes('source'));
+				if (sourceText) {
+					const sm = sourceText.match(/(\d+)\s*(?:fonte|source)/i);
+					if (sm) sourceCount = parseInt(sm[1], 10);
+				}
 			}
 
 			list.push({
 				id: id,
 				title: title,
+				source_count: sourceCount,
 				url: 'https://notebooklm.google.com/notebook/' + id
 			});
 		}
@@ -92,7 +111,7 @@ func AskNotebook(info *platform.Info, port int, notebookID, query string) (*AskR
 	}
 
 	targetURL := fmt.Sprintf("%s/notebook/%s", NotebookLMBaseURL, notebookID)
-	tab, err := profile.EnsureTab(port, targetURL, "notebooklm.google.com/notebook/"+notebookID)
+	tab, err := profile.EnsureTab(port, targetURL, "/notebook/"+notebookID)
 	if err != nil {
 		return nil, fmt.Errorf("falha ao acessar caderno %s: %w", notebookID, err)
 	}
@@ -101,7 +120,7 @@ func AskNotebook(info *platform.Info, port int, notebookID, query string) (*AskR
 	escapedQuery, _ := json.Marshal(query)
 	jsSubmit := fmt.Sprintf(`(function() {
 		const q = %s;
-		const input = document.querySelector('textarea, div[contenteditable="true"], input[type="text"]');
+		const input = document.querySelector('textarea.query-box-input, textarea[placeholder*="pergunta"], textarea[placeholder*="Ask"], textarea[aria-label*="consulta"], textarea[aria-label*="query"], textarea, div[contenteditable="true"]');
 		if (!input) return { ok: false, error: "Campo de chat não localizado na interface" };
 		
 		if (input.tagName.toLowerCase() === 'textarea' || input.tagName.toLowerCase() === 'input') {
@@ -124,42 +143,55 @@ func AskNotebook(info *platform.Info, port int, notebookID, query string) (*AskR
 		return { ok: true, submittedVia: "enter" };
 	})()`, string(escapedQuery))
 
-	submitRes, err := profile.EvalTab(port, tab.ID, jsSubmit)
-	if err != nil {
-		return nil, fmt.Errorf("falha ao enviar prompt para o NotebookLM: %w", err)
-	}
-
 	var subStatus struct {
 		OK           bool   `json:"ok"`
 		Error        string `json:"error"`
 		SubmittedVia string `json:"submittedVia"`
 	}
-	_ = json.Unmarshal([]byte(submitRes), &subStatus)
-	if !subStatus.OK && subStatus.Error != "" {
-		return nil, fmt.Errorf("falha na interface do NotebookLM: %s", subStatus.Error)
+
+	submitDeadline := time.Now().Add(6 * time.Second)
+	for {
+		submitRes, err := profile.EvalTab(port, tab.ID, jsSubmit)
+		if err == nil {
+			_ = json.Unmarshal([]byte(submitRes), &subStatus)
+			if subStatus.OK {
+				break
+			}
+		}
+		if time.Now().After(submitDeadline) {
+			if subStatus.Error != "" {
+				return nil, fmt.Errorf("falha na interface do NotebookLM: %s", subStatus.Error)
+			}
+			return nil, fmt.Errorf("tempo limite aguardando campo de chat do caderno %s", notebookID)
+		}
+		time.Sleep(500 * time.Millisecond)
 	}
 
-	// 2. Aguarda até 10 segundos pela geração da resposta (polling via CDP)
+	// 2. Aguarda até 15 segundos pela geração da resposta (polling via CDP)
 	var finalAnswer string
 	var citations []string
 
 	jsPoll := `(function() {
-		const bubbles = Array.from(document.querySelectorAll('[data-message-author="model"], .chat-message, [role="article"], .model-response'));
-		if (bubbles.length === 0) {
-			// Alternativa: busca último parágrafo de resposta
-			const allParagraphs = Array.from(document.querySelectorAll('main p, .conversation p'));
-			if (allParagraphs.length > 0) {
-				return { answer: allParagraphs[allParagraphs.length - 1].innerText, ready: true };
+		const pairs = Array.from(document.querySelectorAll('.chat-message-pair'));
+		if (pairs.length > 0) {
+			const lastPair = pairs[pairs.length - 1];
+			const text = lastPair.innerText || '';
+			if (text.length > 0 && !text.includes('Carregando')) {
+				const cites = Array.from(lastPair.querySelectorAll('button, a, sup, [class*="citation"]')).map(el => el.innerText.trim()).filter(Boolean);
+				return { answer: text, citations: cites, ready: true };
 			}
-			return { ready: false };
 		}
-		const last = bubbles[bubbles.length - 1];
-		const text = last.innerText || '';
-		const cites = Array.from(last.querySelectorAll('button, a, sup')).map(el => el.innerText.trim()).filter(Boolean);
-		return { answer: text, citations: cites, ready: text.length > 0 };
+		const bubbles = Array.from(document.querySelectorAll('[data-message-author="model"], .chat-message, [role="article"], .model-response'));
+		if (bubbles.length > 0) {
+			const last = bubbles[bubbles.length - 1];
+			const text = last.innerText || '';
+			const cites = Array.from(last.querySelectorAll('button, a, sup, [class*="citation"]')).map(el => el.innerText.trim()).filter(Boolean);
+			return { answer: text, citations: cites, ready: text.length > 0 };
+		}
+		return { ready: false };
 	})()`
 
-	deadline := time.Now().Add(12 * time.Second)
+	deadline := time.Now().Add(15 * time.Second)
 	for time.Now().Before(deadline) {
 		time.Sleep(1 * time.Second)
 		pollRes, err := profile.EvalTab(port, tab.ID, jsPoll)
@@ -205,7 +237,7 @@ func PushSource(info *platform.Info, port int, notebookID, title, content string
 	}
 
 	targetURL := fmt.Sprintf("%s/notebook/%s", NotebookLMBaseURL, notebookID)
-	tab, err := profile.EnsureTab(port, targetURL, "notebooklm.google.com/notebook/"+notebookID)
+	tab, err := profile.EnsureTab(port, targetURL, "/notebook/"+notebookID)
 	if err != nil {
 		return fmt.Errorf("falha ao acessar caderno %s: %w", notebookID, err)
 	}

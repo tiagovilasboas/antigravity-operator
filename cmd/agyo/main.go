@@ -676,7 +676,11 @@ func runNotebook(info *platform.Info, args []string) {
 		fmt.Printf("📚 Found %d Notebook(s):\n", len(notebooks))
 		fmt.Println("-----------------------------------------------------------------")
 		for _, nb := range notebooks {
-			fmt.Printf("[%s] %s\n    URL: %s\n", nb.ID, nb.Title, nb.URL)
+			sourceInfo := ""
+			if nb.SourceCount > 0 {
+				sourceInfo = fmt.Sprintf(" (%d fontes)", nb.SourceCount)
+			}
+			fmt.Printf("[%s] %s%s\n    URL: %s\n", nb.ID, nb.Title, sourceInfo, nb.URL)
 		}
 		fmt.Println("-----------------------------------------------------------------")
 

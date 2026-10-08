@@ -2,6 +2,7 @@ package notebook
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/tiagovilasboas/antigravity-operator/internal/platform"
@@ -60,14 +61,22 @@ func CheckSession(info *platform.Info, port int) Status {
 	st.TabID = tab.ID
 	st.ActiveURL = tab.URL
 
+	parsedURL, _ := url.Parse(tab.URL)
+	host := ""
+	path := ""
+	if parsedURL != nil {
+		host = parsedURL.Hostname()
+		path = parsedURL.Path
+	}
+
 	// Se a aba estiver em tela de login ou apresentação inicial
-	if strings.Contains(tab.URL, "accounts.google.com") || strings.Contains(tab.URL, "ServiceLogin") || strings.Contains(tab.URL, "trynow") {
+	if host == "accounts.google.com" || strings.Contains(tab.URL, "ServiceLogin") || strings.Contains(path, "trynow") {
 		st.IsLoggedIn = false
 		st.Message = "Aba do NotebookLM aberta, porém aguardando autenticação na sua conta Google."
 		return st
 	}
 
-	if strings.Contains(tab.URL, NotebookLMDomain) || strings.Contains(tab.URL, "notebook.google.com") {
+	if host == "notebook.google.com" || host == "notebooklm.google.com" || strings.Contains(host, "notebooklm") {
 		st.IsLoggedIn = true
 		st.Message = "Sessão do NotebookLM conectada e autenticada com sucesso."
 		return st
