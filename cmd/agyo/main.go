@@ -130,10 +130,11 @@ and researchers worldwide, and a special thank you to Google for the transformat
 student access program through Google AI Pro.
 
 Mission:
-Transform the raw atomic power of Google Antigravity into an autonomous, safe, and
-persistent Session Operator with filesystem memory (.agents/session/) and seamless
-parity across macOS and Linux — empowering every student and engineer to leverage
-100% of their Gemini Pro quota without token waste or runtime friction.
+Connect the deep research intelligence of Google NotebookLM (the Brain) to the autonomous
+execution power of Google Antigravity (the Hands), governed by a deterministic Outer
+Harness with filesystem memory (.agents/session/) and seamless parity across macOS and Linux —
+empowering every student and engineer to build grounded, verified software without token
+waste, hallucinations, or runtime friction.
 
 Built with care, precision, and canonical software engineering (Martin Fowler Outer Harness).
 ================================================================================`)

@@ -110,6 +110,7 @@ Google Antigravity provides state-of-the-art atomic tooling: arbitrary bash exec
 | Capability | Engineering Implementation |
 |---|---|
 | **Outer Harness (Fowler)** | **Guide × Sensor:** Deterministic directives guide the model; automated tests (`go test`, linters, runtime probes) validate every change before completion. |
+| **Brain & Hands Symbiosis** | **Google NotebookLM + Antigravity:** Connects NotebookLM as the grounded research brain and Antigravity as the autonomous coding hands, avoiding context window bloat. |
 | **Filesystem Memory** | **`.agents/session/`:** Real-time state (`state.md`), architecture log (`decisions.md`), and task tracker (`todo.md`) persist across chat resets. |
 | **Browser Supervision** | **Chrome DevTools Protocol (CDP):** Dedicated profile on port `9222`, PID tracking, and graceful shutdown (`agyo browser stop`). |
 | **Auto-Headless Mode** | **Dynamic Display Probe:** Injects `--headless=new`, `--disable-dev-shm-usage`, and `--no-sandbox` automatically in server environments. |
@@ -123,6 +124,7 @@ Google Antigravity provides state-of-the-art atomic tooling: arbitrary bash exec
 |---|---|---|---|---|
 | **Outer Harness Governance** | ❌ No | ❌ No | ❌ No | **✅ Native (Guide × Sensor)** |
 | **Filesystem Session Memory** | ❌ No | ❌ No | ❌ No | **✅ Canonical `.agents/session/`** |
+| **Grounded RAG Bridge (NotebookLM)** | ❌ No | ❌ No | ❌ No | **✅ Native (`agyo notebooklm` & MCP)** |
 | **Isolated Browser Profile** | ❌ Uses personal | ⚠️ Heavy Docker | ❌ No | **✅ Dedicated Profile (`9222`)** |
 | **macOS / Linux Parity** | ⚠️ Fragile | ⚠️ Docker-only | ⚠️ Dep conflicts | **✅ Native & Auto-Headless** |
 | **Runtime Footprint** | Multi-tooling | Docker / APIs | Python / venv | **✅ Single Static Binary (~6MB)** |
@@ -138,6 +140,7 @@ For computer science students and researchers leveraging academic benefits such 
 2. **Zero-Root Portability in University Labs (Linux):** University labs often run locked-down Linux machines without `sudo` access to install Docker or system packages. The static `agyo-linux-amd64` binary runs directly from user space (`~/`).
 3. **Academic Logbook & Portfolio:** The `.agents/session/` folder preserves architectural rationales and algorithm trade-offs, turning daily coding into documented learning logs.
 4. **Safe Sandbox:** Isolated Chrome automation protects personal university credentials and institutional logins.
+5. **Symbiosis with Google NotebookLM (Zero-Context-Bloat Grounded RAG):** Ingest entire textbooks, papers, and assignment specs into NotebookLM. With `agyo notebooklm`, Antigravity queries authoritative sources with exact citations before writing code.
 
 ### 🎁 Bonus Student Skills Included (`skills/`):
 This repository includes 3 canonical skills out-of-the-box:
