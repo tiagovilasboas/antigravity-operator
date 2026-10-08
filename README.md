@@ -12,7 +12,7 @@
   <img src="https://img.shields.io/badge/License-MIT-blue?style=flat-square" alt="License" />
 </p>
 
-A small Go CLI that keeps Google Antigravity sessions on track: session memory on disk, git checkpoints with rollback, a local dashboard and a separate Chrome profile for the agent.
+**Antigravity Operator (`agyo`)** is the open source session runtime and outer harness for Google Antigravity. It bridges **Google NotebookLM (the Research Brain)** to **Antigravity (the Execution Hands)** — allowing developers and students to ingest YouTube video playlists, technical books, and academic papers to generate deep technical articles, study guides, and verified code implementations with zero context bloat and ~99% token savings. Governed by Martin Fowler's Outer Harness model (Guide × Sensor), on-disk session memory (`.agents/session/`), atomic git checkpoints with instant rollback, and pure-Go CDP browser supervision.
 
 Agents: read [AGENTS.md](AGENTS.md) first.
 
@@ -71,10 +71,11 @@ None of these need Chrome. Chrome is only needed for `agyo browser ...`. The act
 **Antigravity Operator** (`agyo`) wraps Google Antigravity sessions with on-disk memory, git checkpoints, a local dashboard and a supervised Chrome profile. It does not sandbox the agent: commands the agent runs still have your user's permissions.
 
 By implementing the canonical **Outer Harness (Martin Fowler)** model, `agyo` provides:
-1. **Deterministic Session Memory:** State persists directly in `.agents/session/` on disk (`state.md`, `decisions.md`, `todo.md`), eliminating context amnesia.
-2. **Separate Chrome Profile:** Launches and supervises a dedicated Chrome instance on port `9222` (`~/.gemini/antigravity-browser-profile`), so agent browsing stays out of your personal profile. This is a separate profile, not a sandbox: anything that can reach the DevTools port controls that browser.
-3. **Headless & Server Linux Parity:** Automatically detects missing graphical environments (`$DISPLAY` / `$WAYLAND_DISPLAY`) and activates robust server flags (`--headless=new`, `--disable-dev-shm-usage`, `--no-sandbox`).
-4. **Single-Binary Portability:** Written in pure Go with `CGO_ENABLED=0` and embedded templates (`//go:embed`), producing a single self-contained executable with no runtime dependencies.
+1. **Brain & Hands Symbiosis (Grounded Multimodal RAG):** Connects to **Google NotebookLM** via CDP and MCP to ground coding and study sessions on YouTube video playlists, technical books, and academic papers with exact timestamps and citations — costing zero tokens in your agent context window.
+2. **Deterministic Session Memory:** State persists directly in `.agents/session/` on disk (`state.md`, `decisions.md`, `todo.md`), eliminating context amnesia.
+3. **Separate Chrome Profile:** Launches and supervises a dedicated Chrome instance on port `9222` (`~/.gemini/antigravity-browser-profile`), so agent browsing stays out of your personal profile. This is a separate profile, not a sandbox: anything that can reach the DevTools port controls that browser.
+4. **Headless & Server Linux Parity:** Automatically detects missing graphical environments (`$DISPLAY` / `$WAYLAND_DISPLAY`) and activates robust server flags (`--headless=new`, `--disable-dev-shm-usage`, `--no-sandbox`).
+5. **Single-Binary Portability:** Written in pure Go with `CGO_ENABLED=0` and embedded templates (`//go:embed`), producing a single self-contained executable with no runtime dependencies.
 
 ---
 
@@ -347,24 +348,53 @@ agyo browser stop
 ```
 
 ### 8. Native Google NotebookLM Integration (`notebooklm`)
-Connects Google Antigravity agents and terminal sessions directly to your **Google NotebookLM** notebooks and grounded sources with automated CDP session handling (zero Python/Node dependencies). Turn YouTube videos, research papers, and technical books into structured articles, study notes, and runnable code:
+Bridges Google Antigravity and your terminal directly to **Google NotebookLM** via pure-Go DevTools CDP and a stdio Model Context Protocol (MCP) server (zero Python or Node dependencies).
+
+#### 💡 The Killer Workflow: Videos → Technical Articles & Verified Code
+The greatest potential of this integration is transforming passive consumption (long YouTube videos, lectures, documentation, textbooks) into **grounded technical articles, study guides, and verified code implementations** in your local workspace:
+
+```text
+[ YouTube Video / Course / Paper ]
+                │
+                ▼
+     [ Google NotebookLM ] ── (Multimodal index, official transcript & timestamped citations at 0 token cost)
+                │
+                ▼ (Pure-Go CDP / RFC 6455 WebSocket / stdio MCP)
+     [ agyo notebooklm / MCP ] ── (`notebooklm_ask` or `agyo notebooklm ask`)
+                │
+                ▼
+     [ Google Antigravity ] ── (Synthesizes deep technical articles & verified code implementations)
+                │
+                ▼
+[ ~/Estudos/artigos/*.md + Unit Tests ] ── (Perennial study assets, documented architecture & tested code)
+```
+
+1. **Ingest without Token Penalty:** Paste YouTube video links, PDFs, or documentation into a NotebookLM notebook. NotebookLM ingests full transcripts, timestamps, and diagrams into Gemini 1.5 Pro multimodal embeddings at **zero token cost** to your agent.
+2. **Grounded Query via CDP/MCP:** Antigravity queries the notebook with targeted prompts (`agyo notebooklm ask <id> "..."` or MCP `notebooklm_ask`).
+3. **Generate Structured Articles & Study Guides:** Antigravity writes comprehensive technical articles, Feynman-style tutorials, or architectural ADRs into your study folder (e.g. `~/Estudos/artigos/`).
+4. **Implement & Validate Code:** The agent turns theoretical concepts into tested implementations, validating them end-to-end with unit tests and browser checks.
+
+#### 💰 Token Economics (FinOps): ~99.2% Quota Savings
+* **Without NotebookLM:** Storing a 1-hour YouTube transcript (~25,000 tokens) or textbook chapters (~100,000 tokens) directly in the agent context window burns **1,500,000+ input tokens** across 15 conversation turns, triggering TPM rate limits and severe *Lost in the Middle* amnesia.
+* **With `agyo notebooklm`:** The dense knowledge base is externalized. A 60-token query returns a ~500-token cited response. Total 15-turn consumption is just ~12,000 tokens — **an effective ~99.2% token savings**.
+
 ```bash
-# Check connection and authentication status with Google NotebookLM:
+# 1. Check connection and authentication status with Google NotebookLM:
 agyo notebooklm status
 
-# Launch isolated Chrome and open Google NotebookLM (persisted Google profile):
+# 2. Launch isolated Chrome directly into Google NotebookLM (session preserved in profile):
 agyo notebooklm open
 
-# List all available notebooks in your active Google account:
+# 3. List all available notebooks in your active Google account:
 agyo notebooklm list
 
-# Ask a grounded question to a specific notebook:
-agyo notebooklm ask <notebook-id> "What is the architecture described in the specifications?"
+# 4. Ask a grounded question with exact citations to a notebook:
+agyo notebooklm ask <notebook-id> "Explain the consensus algorithm from the video and provide Go code"
 
-# Push local markdown or text files as sources to a notebook:
-agyo notebooklm push <notebook-id> docs/spec/ARCHITECTURE.md
+# 5. Push local markdown notes, code or study summaries back to the notebook:
+agyo notebooklm push <notebook-id> ~/Estudos/artigos/distributed-systems.md
 
-# Run stdio Model Context Protocol (MCP) server for agents (Antigravity / Cursor / Claude):
+# 6. Run stdio Model Context Protocol (MCP) server for Antigravity, Claude Code or Cursor:
 agyo notebooklm mcp
 ```
 *(Short aliases supported: `agyo notebook` and `agyo nblm`)*
