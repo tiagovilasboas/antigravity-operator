@@ -171,9 +171,13 @@ func runInit(args []string) {
 	}
 }
 
+func sessionUsageString() string {
+	return "Usage: agyo session [status|compact|archive|list|restore|watch|export] [dir]"
+}
+
 func runSession(info *platform.Info, args []string) {
 	if len(args) == 0 {
-		fmt.Println("Usage: agyo session [status|compact|archive|watch|export] [dir]")
+		fmt.Println(sessionUsageString())
 		os.Exit(1)
 	}
 
@@ -498,9 +502,13 @@ func runDoctor(info *platform.Info, args []string) {
 	fmt.Println("-----------------------------------------------------------------")
 }
 
+func browserUsageString() string {
+	return "Usage: agyo browser [start|status|stop|tabs|open|close|eval|shot]"
+}
+
 func runBrowser(info *platform.Info, args []string) {
 	if len(args) == 0 {
-		fmt.Println("Usage: agyo browser [start|status|stop]")
+		fmt.Println(browserUsageString())
 		os.Exit(1)
 	}
 

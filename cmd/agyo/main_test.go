@@ -210,3 +210,48 @@ func TestCLI_RunNotebookCommands(t *testing.T) {
 	// 3. Subcomando desconhecido (não deve dar panic)
 	// captura erro silenciosamente testando usage
 }
+
+func TestSubcommandUsageCompleteness(t *testing.T) {
+	sessionTests := []struct {
+		subcommand string
+	}{
+		{"status"},
+		{"compact"},
+		{"archive"},
+		{"list"},
+		{"restore"},
+		{"watch"},
+		{"export"},
+	}
+
+	sessionUsage := sessionUsageString()
+	for _, tc := range sessionTests {
+		t.Run("session_"+tc.subcommand, func(t *testing.T) {
+			if !strings.Contains(sessionUsage, tc.subcommand) {
+				t.Errorf("sessionUsageString() %q does not contain subcommand %q", sessionUsage, tc.subcommand)
+			}
+		})
+	}
+
+	browserTests := []struct {
+		subcommand string
+	}{
+		{"start"},
+		{"status"},
+		{"stop"},
+		{"tabs"},
+		{"open"},
+		{"close"},
+		{"eval"},
+		{"shot"},
+	}
+
+	browserUsage := browserUsageString()
+	for _, tc := range browserTests {
+		t.Run("browser_"+tc.subcommand, func(t *testing.T) {
+			if !strings.Contains(browserUsage, tc.subcommand) {
+				t.Errorf("browserUsageString() %q does not contain subcommand %q", browserUsage, tc.subcommand)
+			}
+		})
+	}
+}
