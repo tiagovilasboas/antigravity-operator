@@ -155,9 +155,15 @@ func TestCLI_RunWatchTree(t *testing.T) {
 }
 
 func TestCLI_RunCompletion(t *testing.T) {
+	origExit := exitFunc
+	defer func() { exitFunc = origExit }()
+	exitFunc = func(code int) {}
+
+	runCompletion([]string{})
 	runCompletion([]string{"bash"})
 	runCompletion([]string{"zsh"})
 	runCompletion([]string{"fish"})
+	runCompletion([]string{"powershell"})
 }
 
 func TestCLI_CheckpointAndRollback(t *testing.T) {
@@ -577,3 +583,150 @@ func TestCLI_RollbackConfirmationNonTTY_UX10(t *testing.T) {
 	}
 }
 
+func TestCLI_RunSessionCompact(t *testing.T) {
+	ws := t.TempDir()
+	sessDir := filepath.Join(ws, ".agents", "session")
+	_ = os.MkdirAll(sessDir, 0755)
+	todoContent := "# Todo\n\n## Concluídas ✅\n- [x] Task 1\n- [x] Task 2\n- [x] Task 3\n- [x] Task 4\n- [x] Task 5\n- [x] Task 6\n"
+	_ = os.WriteFile(filepath.Join(sessDir, "todo.md"), []byte(todoContent), 0644)
+	_ = os.WriteFile(filepath.Join(sessDir, "state.md"), []byte("# State\n"), 0644)
+
+	// 1. Dry run
+	runSessionCompact([]string{"--threshold", "5", "--keep", "2", "--dry-run", ws})
+
+	// 2. Real compact
+	runSessionCompact([]string{"--threshold", "5", "--keep", "2", ws})
+}
+
+func TestCLI_PrintRollbackUsage(t *testing.T) {
+	printRollbackUsage()
+}
+
+func TestCLI_RunBrowserSubcommands(t *testing.T) {
+	info := &platform.Info{
+		OS:             "darwin",
+		Arch:           "arm64",
+		BrowserProfile: t.TempDir(),
+	}
+
+	origExit := exitFunc
+	defer func() { exitFunc = origExit }()
+	exitFunc = func(code int) {}
+
+	// Stop
+	runBrowser(info, []string{"stop"})
+
+	// Eval without args (usage error)
+	runBrowser(info, []string{"eval"})
+
+	// Shot with inactive port (runtime error)
+	runBrowser(info, []string{"shot", filepath.Join(t.TempDir(), "test.png")})
+
+	// Eval with inactive port (runtime error)
+	runBrowser(info, []string{"eval", "1+1"})
+}
+
+func TestCLI_RunNotebookSubcommands(t *testing.T) {
+	info := &platform.Info{
+		OS:             "darwin",
+		Arch:           "arm64",
+		BrowserProfile: t.TempDir(),
+	}
+
+	origExit := exitFunc
+	defer func() { exitFunc = origExit }()
+	exitFunc = func(code int) {}
+
+	// Ask with missing args
+	runNotebook(info, []string{"ask"})
+
+	// Push with missing args
+	runNotebook(info, []string{"push"})
+
+	// Add-source with missing args
+	runNotebook(info, []string{"add-source"})
+
+	// Add-source with inactive port
+	runNotebook(info, []string{"add-source", "test-nb", "https://youtube.com/watch?v=123"})
+}
+
+func TestCLI_MainDispatch(t *testing.T) {
+	origArgs := os.Args
+	defer func() { os.Args = origArgs }()
+
+	origExit := exitFunc
+	defer func() { exitFunc = origExit }()
+	exitFunc = func(code int) {}
+
+	ws := t.TempDir()
+
+	commands := [][]string{
+		{"agyo", "version"},
+		{"agyo", "version", "--json"},
+		{"agyo", "about"},
+		{"agyo", "completion", "bash"},
+		{"agyo", "completion", "zsh"},
+		{"agyo", "completion", "fish"},
+		{"agyo", "--help"},
+		{"agyo", "-h"},
+		{"agyo", "help"},
+		{"agyo", "init", ws},
+		{"agyo", "init", "--help"},
+		{"agyo", "session", "--help"},
+		{"agyo", "session", "status", ws},
+		{"agyo", "session", "status", "--json", ws},
+		{"agyo", "session", "status", "--help"},
+		{"agyo", "session", "compact", "--help"},
+		{"agyo", "session", "export", ws},
+		{"agyo", "session", "export", "--format=html", ws},
+		{"agyo", "session", "export", "--help"},
+		{"agyo", "session", "archive", ws},
+		{"agyo", "session", "archive", "--help"},
+		{"agyo", "session", "list", ws},
+		{"agyo", "session", "list", "--json", ws},
+		{"agyo", "session", "list", "--help"},
+		{"agyo", "session", "restore"},
+		{"agyo", "session", "restore", "--help"},
+		{"agyo", "session", "watch", "--help"},
+		{"agyo", "checkpoint", "--help"},
+		{"agyo", "checkpoint", "-list", ws},
+		{"agyo", "checkpoint", "-list", "-json", ws},
+		{"agyo", "checkpoint", "test-chk", ws},
+		{"agyo", "rollback", "--help"},
+		{"agyo", "rollback", "--yes", ws},
+		{"agyo", "dashboard", "--help"},
+		{"agyo", "browser", "--help"},
+		{"agyo", "browser", "start", "--help"},
+		{"agyo", "browser", "status", "--help"},
+		{"agyo", "browser", "status", "--json"},
+		{"agyo", "browser", "stop", "--help"},
+		{"agyo", "browser", "tabs", "--help"},
+		{"agyo", "browser", "open", "--help"},
+		{"agyo", "browser", "close", "--help"},
+		{"agyo", "browser", "eval", "--help"},
+		{"agyo", "browser", "shot", "--help"},
+		{"agyo", "notebook", "--help"},
+		{"agyo", "notebook", "status", "--help"},
+		{"agyo", "notebook", "status", "--json"},
+		{"agyo", "notebook", "open", "--help"},
+		{"agyo", "notebook", "list", "--help"},
+		{"agyo", "notebook", "ask", "--help"},
+		{"agyo", "notebook", "push", "--help"},
+		{"agyo", "notebook", "add-source", "--help"},
+		{"agyo", "notebook", "mcp", "--help"},
+		{"agyo", "doctor", "--help"},
+		{"agyo", "doctor", ws},
+		{"agyo", "doctor", "--fix", ws},
+		{"agyo", "doctor", "--json", ws},
+		{"agyo", "sync", "--help"},
+		{"agyo", "hook", "--help"},
+		{"agyo", "hook", "antigravity", "status", ws},
+		{"agyo", "hook", "install", ws},
+		{"agyo", "hook", "uninstall", ws},
+	}
+
+	for _, cmd := range commands {
+		os.Args = cmd
+		main()
+	}
+}

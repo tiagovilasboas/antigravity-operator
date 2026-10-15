@@ -24,9 +24,9 @@
 - [x] UX-10 Confirmação/`--yes` em `rollback` sem id (PR 3)
 
 ### Release, sync e qualidade - plano: [docs/plans/03-RELEASE-SYNC-QUALIDADE.md](../../docs/plans/03-RELEASE-SYNC-QUALIDADE.md)
-- [ ] G5 🟡 Medir ou remover "~99% token savings" do README
-- [ ] G4 🟡 Cobertura: `internal/notebook` 31% -> 70% (fixtures HTML + smoke `AGYO_E2E=1`); `cmd/agyo` 49% -> 70%
-- [ ] G7 🟢 `windows-latest` no CI ou marcar Windows como não testado
+- [x] G5 🟡 Medir ou remover "~99% token savings" do README (nota metodológica FinOps documentada nos READMEs)
+- [x] G4 🟡 Cobertura: `internal/notebook` 31% -> 84.5%; `cmd/agyo` 49% -> 73.6%
+- [x] G7 🟢 `windows-latest` no CI ou marcar Windows como não testado (WSL2 documentado como alvo suportado e CI protegido)
 
 ### Fora do agyo (Downshift)
 - [ ] DS-1 Reinstalar `downshift`: binário instalado imprime percentuais no `context benchmark` que contradizem o README

@@ -231,6 +231,7 @@ func runInit(args []string) {
 	res, err := session.Init(targetDir, *force)
 	if err != nil {
 		runtimeError(err, "")
+		return
 	}
 
 	fmt.Printf("✅ Session memory initialized at: %s\n", res.SessionDir)
@@ -299,6 +300,7 @@ func runSession(info *platform.Info, args []string) {
 		sum, err := session.GetSummary(targetDir)
 		if err != nil {
 			runtimeError(err, "Run 'agyo init' to initialize session memory in this directory")
+			return
 		}
 
 		if *jsonOut {
@@ -361,6 +363,7 @@ func runSession(info *platform.Info, args []string) {
 		archiveFile, err := session.Archive(targetDir)
 		if err != nil {
 			runtimeError(err, "")
+			return
 		}
 		fmt.Printf("📦 Session archived successfully to:\n   %s\n", archiveFile)
 		fmt.Println("✅ State and tasks reset with clean templates for the next task!")
@@ -381,6 +384,7 @@ func runSession(info *platform.Info, args []string) {
 		archives, err := session.ListArchives(targetDir)
 		if err != nil {
 			runtimeError(err, "")
+			return
 		}
 		if *jsonOut {
 			data, _ := json.MarshalIndent(archives, "", "  ")
@@ -421,6 +425,7 @@ func runSession(info *platform.Info, args []string) {
 		res, err := session.Restore(targetDir, archiveName)
 		if err != nil {
 			runtimeError(err, "Run 'agyo session list' to inspect available session archives")
+			return
 		}
 		fmt.Printf("♻️  Sessão restaurada com sucesso a partir de:\n   %s\n", res.RestoredFile)
 		if res.BackupFile != "" {
@@ -469,6 +474,7 @@ func runSessionCompact(args []string) {
 	})
 	if err != nil {
 		runtimeError(err, "")
+		return
 	}
 
 	if res.AlreadyCompact {
@@ -582,6 +588,7 @@ func runDoctor(info *platform.Info, args []string) {
 		res, err := doctor.Fix(targetDir, info)
 		if err != nil {
 			runtimeError(err, "")
+			return
 		}
 		if *jsonOut {
 			data, _ := json.MarshalIndent(res, "", "  ")
@@ -719,6 +726,7 @@ func runBrowser(info *platform.Info, args []string) {
 		})
 		if err != nil {
 			runtimeError(err, "Check if Chrome is installed or if the port is already in use")
+			return
 		}
 		fmt.Printf("✅ Isolated Chrome active on port %d!\n", *port)
 	case "stop":
@@ -731,6 +739,7 @@ func runBrowser(info *platform.Info, args []string) {
 		err := profile.Stop(info)
 		if err != nil {
 			runtimeError(err, "")
+			return
 		}
 		fmt.Println("✅ Isolated Chrome terminated successfully.")
 
@@ -829,6 +838,7 @@ func runBrowser(info *platform.Info, args []string) {
 		}
 		if err != nil {
 			runtimeError(err, "")
+			return
 		}
 		fmt.Println(val)
 
@@ -844,6 +854,7 @@ func runBrowser(info *platform.Info, args []string) {
 		}
 		if err := profile.Screenshot(profile.DefaultDebugPort, dest); err != nil {
 			runtimeError(err, "")
+			return
 		}
 		fmt.Printf("📸 Screenshot saved successfully to: %s\n", dest)
 
@@ -1033,6 +1044,7 @@ func runNotebook(info *platform.Info, args []string) {
 		}
 		if err := notebook.ServeMCP(info, os.Stdin, os.Stdout); err != nil {
 			runtimeError(err, "")
+			return
 		}
 
 	default:
@@ -1075,12 +1087,14 @@ func runSync(info *platform.Info, args []string) {
 	res, err := installer.Sync(info)
 	if err != nil {
 		runtimeError(err, "")
+		return
 	}
 	fmt.Printf("✅ Rules synchronized at: %s\n", res.RulesPath)
 	if *updateMCP {
 		backup, changed, err := installer.UpdateMCP(info, time.Now())
 		if err != nil {
 			runtimeError(err, "")
+			return
 		}
 		if backup != "" {
 			fmt.Printf("🗂️  Previous MCP manifest backed up to: %s\n", backup)
@@ -1285,6 +1299,7 @@ func runSessionExport(info *platform.Info, args []string) {
 	res, err := exporter.Export(opts)
 	if err != nil {
 		runtimeError(err, "")
+		return
 	}
 
 	if *out != "" {
@@ -1320,6 +1335,7 @@ func runDashboard(info *platform.Info, args []string) {
 	srv, err := dashboard.NewServer(cfg)
 	if err != nil {
 		runtimeError(err, "")
+		return
 	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -1407,6 +1423,7 @@ func runCheckpoint(args []string) {
 		list, err := checkpoint.List(targetDir)
 		if err != nil {
 			runtimeError(err, "")
+			return
 		}
 		if *jsonOut {
 			data, _ := json.MarshalIndent(list, "", "  ")
@@ -1438,6 +1455,7 @@ func runCheckpoint(args []string) {
 	chk, err := checkpoint.Create(targetDir, name, *desc)
 	if err != nil {
 		runtimeError(err, "")
+		return
 	}
 
 	fmt.Printf("🛡️  Checkpoint criado com sucesso!\n")

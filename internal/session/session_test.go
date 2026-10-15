@@ -143,4 +143,3 @@ func TestGetSummary_UnrecognizedFormatWarnings_UX3(t *testing.T) {
 		t.Errorf("não encontrou aviso de formato para Objetivo: %v", summary.Warnings)
 	}
 }
-

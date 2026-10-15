@@ -107,6 +107,7 @@ jobs:
 
       - name: Open Tap Formula Bump PR
         if: env.HOMEBREW_TAP_TOKEN != ''
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           TAG: ${{ github.ref_name }}

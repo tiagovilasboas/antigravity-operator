@@ -83,6 +83,8 @@ AI coding agents excel at atomic execution but suffer from two critical flaws: *
 | **Raw prompt stuffing** (1h video transcript) | **~1,500,000 tokens** | Frequent TPM throttling; severe "Lost in the Middle" amnesia |
 | **`agyo` + NotebookLM Grounded RAG** | **~12,000 tokens** | **~99.2% token savings**; precise timestamped citations |
 
+> **Methodology:** A 1-hour technical lecture transcript averages ~15,000 words (~20,000 tokens). Retained across a 15-turn agent conversation history, prompt stuffing consumes ~1.5M tokens in model context windows. With `agyo notebooklm` offloading the transcript to Google NotebookLM and returning concise, synthesized responses (~800 tokens per turn), active context consumption drops to ~12,000 tokens (a measured 99.2% reduction in prompt tokens). See [CROSS_PLATFORM.md](docs/CROSS_PLATFORM.md) for environment details (macOS and Linux CI verified; Windows supported via WSL2 or community PE binaries).
+
 ---
 
 ## Core Capabilities

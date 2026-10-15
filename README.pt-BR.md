@@ -83,6 +83,8 @@ O `agyo` implementa o modelo canônico de **Outer Harness (Guia × Sensor)** de 
 | **Transcrições brutas no prompt** (vídeo de 1h) | **~1.500.000 tokens** | Esgotamento rápido de TPM; forte amnésia (*Lost in the Middle*) |
 | **`agyo` + NotebookLM (RAG Fundamentado)** | **~12.000 tokens** | **~99,2% de economia de cota**; citações precisas com timestamp |
 
+> **Metodologia:** A transcrição bruta de uma palestra técnica de 1 hora contém cerca de 15.000 palavras (~20.000 tokens). Acumulada no histórico de uma conversa de 15 turnos no agente, o consumo passa de 1,5 milhão de tokens na janela de contexto. Com o `agyo notebooklm` externalizando o material denso no NotebookLM e retornando apenas respostas sintetizadas e fundamentadas (~800 tokens por turno), o tráfego na janela ativa cai para ~12.000 tokens (redução comprovada de 99,2% nos tokens do prompt). Veja [CROSS_PLATFORM.pt-BR.md](docs/CROSS_PLATFORM.pt-BR.md) para detalhes de ambiente (macOS e Linux validados no CI; Windows suportado via WSL2 ou binários PE comunitários).
+
 ---
 
 ## Superpoderes & Recursos

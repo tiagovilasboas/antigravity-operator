@@ -401,4 +401,3 @@ func TestAntigravityHook_PreToolUse_HK6_DestructiveCheckpoint(t *testing.T) {
 		t.Errorf("expected checkpoint name 'pre-destructive', got %q", chks[0].Name)
 	}
 }
-

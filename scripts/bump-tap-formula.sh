@@ -45,7 +45,10 @@ curl -fsSL "$URL" -o "$WORK/src.tar.gz"
 SHA="$(sha256sum "$WORK/src.tar.gz" | awk '{print $1}')"
 echo "source tarball ${URL} sha256 ${SHA}"
 
-gh api "repos/${TAP_REPO}/contents/${FORMULA}?ref=${TAP_BASE}" -H 'Accept: application/vnd.github.raw' > "$WORK/agyo.rb"
+if ! gh api "repos/${TAP_REPO}/contents/${FORMULA}?ref=${TAP_BASE}" -H 'Accept: application/vnd.github.raw' > "$WORK/agyo.rb" 2>"$WORK/api.err"; then
+  echo "::warning::Cannot fetch ${FORMULA} from ${TAP_REPO}: $(cat "$WORK/api.err"). Skipping Homebrew tap bump PR."
+  exit 0
+fi
 cp "$WORK/agyo.rb" "$WORK/agyo.rb.orig"
 bump_formula "$WORK/agyo.rb" "$URL" "$SHA"
 if cmp -s "$WORK/agyo.rb" "$WORK/agyo.rb.orig"; then
@@ -57,8 +60,14 @@ if gh api "repos/${TAP_REPO}/branches/${BRANCH}" >/dev/null 2>&1; then
   echo "branch ${BRANCH} already exists on ${TAP_REPO}; not opening another PR"
   exit 0
 fi
-BASE_SHA="$(gh api "repos/${TAP_REPO}/git/ref/heads/${TAP_BASE}" --jq .object.sha)"
-gh api -X POST "repos/${TAP_REPO}/git/refs" -f ref="refs/heads/${BRANCH}" -f sha="$BASE_SHA" >/dev/null
+if ! BASE_SHA="$(gh api "repos/${TAP_REPO}/git/ref/heads/${TAP_BASE}" --jq .object.sha 2>"$WORK/api.err")"; then
+  echo "::warning::Cannot get base SHA from ${TAP_REPO}: $(cat "$WORK/api.err"). Skipping Homebrew tap bump PR."
+  exit 0
+fi
+if ! gh api -X POST "repos/${TAP_REPO}/git/refs" -f ref="refs/heads/${BRANCH}" -f sha="$BASE_SHA" >/dev/null 2>"$WORK/api.err"; then
+  echo "::warning::Cannot create branch ${BRANCH} on ${TAP_REPO}: $(cat "$WORK/api.err"). Skipping Homebrew tap bump PR."
+  exit 0
+fi
 
 CONTENT="$(base64 < "$WORK/agyo.rb" | tr -d '\n')"
 # shellcheck disable=SC2016 # GraphQL variables, not shell expansions
