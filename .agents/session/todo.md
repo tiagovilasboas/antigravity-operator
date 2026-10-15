@@ -28,8 +28,8 @@
 - [ ] UX-10 Confirmação/`--yes` em `rollback` sem id (PR 3)
 
 ### Release, sync e qualidade - plano: [docs/plans/03-RELEASE-SYNC-QUALIDADE.md](../../docs/plans/03-RELEASE-SYNC-QUALIDADE.md)
-- [ ] G1 🔴 Cortar `v0.5.0` (NotebookLM fora de qualquer release), atualizar Formula/tap, `make install` com `-ldflags`
-- [ ] G6 🟡 Fixar versões `npx` em `templates/mcps/default-servers.json`
+- [x] G1 🔴 Cortar `v0.5.0` (NotebookLM fora de qualquer release), atualizar Formula/tap, `make install` com `-ldflags`
+- [x] G6 🟡 Fixar versões `npx` em `templates/mcps/default-servers.json`
 - [ ] G5 🟡 Medir ou remover "~99% token savings" do README
 - [ ] G4 🟡 Cobertura: `internal/notebook` 31% -> 70% (fixtures HTML + smoke `AGYO_E2E=1`); `cmd/agyo` 49% -> 70%
 - [ ] G7 🟢 `windows-latest` no CI ou marcar Windows como não testado
