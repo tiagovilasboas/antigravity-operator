@@ -41,6 +41,10 @@ const (
 )
 
 var exitFunc = os.Exit
+var isTerminalFunc = func() bool {
+	fi, err := os.Stdin.Stat()
+	return err == nil && (fi.Mode()&os.ModeCharDevice) != 0
+}
 
 func isHelp(s string) bool {
 	return s == "-h" || s == "--help" || s == "help"
@@ -137,7 +141,11 @@ func main() {
 		}
 		fmt.Printf("agyo (Antigravity Operator) v%s [%s/%s]\n", Version, info.OS, info.Arch)
 	default:
-		fmt.Fprintf(os.Stderr, "Unknown command: %s\nRun 'agyo --help' for usage.\n", command)
+		fmt.Fprintf(os.Stderr, "Unknown command: %q\n", command)
+		if suggestion := suggestCommand(command); suggestion != "" {
+			fmt.Fprintf(os.Stderr, "Did you mean 'agyo %s'?\n", suggestion)
+		}
+		fmt.Fprintf(os.Stderr, "Run 'agyo --help' for usage.\n")
 		exitFunc(ExitUsageError)
 	}
 }
@@ -323,6 +331,13 @@ func runSession(info *platform.Info, args []string) {
 		if sum.HealthStatus == "Bloated 🔴" || sum.DoneTasks >= 5 {
 			fmt.Println()
 			fmt.Printf("💡 Tip: %d completed tasks / ~%d tokens in session. Run 'agyo session compact' to reduce context bloat.\n", sum.DoneTasks, sum.EstimatedTokens)
+		}
+		if len(sum.Warnings) > 0 {
+			fmt.Println()
+			fmt.Println("⚠️  Format warning in state.md:")
+			for _, w := range sum.Warnings {
+				fmt.Printf("   • %s\n", w)
+			}
 		}
 		fmt.Println("-----------------------------------------------------------------")
 
@@ -1443,13 +1458,16 @@ func runCheckpoint(args []string) {
 }
 
 func rollbackUsageString() string {
-	return `Usage: agyo rollback [checkpoint-id|latest] [dir]
+	return `Usage: agyo rollback [checkpoint-id|latest] [options] [dir]
 
 Safely undo agent edits and restore exact working tree from a checkpoint without detaching HEAD.
 
+Options:
+  --yes, -y    Skip interactive confirmation when rolling back to latest checkpoint
+
 Examples:
-  agyo rollback
-  agyo rollback latest
+  agyo rollback --yes
+  agyo rollback latest --yes
   agyo rollback chk-20261015-025037`
 }
 
@@ -1464,22 +1482,50 @@ func runRollback(args []string) {
 	}
 	targetID := ""
 	targetDir := "."
+	hasYes := false
 
-	if len(args) == 1 {
-		// Se for um diretório existente, usa como targetDir, senão é targetID
-		if fi, err := os.Stat(args[0]); err == nil && fi.IsDir() {
-			targetDir = args[0]
+	var cleanArgs []string
+	for _, a := range args {
+		if a == "--yes" || a == "-yes" || a == "-y" {
+			hasYes = true
 		} else {
-			targetID = args[0]
+			cleanArgs = append(cleanArgs, a)
 		}
-	} else if len(args) > 1 {
-		targetID = args[0]
-		targetDir = args[1]
+	}
+
+	if len(cleanArgs) == 1 {
+		// Se for um diretório existente, usa como targetDir, senão é targetID
+		if fi, err := os.Stat(cleanArgs[0]); err == nil && fi.IsDir() {
+			targetDir = cleanArgs[0]
+		} else {
+			targetID = cleanArgs[0]
+		}
+	} else if len(cleanArgs) > 1 {
+		targetID = cleanArgs[0]
+		targetDir = cleanArgs[1]
+	}
+
+	// UX-10: rollback sem ID explícito reverte para latest; exige confirmação em TTY ou --yes em non-TTY
+	if (targetID == "" || targetID == "latest") && !hasYes {
+		if !isTerminalFunc() {
+			usageError("rollback to latest without checkpoint ID in non-interactive mode requires --yes flag (e.g. 'agyo rollback --yes')")
+			return
+		}
+
+		fmt.Print("⚠️  Reverting to the latest checkpoint will overwrite local uncommitted changes. Proceed? [y/N]: ")
+		var response string
+		fmt.Scanln(&response)
+		response = strings.ToLower(strings.TrimSpace(response))
+		if response != "y" && response != "yes" {
+			fmt.Println("Rollback cancelled.")
+			return
+		}
 	}
 
 	res, err := checkpoint.Rollback(targetDir, targetID)
 	if err != nil {
 		runtimeError(err, "Run 'agyo checkpoint -list' to inspect available checkpoints")
+		return
 	}
 
 	fmt.Printf("⏪ Workspace restaurado com sucesso para o checkpoint:\n")

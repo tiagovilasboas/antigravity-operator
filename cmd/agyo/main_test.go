@@ -485,3 +485,95 @@ func TestCLI_JSONSupport_UX7(t *testing.T) {
 		t.Errorf("notebook status --json produced invalid JSON: %v, out: %s", err, out)
 	}
 }
+
+func TestCLI_DidYouMean_UX9(t *testing.T) {
+	origExit := exitFunc
+	defer func() { exitFunc = origExit }()
+	var lastExitCode int
+	exitFunc = func(code int) {
+		lastExitCode = code
+	}
+
+	captureStderr := func(f func()) string {
+		origStderr := os.Stderr
+		r, w, _ := os.Pipe()
+		os.Stderr = w
+
+		f()
+
+		w.Close()
+		os.Stderr = origStderr
+		var buf bytes.Buffer
+		_, _ = buf.ReadFrom(r)
+		return buf.String()
+	}
+
+	origArgs := os.Args
+	defer func() { os.Args = origArgs }()
+
+	os.Args = []string{"agyo", "statsu"}
+	errOut := captureStderr(func() {
+		main()
+	})
+
+	if lastExitCode != ExitUsageError {
+		t.Errorf("expected exit code %d, got %d", ExitUsageError, lastExitCode)
+	}
+	if !strings.Contains(errOut, `Unknown command: "statsu"`) {
+		t.Errorf("expected unknown command message, got: %s", errOut)
+	}
+	if !strings.Contains(errOut, "Did you mean 'agyo session status'?") {
+		t.Errorf("expected suggestion for 'session status', got: %s", errOut)
+	}
+}
+
+func TestCLI_RollbackConfirmationNonTTY_UX10(t *testing.T) {
+	origExit := exitFunc
+	defer func() { exitFunc = origExit }()
+	var lastExitCode int
+	exitFunc = func(code int) {
+		lastExitCode = code
+	}
+
+	origIsTerm := isTerminalFunc
+	defer func() { isTerminalFunc = origIsTerm }()
+	isTerminalFunc = func() bool { return false }
+
+	captureStderr := func(f func()) string {
+		origStderr := os.Stderr
+		r, w, _ := os.Pipe()
+		os.Stderr = w
+
+		f()
+
+		w.Close()
+		os.Stderr = origStderr
+		var buf bytes.Buffer
+		_, _ = buf.ReadFrom(r)
+		return buf.String()
+	}
+
+	tempDir := t.TempDir()
+
+	// 1. Without --yes in non-TTY: must exit 2 with actionable error
+	errOut := captureStderr(func() {
+		runRollback([]string{tempDir})
+	})
+
+	if lastExitCode != ExitUsageError {
+		t.Errorf("expected exit code %d without --yes, got %d", ExitUsageError, lastExitCode)
+	}
+	if !strings.Contains(errOut, "requires --yes flag") {
+		t.Errorf("expected requires --yes flag message, got: %s", errOut)
+	}
+
+	// 2. With --yes in non-TTY: passes confirmation gate (will fail later on missing checkpoints, with runtime error, not usage error)
+	lastExitCode = 0
+	_ = captureStderr(func() {
+		runRollback([]string{"--yes", tempDir})
+	})
+	if lastExitCode == ExitUsageError {
+		t.Errorf("with --yes should not fail usage confirmation check, got exit code: %d", lastExitCode)
+	}
+}
+

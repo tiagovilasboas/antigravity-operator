@@ -19,9 +19,9 @@
 > 📦 *Histórico compactado: 8 tarefas concluídas arquivadas em [completed-tasks-2026-10-15.md](archive/completed-tasks-2026-10-15.md)*
 - [x] UX-4 Ajuda curada por grupo no formato do `notebooklm` com exemplos (PR 2)
 - [x] UX-7 `--json` em `version`, `browser tabs/status`, `notebooklm list/status`, `session list` (PR 2)
-- [ ] UX-3 Parser do `state.md` avisar formato não reconhecido (PR 3)
-- [ ] UX-9 Sugestão "você quis dizer" para comando desconhecido (PR 3)
-- [ ] UX-10 Confirmação/`--yes` em `rollback` sem id (PR 3)
+- [x] UX-3 Parser do `state.md` avisar formato não reconhecido (PR 3)
+- [x] UX-9 Sugestão "você quis dizer" para comando desconhecido (PR 3)
+- [x] UX-10 Confirmação/`--yes` em `rollback` sem id (PR 3)
 
 ### Release, sync e qualidade - plano: [docs/plans/03-RELEASE-SYNC-QUALIDADE.md](../../docs/plans/03-RELEASE-SYNC-QUALIDADE.md)
 - [ ] G5 🟡 Medir ou remover "~99% token savings" do README

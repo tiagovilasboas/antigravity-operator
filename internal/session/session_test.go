@@ -3,6 +3,7 @@ package session_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/tiagovilasboas/antigravity-operator/internal/session"
@@ -85,4 +86,61 @@ func TestGetSummaryAndArchive(t *testing.T) {
 	if _, err := os.Stat(archivePath); os.IsNotExist(err) {
 		t.Errorf("arquivo de arquivo não foi criado: %s", archivePath)
 	}
+
+	// Template padrão não deve gerar warnings
+	if len(summary.Warnings) != 0 {
+		t.Errorf("template padrão não deve ter warnings, obteve: %v", summary.Warnings)
+	}
 }
+
+func TestGetSummary_UnrecognizedFormatWarnings_UX3(t *testing.T) {
+	tempDir := t.TempDir()
+	sessDir := filepath.Join(tempDir, ".agents", "session")
+	if err := os.MkdirAll(sessDir, 0755); err != nil {
+		t.Fatalf("mkdir failed: %v", err)
+	}
+
+	// Fixture baseada no ~/Estudos com formato customizado sem ## Objetivo Atual
+	estudosState := `# Estado da Sessão
+
+- **Data de Início:** 2026-09-28
+- **Workspace:** /Users/tiago.boas/Estudos
+- **Agente:** Session Agent (Antigravity 2.0)
+- **Status:** Ativo & Conectado
+
+## Integração do Browser
+- [x] Conexão nativa ativa
+`
+	if err := os.WriteFile(filepath.Join(sessDir, "state.md"), []byte(estudosState), 0644); err != nil {
+		t.Fatalf("failed to write state.md: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(sessDir, "todo.md"), []byte("- [ ] Task 1\n"), 0644); err != nil {
+		t.Fatalf("failed to write todo.md: %v", err)
+	}
+
+	summary, err := session.GetSummary(tempDir)
+	if err != nil {
+		t.Fatalf("GetSummary failed: %v", err)
+	}
+
+	// Fallback de status deve ser preenchido
+	if summary.Status != "Ativo & Conectado" {
+		t.Errorf("esperava status 'Ativo & Conectado' via fallback, obteve: %q", summary.Status)
+	}
+
+	// Deve ter gerado aviso de formato não reconhecido
+	if len(summary.Warnings) == 0 {
+		t.Fatalf("esperava warnings para state.md com formato não canônico")
+	}
+
+	foundObjectiveWarn := false
+	for _, w := range summary.Warnings {
+		if strings.Contains(w, "formato não reconhecido para Objetivo") {
+			foundObjectiveWarn = true
+		}
+	}
+	if !foundObjectiveWarn {
+		t.Errorf("não encontrou aviso de formato para Objetivo: %v", summary.Warnings)
+	}
+}
+

@@ -29,6 +29,7 @@ type Summary struct {
 	TotalSizeBytes  int64    `json:"total_size_bytes"`
 	EstimatedTokens int      `json:"estimated_tokens"`
 	HealthStatus    string   `json:"health_status"` // "Optimal 🟢", "Moderate 🟡", "Bloated 🔴"
+	Warnings        []string `json:"warnings,omitempty"`
 }
 
 // Init inicializa a pasta de memória operacional de sessão (.agents/session/) no diretório alvo.
@@ -114,6 +115,9 @@ func GetSummary(targetDir string) (*Summary, error) {
 		defer f.Close()
 		scanner := bufio.NewScanner(f)
 		inObjective := false
+		foundObjective := false
+		foundPhase := false
+
 		for scanner.Scan() {
 			line := strings.TrimSpace(scanner.Text())
 			if strings.HasPrefix(line, "## Objetivo Atual") {
@@ -125,10 +129,21 @@ func GetSummary(targetDir string) (*Summary, error) {
 			}
 			if inObjective && strings.HasPrefix(line, "- ") && summary.Objective == "Não definido" {
 				summary.Objective = strings.TrimPrefix(line, "- ")
+				foundObjective = true
 			}
 			if strings.HasPrefix(line, "- **Fase Atual:**") {
 				summary.Status = strings.TrimSpace(strings.TrimPrefix(line, "- **Fase Atual:**"))
+				foundPhase = true
+			} else if !foundPhase && strings.HasPrefix(line, "- **Status:**") {
+				summary.Status = strings.TrimSpace(strings.TrimPrefix(line, "- **Status:**"))
 			}
+		}
+
+		if !foundObjective {
+			summary.Warnings = append(summary.Warnings, "state.md: formato não reconhecido para Objetivo (esperado seção '## Objetivo Atual' com item '- <descrição>'). Exemplo:\n     ## Objetivo Atual\n     - Definir objetivo principal")
+		}
+		if !foundPhase {
+			summary.Warnings = append(summary.Warnings, "state.md: formato não reconhecido para Fase (esperado campo '- **Fase Atual:** <fase>'). Exemplo:\n     ## Status em Tempo Real\n     - **Fase Atual:** Planejamento / Execução / Validação")
 		}
 	}
 
