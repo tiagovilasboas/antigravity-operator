@@ -286,4 +286,3 @@ func TestCheckSkills(t *testing.T) {
 		t.Errorf("expected details to mention agyo.bak, got %s", cWarn.Details)
 	}
 }
-

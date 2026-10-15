@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -201,14 +202,161 @@ func TestCLI_RunNotebookCommands(t *testing.T) {
 	info := &platform.Info{
 		BrowserProfile: t.TempDir(),
 	}
-	// 1. Status
+
+	origExit := exitFunc
+	defer func() { exitFunc = origExit }()
+	var lastCode int
+	exitFunc = func(code int) {
+		lastCode = code
+	}
+
+	// 1. Status (port 9222 offline)
 	runNotebook(info, []string{"status"})
 
-	// 2. Sem argumentos (usage)
+	// 2. Sem argumentos (usage -> exit 2)
+	lastCode = -1
 	runNotebook(info, []string{})
+	if lastCode != ExitUsageError {
+		t.Errorf("expected exit code %d for empty notebook command, got %d", ExitUsageError, lastCode)
+	}
 
-	// 3. Subcomando desconhecido (não deve dar panic)
-	// captura erro silenciosamente testando usage
+	// 3. Subcomando desconhecido -> exit 2
+	lastCode = -1
+	runNotebook(info, []string{"bogus"})
+	if lastCode != ExitUsageError {
+		t.Errorf("expected exit code %d for unknown notebook subcommand, got %d", ExitUsageError, lastCode)
+	}
+}
+
+func TestCLI_ExitCodeContract_HelpFlags(t *testing.T) {
+	// UX-1 & UX-2: --help, -h, help must return 0 and have NO side effects (no Chrome start, no files written)
+	info := &platform.Info{
+		BrowserProfile: t.TempDir(),
+	}
+
+	origExit := exitFunc
+	defer func() { exitFunc = origExit }()
+	var lastCode int
+	exitFunc = func(code int) {
+		lastCode = code
+	}
+
+	groups := [][]string{
+		{"session", "--help"},
+		{"session", "-h"},
+		{"session", "help"},
+		{"browser", "--help"},
+		{"browser", "-h"},
+		{"browser", "help"},
+		{"hook", "--help"},
+		{"hook", "-h"},
+		{"hook", "help"},
+		{"checkpoint", "--help"},
+		{"checkpoint", "-h"},
+		{"checkpoint", "help"},
+		{"notebooklm", "--help"},
+		{"notebooklm", "-h"},
+		{"notebooklm", "help"},
+		// UX-1: notebook open --help must NOT start Chrome
+		{"notebooklm", "open", "--help"},
+		{"notebooklm", "open", "-h"},
+		{"notebooklm", "status", "--help"},
+		{"browser", "open", "--help"},
+		{"browser", "shot", "--help"},
+		{"browser", "eval", "--help"},
+	}
+
+	for _, g := range groups {
+		t.Run(strings.Join(g, "_"), func(t *testing.T) {
+			lastCode = 0
+			switch g[0] {
+			case "session":
+				runSession(info, g[1:])
+			case "browser":
+				runBrowser(info, g[1:])
+			case "hook":
+				runHook(g[1:])
+			case "checkpoint":
+				runCheckpoint(g[1:])
+			case "notebooklm":
+				runNotebook(info, g[1:])
+			}
+			if lastCode != 0 {
+				t.Errorf("help flag %v caused exit code %d, expected 0", g, lastCode)
+			}
+		})
+	}
+}
+
+func TestCLI_ExitCodeContract_UsageErrors(t *testing.T) {
+	// UX-6: Missing arguments or unknown subcommands must return ExitUsageError (2)
+	info := &platform.Info{
+		BrowserProfile: t.TempDir(),
+	}
+
+	origExit := exitFunc
+	defer func() { exitFunc = origExit }()
+	var lastCode int
+	exitFunc = func(code int) {
+		lastCode = code
+	}
+
+	usageTests := []struct {
+		name string
+		run  func()
+	}{
+		{"session_empty", func() { runSession(info, []string{}) }},
+		{"session_unknown", func() { runSession(info, []string{"bogus"}) }},
+		{"browser_empty", func() { runBrowser(info, []string{}) }},
+		{"browser_unknown", func() { runBrowser(info, []string{"bogus"}) }},
+		{"browser_open_no_url", func() { runBrowser(info, []string{"open"}) }},
+		{"browser_close_no_id", func() { runBrowser(info, []string{"close"}) }},
+		{"notebook_empty", func() { runNotebook(info, []string{}) }},
+		{"notebook_unknown", func() { runNotebook(info, []string{"bogus"}) }},
+		{"notebook_push_missing_args", func() { runNotebook(info, []string{"push"}) }},
+		{"hook_empty", func() { runHook([]string{}) }},
+		{"hook_unknown", func() { runHook([]string{"bogus"}) }},
+	}
+
+	for _, tc := range usageTests {
+		t.Run(tc.name, func(t *testing.T) {
+			lastCode = 0
+			tc.run()
+			if lastCode != ExitUsageError {
+				t.Errorf("expected exit code %d (ExitUsageError), got %d", ExitUsageError, lastCode)
+			}
+		})
+	}
+}
+
+func TestCLI_ActionableHint_Port9222(t *testing.T) {
+	// UX-8: runtime error on port 9222 must mention 'agyo browser start'
+	origExit := exitFunc
+	defer func() { exitFunc = origExit }()
+	var lastCode int
+	exitFunc = func(code int) {
+		lastCode = code
+	}
+
+	// Capture stderr
+	origStderr := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+
+	runtimeError(errors.New("dial tcp 127.0.0.1:9222: connect: connection refused"), "")
+	w.Close()
+	os.Stderr = origStderr
+
+	buf := make([]byte, 1024)
+	n, _ := r.Read(buf)
+	output := string(buf[:n])
+
+	if lastCode != ExitRuntimeError {
+		t.Errorf("expected exit code %d (ExitRuntimeError), got %d", ExitRuntimeError, lastCode)
+	}
+	if !strings.Contains(output, "agyo browser start") {
+		t.Errorf("expected hint mentioning 'agyo browser start', got: %s", output)
+	}
 }
 
 func TestSubcommandUsageCompleteness(t *testing.T) {

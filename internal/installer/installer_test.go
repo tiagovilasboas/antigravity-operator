@@ -217,4 +217,3 @@ func TestSync_CreatesBackupOnDifference(t *testing.T) {
 		t.Errorf("backup file content mismatch: want %s, got %s", string(oldContent), string(backupBytes))
 	}
 }
-

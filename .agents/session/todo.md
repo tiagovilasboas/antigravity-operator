@@ -20,11 +20,7 @@
 - [ ] Spike: existe modo headless (estilo `claude -p`) no CLI do Antigravity?
 
 ### UX da CLI - plano: [docs/plans/02-CLI-UX-CONTRATO.md](../../docs/plans/02-CLI-UX-CONTRATO.md)
-- [ ] UX-1 `notebooklm open --help` abre o Chrome: interceptar `--help` antes de qualquer ação (PR 1)
-- [ ] UX-2 `--help` nos grupos `session`/`browser`/`hook`/`checkpoint` (PR 1)
-- [ ] UX-6 Contrato de exit code 0/1/2 + teste table-driven com Chrome desligado (PR 1)
-- [ ] UX-8 Helper único de erro com "→ próximo passo" (PR 1)
-- [ ] UX-5 Padronizar idioma das mensagens (decidir PT-BR ou EN) (PR 1)
+> 📦 *Histórico compactado: 8 tarefas concluídas arquivadas em [completed-tasks-2026-10-15.md](archive/completed-tasks-2026-10-15.md)*
 - [ ] UX-4 Ajuda curada por grupo no formato do `notebooklm` (PR 2)
 - [ ] UX-7 `--json` em `version`, `browser tabs/status`, `notebooklm list/status`, `session list` (PR 2)
 - [ ] UX-3 Parser do `state.md` avisar formato não reconhecido (PR 3)
@@ -32,8 +28,6 @@
 - [ ] UX-10 Confirmação/`--yes` em `rollback` sem id (PR 3)
 
 ### Release, sync e qualidade - plano: [docs/plans/03-RELEASE-SYNC-QUALIDADE.md](../../docs/plans/03-RELEASE-SYNC-QUALIDADE.md)
-- [x] G3 Mover `~/.gemini/config/skills/agyo.bak` para `~/.gemini/config/skills-backup/` + check "Agent Skills" no `doctor` detectando pastas .bak
-- [x] G2 `sync` não escrever através de symlink (harness-core) + backup antes de sobrescrever rules/skill
 - [ ] G1 🔴 Cortar `v0.5.0` (NotebookLM fora de qualquer release), atualizar Formula/tap, `make install` com `-ldflags`
 - [ ] G6 🟡 Fixar versões `npx` em `templates/mcps/default-servers.json`
 - [ ] G5 🟡 Medir ou remover "~99% token savings" do README
@@ -48,7 +42,6 @@
 > 📦 *Histórico compactado: 8 tarefas concluídas arquivadas em [completed-tasks-2026-10-08.md](archive/completed-tasks-2026-10-08.md)*
 > 📦 *Histórico compactado: 32 tarefas concluídas arquivadas em [completed-tasks-2026-10-01.md](archive/completed-tasks-2026-10-01.md)*
 > 📦 *Histórico compactado: 5 tarefas concluídas arquivadas em [completed-tasks-2026-10-08.md](archive/completed-tasks-2026-10-08.md)*
-- [x] Hardening de segurança AppSec aplicado (`--remote-debugging-address=127.0.0.1`, `0700` no perfil, validação de notebookID e fix DOM no `PushSource`)
 - [x] PR #31 aprovado pelo CI do GitHub Actions e mesclado na branch `main`
 - [x] Binário compilado e instalado localmente em `~/.local/bin/agyo` (v0.5.0)
 - [x] README.md e README.pt-BR.md refatorados para layout moderno e escaneável (176 linhas, diagrama Brain & Hands, tabela FinOps e tabela de CLI com links para specs; CI 100% verde)

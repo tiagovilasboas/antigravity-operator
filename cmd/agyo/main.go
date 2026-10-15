@@ -33,19 +33,63 @@ import (
 // Builds without the flag report "dev".
 var Version = "dev"
 
+// Standard CLI exit codes
+const (
+	ExitSuccess      = 0
+	ExitRuntimeError = 1
+	ExitUsageError   = 2
+)
+
+var exitFunc = os.Exit
+
+func isHelp(s string) bool {
+	return s == "-h" || s == "--help" || s == "help"
+}
+
+func hasHelp(args []string) bool {
+	for _, a := range args {
+		if isHelp(a) {
+			return true
+		}
+	}
+	return false
+}
+
+func usageError(format string, a ...interface{}) {
+	fmt.Fprintf(os.Stderr, "Error: "+format+"\n", a...)
+	exitFunc(ExitUsageError)
+}
+
+func runtimeError(err error, hint string) {
+	msg := err.Error()
+	if strings.Contains(msg, "127.0.0.1:9222") || strings.Contains(msg, "connection refused") {
+		fmt.Fprintf(os.Stderr, "Error: Chrome DevTools is not reachable on port 9222\n→ Start isolated Chrome with: agyo browser start\n")
+		exitFunc(ExitRuntimeError)
+	}
+	fmt.Fprintf(os.Stderr, "Error: %s\n", msg)
+	if hint != "" {
+		fmt.Fprintf(os.Stderr, "→ %s\n", hint)
+	}
+	exitFunc(ExitRuntimeError)
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		printUsage()
-		os.Exit(1)
+		exitFunc(ExitUsageError)
 	}
 
 	info, err := platform.Detect()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error detecting platform: %v\n", err)
-		os.Exit(1)
+		exitFunc(ExitRuntimeError)
 	}
 
 	command := os.Args[1]
+	if isHelp(command) {
+		printUsage()
+		return
+	}
 
 	switch command {
 	case "init":
@@ -74,12 +118,9 @@ func main() {
 		printAbout()
 	case "version", "-v", "--version":
 		fmt.Printf("agyo (Antigravity Operator) v%s [%s/%s]\n", Version, info.OS, info.Arch)
-	case "help", "-h", "--help":
-		printUsage()
 	default:
-		fmt.Fprintf(os.Stderr, "Unknown command: %s\n\n", command)
-		printUsage()
-		os.Exit(1)
+		fmt.Fprintf(os.Stderr, "Unknown command: %s\nRun 'agyo --help' for usage.\n", command)
+		exitFunc(ExitUsageError)
 	}
 }
 
@@ -147,6 +188,11 @@ Built with care, precision, and canonical software engineering (Martin Fowler Ou
 }
 
 func runInit(args []string) {
+	if hasHelp(args) {
+		fmt.Println("Usage: agyo init [-force] [dir]")
+		fmt.Println("Scaffold operational memory (.agents/session/) in the target project.")
+		return
+	}
 	initCmd := flag.NewFlagSet("init", flag.ExitOnError)
 	force := initCmd.Bool("force", false, "Overwrite existing session files")
 	_ = initCmd.Parse(args)
@@ -158,8 +204,7 @@ func runInit(args []string) {
 
 	res, err := session.Init(targetDir, *force)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error initializing session: %v\n", err)
-		os.Exit(1)
+		runtimeError(err, "")
 	}
 
 	fmt.Printf("✅ Session memory initialized at: %s\n", res.SessionDir)
@@ -172,20 +217,46 @@ func runInit(args []string) {
 }
 
 func sessionUsageString() string {
-	return "Usage: agyo session [status|compact|archive|list|restore|watch|export] [dir]"
+	return `Usage: agyo session <subcommand> [options]
+
+Subcommands:
+  status [--json] [dir]           Display active session objective, status, and task completion metrics
+  compact [--threshold N] [dir]   Archive completed tasks and rollup active todo.md to avoid context bloat
+  archive [dir]                   Archive completed session to historical log and reset templates
+  list [--json] [dir]             List all archived historical sessions
+  restore [file] [dir]            Restore a past archived session into active memory with automatic backup
+  watch, tail [dir]               Stream active agent reasoning and desktop notifications in real time
+  export [--format md|html] [dir] Export consolidated session report in markdown or HTML format
+
+Run 'agyo session <subcommand> --help' for details on each subcommand.`
+}
+
+func printSessionUsage() {
+	fmt.Println(sessionUsageString())
 }
 
 func runSession(info *platform.Info, args []string) {
 	if len(args) == 0 {
-		fmt.Println(sessionUsageString())
-		os.Exit(1)
+		printSessionUsage()
+		exitFunc(ExitUsageError)
+		return
 	}
 
 	sub := args[0]
+	if isHelp(sub) {
+		printSessionUsage()
+		return
+	}
+
 	targetDir := "."
 
 	switch sub {
 	case "status":
+		if hasHelp(args[1:]) {
+			fmt.Println("Usage: agyo session status [--json] [dir]")
+			fmt.Println("Display active session objective, status, and task completion metrics.")
+			return
+		}
 		statusCmd := flag.NewFlagSet("session status", flag.ExitOnError)
 		jsonOut := statusCmd.Bool("json", false, "Output session status as JSON")
 		_ = statusCmd.Parse(args[1:])
@@ -195,8 +266,7 @@ func runSession(info *platform.Info, args []string) {
 
 		sum, err := session.GetSummary(targetDir)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
+			runtimeError(err, "Run 'agyo init' to initialize session memory in this directory")
 		}
 
 		if *jsonOut {
@@ -233,21 +303,35 @@ func runSession(info *platform.Info, args []string) {
 		fmt.Println("-----------------------------------------------------------------")
 
 	case "compact":
+		if hasHelp(args[1:]) {
+			fmt.Println("Usage: agyo session compact [--threshold N] [--keep N] [--dry-run] [dir]")
+			fmt.Println("Archive completed tasks and rollup active todo.md to avoid context bloat.")
+			return
+		}
 		runSessionCompact(args[1:])
 
 	case "archive":
+		if hasHelp(args[1:]) {
+			fmt.Println("Usage: agyo session archive [dir]")
+			fmt.Println("Archive completed session to historical log and reset templates.")
+			return
+		}
 		if len(args) > 1 {
 			targetDir = args[1]
 		}
 		archiveFile, err := session.Archive(targetDir)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error archiving session: %v\n", err)
-			os.Exit(1)
+			runtimeError(err, "")
 		}
 		fmt.Printf("📦 Session archived successfully to:\n   %s\n", archiveFile)
 		fmt.Println("✅ State and tasks reset with clean templates for the next task!")
 
 	case "list":
+		if hasHelp(args[1:]) {
+			fmt.Println("Usage: agyo session list [--json] [dir]")
+			fmt.Println("List all archived historical sessions.")
+			return
+		}
 		listCmd := flag.NewFlagSet("session list", flag.ExitOnError)
 		jsonOut := listCmd.Bool("json", false, "Output archives list as JSON")
 		_ = listCmd.Parse(args[1:])
@@ -257,8 +341,7 @@ func runSession(info *platform.Info, args []string) {
 
 		archives, err := session.ListArchives(targetDir)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error listing archived sessions: %v\n", err)
-			os.Exit(1)
+			runtimeError(err, "")
 		}
 		if *jsonOut {
 			data, _ := json.MarshalIndent(archives, "", "  ")
@@ -280,6 +363,11 @@ func runSession(info *platform.Info, args []string) {
 		fmt.Println("💡 Para restaurar uma sessão: agyo session restore <nome-do-arquivo>")
 
 	case "restore":
+		if hasHelp(args[1:]) {
+			fmt.Println("Usage: agyo session restore [archive-file] [dir]")
+			fmt.Println("Restore a past archived session into active memory with automatic backup.")
+			return
+		}
 		archiveName := ""
 		if len(args) == 2 {
 			if fi, err := os.Stat(args[1]); err == nil && fi.IsDir() {
@@ -293,8 +381,7 @@ func runSession(info *platform.Info, args []string) {
 		}
 		res, err := session.Restore(targetDir, archiveName)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error restoring session: %v\n", err)
-			os.Exit(1)
+			runtimeError(err, "Run 'agyo session list' to inspect available session archives")
 		}
 		fmt.Printf("♻️  Sessão restaurada com sucesso a partir de:\n   %s\n", res.RestoredFile)
 		if res.BackupFile != "" {
@@ -304,14 +391,23 @@ func runSession(info *platform.Info, args []string) {
 		fmt.Printf("📋 Tarefas restauradas  : %d\n", res.TasksCount)
 
 	case "watch", "tail":
+		if hasHelp(args[1:]) {
+			fmt.Println("Usage: agyo session watch [dir]")
+			fmt.Println("Stream active agent reasoning and desktop notifications in real time.")
+			return
+		}
 		runSessionWatch(info, args[1:])
 
 	case "export":
+		if hasHelp(args[1:]) {
+			fmt.Println("Usage: agyo session export [--format md|html] [--out file] [dir]")
+			fmt.Println("Export consolidated session report in markdown or HTML format.")
+			return
+		}
 		runSessionExport(info, args[1:])
 
 	default:
-		fmt.Fprintf(os.Stderr, "Unknown session subcommand: %s\n", sub)
-		os.Exit(1)
+		usageError("unknown session subcommand %q\nRun 'agyo session --help' for usage.", sub)
 	}
 }
 
@@ -333,8 +429,7 @@ func runSessionCompact(args []string) {
 		DryRun:    *dryRun,
 	})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error compacting session: %v\n", err)
-		os.Exit(1)
+		runtimeError(err, "")
 	}
 
 	if res.AlreadyCompact {
@@ -391,8 +486,7 @@ func runSessionWatch(info *platform.Info, args []string) {
 
 	tInfo, err := watcher.FindLatestTranscript(homeDir(info))
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Erro localizando transcrição: %v\n", err)
-		os.Exit(1)
+		runtimeError(err, "")
 	}
 
 	fmt.Printf("📡 Streaming Antigravity Brain [%s]\n", tInfo.ConversationID)
@@ -417,8 +511,7 @@ func runSessionWatch(info *platform.Info, args []string) {
 	})
 
 	if err != nil && err != context.Canceled {
-		fmt.Fprintf(os.Stderr, "Erro no stream da transcrição: %v\n", err)
-		os.Exit(1)
+		runtimeError(err, "")
 	}
 
 	if *tree {
@@ -431,6 +524,11 @@ func runSessionWatch(info *platform.Info, args []string) {
 }
 
 func runDoctor(info *platform.Info, args []string) {
+	if hasHelp(args) {
+		fmt.Println("Usage: agyo doctor [--json] [--fix] [dir]")
+		fmt.Println("Audit host readiness, platform tools, and auto-repair session memory.")
+		return
+	}
 	docCmd := flag.NewFlagSet("doctor", flag.ExitOnError)
 	jsonOut := docCmd.Bool("json", false, "Output doctor diagnostics as JSON")
 	fixFlag := docCmd.Bool("fix", false, "Automatically repair missing session files and corrupted state")
@@ -444,8 +542,7 @@ func runDoctor(info *platform.Info, args []string) {
 	if *fixFlag {
 		res, err := doctor.Fix(targetDir, info)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error auto-repairing environment: %v\n", err)
-			os.Exit(1)
+			runtimeError(err, "")
 		}
 		if *jsonOut {
 			data, _ := json.MarshalIndent(res, "", "  ")
@@ -503,18 +600,45 @@ func runDoctor(info *platform.Info, args []string) {
 }
 
 func browserUsageString() string {
-	return "Usage: agyo browser [start|status|stop|tabs|open|close|eval|shot]"
+	return `Usage: agyo browser <subcommand> [options]
+
+Subcommands:
+  start [--headless] [--port <p>] Launch isolated Chrome with DevTools debugging flags
+  status                          Inspect DevTools port (9222) readiness and Chrome process PID
+  stop                            Gracefully terminate isolated Chrome process
+  tabs                            List all open page tabs and target IDs in isolated Chrome
+  open <url>                      Open a new tab at the given URL in isolated Chrome
+  close <tab-id>                  Close a specific tab by ID
+  eval [tab-id] "<js>"            Evaluate JavaScript expression in active or target tab via CDP
+  shot [filename]                 Capture PNG screenshot of active tab (default: screenshot.png)
+
+Run 'agyo browser <subcommand> --help' for details on each subcommand.`
+}
+
+func printBrowserUsage() {
+	fmt.Println(browserUsageString())
 }
 
 func runBrowser(info *platform.Info, args []string) {
 	if len(args) == 0 {
-		fmt.Println(browserUsageString())
-		os.Exit(1)
+		printBrowserUsage()
+		exitFunc(ExitUsageError)
+		return
 	}
 
 	sub := args[0]
+	if isHelp(sub) {
+		printBrowserUsage()
+		return
+	}
+
 	switch sub {
 	case "status":
+		if hasHelp(args[1:]) {
+			fmt.Println("Usage: agyo browser status")
+			fmt.Println("Inspect DevTools port (9222) readiness and Chrome process PID.")
+			return
+		}
 		st := profile.CheckStatus(info.BrowserProfile)
 		if st.IsRunning {
 			pidInfo := ""
@@ -528,6 +652,11 @@ func runBrowser(info *platform.Info, args []string) {
 			fmt.Printf("   To launch, run: agyo browser start\n")
 		}
 	case "start":
+		if hasHelp(args[1:]) {
+			fmt.Println("Usage: agyo browser start [--headless] [--port <p>]")
+			fmt.Println("Launch isolated Chrome with remote debugging flags.")
+			return
+		}
 		browserCmd := flag.NewFlagSet("browser start", flag.ExitOnError)
 		headless := browserCmd.Bool("headless", false, "Force headless mode even with display available")
 		port := browserCmd.Int("port", profile.DefaultDebugPort, "Chrome remote debugging port")
@@ -539,24 +668,31 @@ func runBrowser(info *platform.Info, args []string) {
 			ForceHeadless: *headless,
 		})
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error starting browser: %v\n", err)
-			os.Exit(1)
+			runtimeError(err, "Check if Chrome is installed or if the port is already in use")
 		}
 		fmt.Printf("✅ Isolated Chrome active on port %d!\n", *port)
 	case "stop":
+		if hasHelp(args[1:]) {
+			fmt.Println("Usage: agyo browser stop")
+			fmt.Println("Gracefully terminate isolated Chrome process.")
+			return
+		}
 		fmt.Println("🛑 Terminating isolated Chrome instance...")
 		err := profile.Stop(info)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning terminating browser: %v\n", err)
-			os.Exit(1)
+			runtimeError(err, "")
 		}
 		fmt.Println("✅ Isolated Chrome terminated successfully.")
 
 	case "tabs":
+		if hasHelp(args[1:]) {
+			fmt.Println("Usage: agyo browser tabs")
+			fmt.Println("List all open page tabs and target IDs in isolated Chrome.")
+			return
+		}
 		tabs, err := profile.ListTabs(profile.DefaultDebugPort)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error listing browser tabs: %v\n", err)
-			os.Exit(1)
+			runtimeError(err, "")
 		}
 		if len(tabs) == 0 {
 			fmt.Println("ℹ️  No open page tabs found in Chrome.")
@@ -574,15 +710,20 @@ func runBrowser(info *platform.Info, args []string) {
 		fmt.Println("-----------------------------------------------------------------")
 
 	case "open":
-		if len(args) < 2 {
+		if hasHelp(args[1:]) {
 			fmt.Println("Usage: agyo browser open <url>")
-			os.Exit(1)
+			fmt.Println("Open a new tab at the given URL in isolated Chrome.")
+			return
+		}
+		if len(args) < 2 {
+			usageError("missing URL\nUsage: agyo browser open <url>")
+			return
 		}
 		targetURL := args[1]
 		tab, err := profile.OpenTab(profile.DefaultDebugPort, targetURL)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error opening tab: %v\n", err)
-			os.Exit(1)
+			runtimeError(err, "")
+			return
 		}
 		idPrefix := tab.ID
 		if len(idPrefix) > 8 {
@@ -591,21 +732,31 @@ func runBrowser(info *platform.Info, args []string) {
 		fmt.Printf("✅ Tab opened [%s]: %s\n", idPrefix, targetURL)
 
 	case "close":
-		if len(args) < 2 {
+		if hasHelp(args[1:]) {
 			fmt.Println("Usage: agyo browser close <tab-id>")
-			os.Exit(1)
+			fmt.Println("Close a specific tab by ID.")
+			return
+		}
+		if len(args) < 2 {
+			usageError("missing tab ID\nUsage: agyo browser close <tab-id>")
+			return
 		}
 		tabID := args[1]
 		if err := profile.CloseTab(profile.DefaultDebugPort, tabID); err != nil {
-			fmt.Fprintf(os.Stderr, "Error closing tab: %v\n", err)
-			os.Exit(1)
+			runtimeError(err, "")
+			return
 		}
 		fmt.Printf("✅ Tab [%s] closed successfully.\n", tabID)
 
 	case "eval":
-		if len(args) < 2 {
+		if hasHelp(args[1:]) {
 			fmt.Println("Usage: agyo browser eval [tab-id] \"<javascript>\"")
-			os.Exit(1)
+			fmt.Println("Evaluate JavaScript expression in active or target tab via CDP.")
+			return
+		}
+		if len(args) < 2 {
+			usageError("missing JavaScript expression\nUsage: agyo browser eval [tab-id] \"<javascript>\"")
+			return
 		}
 		var val string
 		var err error
@@ -618,37 +769,50 @@ func runBrowser(info *platform.Info, args []string) {
 			val, err = profile.Eval(profile.DefaultDebugPort, expr)
 		}
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error evaluating JS via CDP: %v\n", err)
-			os.Exit(1)
+			runtimeError(err, "")
 		}
 		fmt.Println(val)
 
 	case "shot", "screenshot":
+		if hasHelp(args[1:]) {
+			fmt.Println("Usage: agyo browser shot [filename]")
+			fmt.Println("Capture PNG screenshot of active tab (default: screenshot.png).")
+			return
+		}
 		dest := "screenshot.png"
 		if len(args) > 1 {
 			dest = args[1]
 		}
 		if err := profile.Screenshot(profile.DefaultDebugPort, dest); err != nil {
-			fmt.Fprintf(os.Stderr, "Error capturing screenshot: %v\n", err)
-			os.Exit(1)
+			runtimeError(err, "")
 		}
 		fmt.Printf("📸 Screenshot saved successfully to: %s\n", dest)
 
 	default:
-		fmt.Fprintf(os.Stderr, "Unknown browser subcommand: %s\n", sub)
-		os.Exit(1)
+		usageError("unknown browser subcommand %q\nRun 'agyo browser --help' for usage.", sub)
 	}
 }
 
 func runNotebook(info *platform.Info, args []string) {
 	if len(args) == 0 {
 		printNotebookUsage()
+		exitFunc(ExitUsageError)
 		return
 	}
 
 	sub := args[0]
+	if isHelp(sub) {
+		printNotebookUsage()
+		return
+	}
+
 	switch sub {
 	case "status":
+		if hasHelp(args[1:]) {
+			fmt.Println("Usage: agyo notebook status")
+			fmt.Println("Check connection and authentication status with Google NotebookLM.")
+			return
+		}
 		st := notebook.CheckSession(info, profile.DefaultDebugPort)
 		if st.IsLoggedIn {
 			fmt.Printf("✅ Google NotebookLM CONNECTED and AUTHENTICATED\n")
@@ -669,21 +833,29 @@ func runNotebook(info *platform.Info, args []string) {
 		}
 
 	case "open", "login":
+		if hasHelp(args[1:]) {
+			fmt.Println("Usage: agyo notebook open")
+			fmt.Println("Launch isolated Chrome and open Google NotebookLM.")
+			return
+		}
 		fmt.Println("🚀 Opening Google NotebookLM in isolated Chrome...")
 		tab, err := notebook.OpenSession(info, profile.DefaultDebugPort)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error opening NotebookLM: %v\n", err)
-			os.Exit(1)
+			runtimeError(err, "")
 		}
 		fmt.Printf("✅ NotebookLM tab ready at: %s\n", tab.URL)
 		fmt.Println("   If needed, log in with your Google account. Sessions are preserved in your isolated profile.")
 
 	case "list":
+		if hasHelp(args[1:]) {
+			fmt.Println("Usage: agyo notebook list")
+			fmt.Println("List all notebooks available in your Google account.")
+			return
+		}
 		fmt.Println("🔍 Fetching notebooks from Google NotebookLM...")
 		notebooks, err := notebook.ListNotebooks(info, profile.DefaultDebugPort)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error listing notebooks: %v\n", err)
-			os.Exit(1)
+			runtimeError(err, "")
 		}
 		if len(notebooks) == 0 {
 			fmt.Println("ℹ️  No notebooks found on current page. Ensure you are logged in and on the NotebookLM homepage.")
@@ -701,17 +873,22 @@ func runNotebook(info *platform.Info, args []string) {
 		fmt.Println("-----------------------------------------------------------------")
 
 	case "ask":
+		if hasHelp(args[1:]) {
+			fmt.Println("Usage: agyo notebook ask <notebook-id> \"<query>\"")
+			fmt.Println("Ask a grounded question to a NotebookLM notebook.")
+			return
+		}
 		if len(args) < 3 {
-			fmt.Fprintln(os.Stderr, "Usage: agyo notebook ask <notebook-id> \"<query>\"")
-			os.Exit(1)
+			usageError("missing notebook ID or query\nUsage: agyo notebook ask <notebook-id> \"<query>\"")
+			return
 		}
 		notebookID := args[1]
 		query := strings.Join(args[2:], " ")
 		fmt.Printf("❓ Submitting query to notebook [%s]...\n", notebookID)
 		res, err := notebook.AskNotebook(info, profile.DefaultDebugPort, notebookID, query)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error querying notebook: %v\n", err)
-			os.Exit(1)
+			runtimeError(err, "")
+			return
 		}
 		fmt.Println("\n💬 Answer:")
 		fmt.Println(res.Answer)
@@ -723,9 +900,14 @@ func runNotebook(info *platform.Info, args []string) {
 		}
 
 	case "push":
+		if hasHelp(args[1:]) {
+			fmt.Println("Usage: agyo notebook push <notebook-id> <file-or-note>")
+			fmt.Println("Push markdown note or text file content into a notebook.")
+			return
+		}
 		if len(args) < 3 {
-			fmt.Fprintln(os.Stderr, "Usage: agyo notebook push <notebook-id> <file-or-note>")
-			os.Exit(1)
+			usageError("missing notebook ID or file path\nUsage: agyo notebook push <notebook-id> <file-or-note>")
+			return
 		}
 		notebookID := args[1]
 		filePath := args[2]
@@ -743,35 +925,42 @@ func runNotebook(info *platform.Info, args []string) {
 
 		fmt.Printf("📤 Pushing note [%s] to notebook [%s]...\n", title, notebookID)
 		if err := notebook.PushSource(info, profile.DefaultDebugPort, notebookID, title, content); err != nil {
-			fmt.Fprintf(os.Stderr, "Error pushing note: %v\n", err)
-			os.Exit(1)
+			runtimeError(err, "")
+			return
 		}
 		fmt.Println("✅ Note successfully submitted to notebook.")
 
 	case "add-source", "source":
+		if hasHelp(args[1:]) {
+			fmt.Println("Usage: agyo notebook add-source <notebook-id> <url>")
+			fmt.Println("Add a YouTube or Web URL directly as a source to a notebook.")
+			return
+		}
 		if len(args) < 3 {
-			fmt.Fprintln(os.Stderr, "Usage: agyo notebook add-source <notebook-id> <url>")
-			os.Exit(1)
+			usageError("missing notebook ID or source URL\nUsage: agyo notebook add-source <notebook-id> <url>")
+			return
 		}
 		notebookID := args[1]
 		sourceURL := args[2]
 		fmt.Printf("📥 Ingesting URL source into notebook [%s]...\n", notebookID)
 		if err := notebook.AddSourceURL(info, profile.DefaultDebugPort, notebookID, sourceURL); err != nil {
-			fmt.Fprintf(os.Stderr, "Error adding source URL: %v\n", err)
-			os.Exit(1)
+			runtimeError(err, "")
+			return
 		}
 		fmt.Println("✅ Source URL successfully submitted to Google NotebookLM.")
 
 	case "mcp":
+		if hasHelp(args[1:]) {
+			fmt.Println("Usage: agyo notebook mcp")
+			fmt.Println("Run stdio Model Context Protocol (MCP) server for agents.")
+			return
+		}
 		if err := notebook.ServeMCP(info, os.Stdin, os.Stdout); err != nil {
-			fmt.Fprintf(os.Stderr, "MCP server exited with error: %v\n", err)
-			os.Exit(1)
+			runtimeError(err, "")
 		}
 
 	default:
-		fmt.Fprintf(os.Stderr, "Unknown notebook subcommand: %s\n\n", sub)
-		printNotebookUsage()
-		os.Exit(1)
+		usageError("unknown notebook subcommand %q\nRun 'agyo notebook --help' for usage.", sub)
 	}
 }
 
@@ -789,6 +978,11 @@ Subcommands:
 }
 
 func runSync(info *platform.Info, args []string) {
+	if hasHelp(args) {
+		fmt.Println("Usage: agyo sync [--update-mcp]")
+		fmt.Println("Synchronize canonical rules, skills, and MCP manifests into Google Antigravity.")
+		return
+	}
 	syncCmd := flag.NewFlagSet("sync", flag.ExitOnError)
 	updateMCP := syncCmd.Bool("update-mcp", false, "Back up the installed MCP manifest and rewrite it from the built-in template")
 	_ = syncCmd.Parse(args)
@@ -796,15 +990,13 @@ func runSync(info *platform.Info, args []string) {
 	fmt.Println("🔄 Synchronizing rules and manifests into Google Antigravity...")
 	res, err := installer.Sync(info)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error during synchronization: %v\n", err)
-		os.Exit(1)
+		runtimeError(err, "")
 	}
 	fmt.Printf("✅ Rules synchronized at: %s\n", res.RulesPath)
 	if *updateMCP {
 		backup, changed, err := installer.UpdateMCP(info, time.Now())
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error updating MCP manifest: %v\n", err)
-			os.Exit(1)
+			runtimeError(err, "")
 		}
 		if backup != "" {
 			fmt.Printf("🗂️  Previous MCP manifest backed up to: %s\n", backup)
@@ -831,37 +1023,64 @@ func runSync(info *platform.Info, args []string) {
 	}
 }
 
+func printHookUsage() {
+	fmt.Println(`Usage: agyo hook <subcommand> [dir]
+
+Subcommands:
+  install [dir]        Install git pre-commit hook to safeguard session continuity
+  uninstall [dir]      Remove agyo git pre-commit hook
+
+Run 'agyo hook <subcommand> --help' for details on each subcommand.`)
+}
+
 func runHook(args []string) {
 	if len(args) == 0 {
-		fmt.Println("Usage: agyo hook [install|uninstall] [dir]")
-		os.Exit(1)
+		printHookUsage()
+		exitFunc(ExitUsageError)
+		return
 	}
 	sub := args[0]
+	if isHelp(sub) {
+		printHookUsage()
+		return
+	}
 	targetDir := "."
 	if len(args) > 1 {
 		targetDir = args[1]
 	}
 	switch sub {
 	case "install":
+		if hasHelp(args[1:]) {
+			fmt.Println("Usage: agyo hook install [dir]")
+			fmt.Println("Install git pre-commit hook to safeguard session continuity.")
+			return
+		}
 		path, err := hook.Install(targetDir)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error installing git hook: %v\n", err)
-			os.Exit(1)
+			runtimeError(err, "")
 		}
 		fmt.Printf("✅ Pre-commit session hook installed at: %s\n", path)
 	case "uninstall":
+		if hasHelp(args[1:]) {
+			fmt.Println("Usage: agyo hook uninstall [dir]")
+			fmt.Println("Remove agyo git pre-commit hook.")
+			return
+		}
 		if err := hook.Uninstall(targetDir); err != nil {
-			fmt.Fprintf(os.Stderr, "Error uninstalling git hook: %v\n", err)
-			os.Exit(1)
+			runtimeError(err, "")
 		}
 		fmt.Println("✅ Pre-commit session hook uninstalled successfully.")
 	default:
-		fmt.Fprintf(os.Stderr, "Unknown hook subcommand: %s\n", sub)
-		os.Exit(1)
+		usageError("unknown hook subcommand %q\nRun 'agyo hook --help' for usage.", sub)
 	}
 }
 
 func runSessionExport(info *platform.Info, args []string) {
+	if hasHelp(args) {
+		fmt.Println("Usage: agyo session export [--format md|html] [--out file] [dir]")
+		fmt.Println("Export consolidated session report in markdown or HTML format.")
+		return
+	}
 	exportCmd := flag.NewFlagSet("session export", flag.ExitOnError)
 	format := exportCmd.String("format", "markdown", "Formato de exportação: markdown ou html")
 	out := exportCmd.String("out", "", "Caminho do arquivo de saída (opcional, padrão imprime na tela)")
@@ -886,8 +1105,7 @@ func runSessionExport(info *platform.Info, args []string) {
 
 	res, err := exporter.Export(opts)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Erro ao exportar sessão: %v\n", err)
-		os.Exit(1)
+		runtimeError(err, "")
 	}
 
 	if *out != "" {
@@ -898,6 +1116,11 @@ func runSessionExport(info *platform.Info, args []string) {
 }
 
 func runDashboard(info *platform.Info, args []string) {
+	if hasHelp(args) {
+		fmt.Println("Usage: agyo dashboard [-port <p>] [-open] [dir]")
+		fmt.Println("Launch local web dashboard for live monitoring and DevTools inspection.")
+		return
+	}
 	dashCmd := flag.NewFlagSet("dashboard", flag.ExitOnError)
 	port := dashCmd.Int("port", 8080, "Porta do servidor HTTP do dashboard")
 	open := dashCmd.Bool("open", true, "Abre automaticamente o navegador padrão")
@@ -917,8 +1140,7 @@ func runDashboard(info *platform.Info, args []string) {
 
 	srv, err := dashboard.NewServer(cfg)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Erro ao iniciar dashboard: %v\n", err)
-		os.Exit(1)
+		runtimeError(err, "")
 	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -938,23 +1160,31 @@ func runDashboard(info *platform.Info, args []string) {
 }
 
 func runCompletion(args []string) {
-	if len(args) == 0 {
+	if len(args) == 0 || hasHelp(args) {
 		fmt.Println("Usage: agyo completion [bash|zsh|fish]")
 		fmt.Println("\nExample for zsh:")
 		fmt.Println("  source <(agyo completion zsh)")
 		fmt.Println("\nExample for bash:")
 		fmt.Println("  source <(agyo completion bash)")
-		os.Exit(1)
+		if hasHelp(args) {
+			return
+		}
+		exitFunc(ExitUsageError)
+		return
 	}
 
 	shell := args[0]
 	if err := completion.Generate(shell, os.Stdout); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		usageError("%v", err)
 	}
 }
 
 func runCheckpoint(args []string) {
+	if hasHelp(args) {
+		fmt.Println("Usage: agyo checkpoint [name] [-desc <description>] [-list] [-json] [dir]")
+		fmt.Println("Create an atomic filesystem snapshot before risky refactoring, or list saved checkpoints.")
+		return
+	}
 	chkCmd := flag.NewFlagSet("checkpoint", flag.ExitOnError)
 	desc := chkCmd.String("desc", "", "Optional description for the checkpoint")
 	listFlag := chkCmd.Bool("list", false, "List all saved checkpoints")
@@ -977,8 +1207,7 @@ func runCheckpoint(args []string) {
 	if *listFlag {
 		list, err := checkpoint.List(targetDir)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error listing checkpoints: %v\n", err)
-			os.Exit(1)
+			runtimeError(err, "")
 		}
 		if *jsonOut {
 			data, _ := json.MarshalIndent(list, "", "  ")
@@ -1009,8 +1238,7 @@ func runCheckpoint(args []string) {
 
 	chk, err := checkpoint.Create(targetDir, name, *desc)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating checkpoint: %v\n", err)
-		os.Exit(1)
+		runtimeError(err, "")
 	}
 
 	fmt.Printf("🛡️  Checkpoint criado com sucesso!\n")
@@ -1031,6 +1259,11 @@ func runCheckpoint(args []string) {
 }
 
 func runRollback(args []string) {
+	if hasHelp(args) {
+		fmt.Println("Usage: agyo rollback [checkpoint-id] [dir]")
+		fmt.Println("Safely undo agent edits and restore exact working tree from a checkpoint.")
+		return
+	}
 	targetID := ""
 	targetDir := "."
 
@@ -1048,8 +1281,7 @@ func runRollback(args []string) {
 
 	res, err := checkpoint.Rollback(targetDir, targetID)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error rolling back checkpoint: %v\n", err)
-		os.Exit(1)
+		runtimeError(err, "Run 'agyo checkpoint -list' to inspect available checkpoints")
 	}
 
 	fmt.Printf("⏪ Workspace restaurado com sucesso para o checkpoint:\n")
