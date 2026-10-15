@@ -9,16 +9,16 @@
 Tasks rastreadas em [`.agents/session/todo.md`](../../.agents/session/todo.md).
 
 ## Ordem consolidada
+ 
+| Onda | Itens | Status | Por quê |
+|---|---|---|---|
+| 0 | G3 | Concluído ✅ | Ação local; skills `.bak` limpas da raiz de skills |
+| 1 | G2 | Concluído ✅ | Evita que `agyo sync` suje o harness-core através de symlinks |
+| 2 | UX PR 1 (UX-1, UX-2, UX-6, UX-8, UX-5) | Concluído ✅ | Corrige `--help` com efeito colateral, códigos de saída e hints para porta 9222 |
+| 3 | G1 (`v0.5.0`) | Concluído ✅ | Publica release multiplataforma `v0.5.0` e atualiza Formula do Homebrew tap |
+| 4 | HK-0, HK-1, HK-2, HK-3 + HK-doctor | Concluído ✅ | Core do agente de sessão via `hooks.json` com `PreInvocation`, `PostToolUse` e `Stop` |
+| 5 | G6, G5, UX PR 2 (UX-4, UX-7) | Concluído ✅ | Pinned MCPs, nota metodológica FinOps nos READMEs, ajuda curada e `--json` |
+| 6 | Bugs #18/#19/#21 -> HK-6 | Concluído ✅ | Checkpoint automático seguro em comandos destrutivos |
+| 7 | UX PR 3, HK-4, HK-5, HK-7, G4, G7 | Concluído ✅ | Sugestão Levenshtein, detecção de concorrência, cobertura de testes >70% e resiliência de CI |
 
-| Onda | Itens | Por quê |
-|---|---|---|
-| 0 | G3 | Ação local; para de carregar skill desatualizada agora |
-| 1 | G2 | Evita que `agyo sync` suje o harness-core |
-| 2 | UX PR 1 (UX-1, UX-2, UX-6, UX-8, UX-5) | Corrige `--help` com efeito colateral antes de publicar |
-| 3 | G1 (`v0.5.0`) | Publica NotebookLM + correções acima |
-| 4 | HK-0, HK-1, HK-2, HK-3 + HK-doctor | Corte mínimo do agente de sessão |
-| 5 | G6, G5, UX PR 2 (UX-4, UX-7) | Higiene de supply chain, claims e JSON para agentes |
-| 6 | Bugs #18/#19/#21 -> HK-6 | Checkpoint automático só com rollback seguro |
-| 7 | UX PR 3, HK-4, HK-5, HK-7, G4, G7 | Refino |
-
-Decisões pendentes: idioma das mensagens (UX-5) e dono dos hooks (HK-7).
+Decisões fechadas: formato e idioma de mensagens consistentes (UX-5) e coexistência idempotente e não destrutiva no `hooks.json` preservando plugins de terceiros (HK-7).

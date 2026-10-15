@@ -15,6 +15,7 @@
 | **Linux Desktop (X11 / Wayland)** | Desktop GUI | `--remote-debugging-port=9222`<br>`--user-data-dir=...` | `google-chrome`, `google-chrome-stable`, `chromium` |
 | **Linux Server / VPS (Headless)** | **Auto-Headless** | `--headless=new`<br>`--disable-gpu`<br>`--disable-dev-shm-usage`<br>`--no-sandbox` | `google-chrome`, `chromium-browser` |
 | **WSL2 (Windows Subsystem for Linux)** | Headless / WSLg | Uses GUI if `$WAYLAND_DISPLAY` is active; falls back to Headless otherwise | `google-chrome` or Windows host binary |
+| **Windows AMD64 (Native PE / Community)** | Headless / GUI | Native `.exe` binary available in GitHub Releases; WSL2 recommended for POSIX parity | `chrome.exe` via standard Program Files path |
 | **Docker Container** | **Mandatory Headless** | `--headless=new`<br>`--disable-dev-shm-usage`<br>`--no-sandbox` | `chromium` installed via apt/apk |
 
 ---

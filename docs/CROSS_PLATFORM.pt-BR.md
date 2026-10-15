@@ -13,6 +13,7 @@ O `antigravity-operator` (`agyo`) foi concebido para entregar a **mesma experiê
 | **Linux Desktop (X11 / Wayland)** | Desktop GUI | `--remote-debugging-port=9222`<br>`--user-data-dir=...` | `google-chrome`, `google-chrome-stable`, `chromium` |
 | **Linux Server / VPS (Sem Display)** | **Headless Automático** | `--headless=new`<br>`--disable-gpu`<br>`--disable-dev-shm-usage`<br>`--no-sandbox` | `google-chrome`, `chromium-browser` |
 | **WSL2 (Windows Subsystem for Linux)** | Headless / WSLg | Se `$WAYLAND_DISPLAY` existir, usa GUI; caso contrário ativa Headless | `google-chrome` ou `/mnt/c/...` |
+| **Windows AMD64 (Executável PE / Comunitário)** | Headless / GUI | Binário `.exe` estático disponibilizado nas releases; WSL2 recomendado para paridade POSIX | `chrome.exe` via caminho padrão de Program Files |
 | **Docker Container** | **Headless Obrigatório** | `--headless=new`<br>`--disable-dev-shm-usage`<br>`--no-sandbox` | `chromium` instalado via apt/apk |
 
 ---

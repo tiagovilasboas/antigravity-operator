@@ -92,6 +92,7 @@ O `agyo` implementa o modelo canônico de **Outer Harness (Guia × Sensor)** de 
 | Superpoder | O que faz na prática | Especificação |
 |---|---|---|
 | **Cérebro & Mãos (NotebookLM)** | Externaliza conhecimento denso via CDP nativo e servidor stdio MCP. | [Spec 08](docs/spec/08-NOTEBOOKLM-E-MCP-SERVER.md) |
+| **Lifecycle Hooks (Agente de Sessão)** | Conecta direto no ciclo do Antigravity (`PreInvocation`, `PreToolUse`, `PostToolUse`, `Stop`). | [Spec 09](docs/spec/09-LIFECYCLE-HOOKS-SESSION-AGENT.md) |
 | **Memória Determinística de Sessão** | Mantém `.agents/session/` (`state.md`, `decisions.md`, `todo.md`) persistente. | [Spec 02](docs/spec/02-MEMORIA-OPERACIONAL-E-SESSAO.md) |
 | **Botão de Pânico & Checkpoints** | Snapshots atômicos no git para reverter edições destrutivas instantaneamente. | [Spec 04](docs/spec/04-FILESYSTEM-SAFETY-NET-CHECKPOINT.md) |
 | **Chrome Supervisionado e Isolado** | Perfil dedicado na porta `9222` (`~/.gemini/antigravity-browser-profile`) com fallback headless. | [Spec 05](docs/spec/05-SUPERVISAO-CHROME-E-CDP-PURO.md) |
@@ -115,7 +116,8 @@ O `agyo` implementa o modelo canônico de **Outer Harness (Guia × Sensor)** de 
 | `agyo browser start\|stop\|tabs` | Inicia e supervisiona o Chrome isolado usando protocolo CDP puro em Go. | [Spec 05](docs/spec/05-SUPERVISAO-CHROME-E-CDP-PURO.md) |
 | `agyo notebooklm ask\|mcp` | Consulta o NotebookLM ou inicia o servidor stdio MCP para IDEs com agentes. | [Spec 08](docs/spec/08-NOTEBOOKLM-E-MCP-SERVER.md) |
 | `agyo doctor [--fix]` | Diagnostica dependências do host, variáveis de display e corrige arquivos. | [Spec 07](docs/spec/07-SENSORES-DOCTOR-E-SELF-HEALING.md) |
-| `agyo hook install` | Instala hook de git pre-commit para compactar tarefas e garantir continuidade. | [Spec 02](docs/spec/02-MEMORIA-OPERACIONAL-E-SESSAO.md) |
+| `agyo hook install\|uninstall` | Instala hook de git pre-commit para compactar tarefas e garantir continuidade. | [Spec 02](docs/spec/02-MEMORIA-OPERACIONAL-E-SESSAO.md) |
+| `agyo hook antigravity [status\|install]` | Gerencia hooks de lifecycle do Antigravity (`hooks.json`) para memória de sessão. | [Spec 09](docs/spec/09-LIFECYCLE-HOOKS-SESSION-AGENT.md) |
 | `agyo sync [--update-mcp]` | Sincroniza regras canônicas, skills e manifesto de MCPs no Antigravity. | [Spec 01](docs/spec/01-ENTRADA-E-BOOTSTRAP.md) |
 | `agyo completion <shell>` | Gera scripts de autocompletar para Bash, Zsh ou Fish. | - |
 
