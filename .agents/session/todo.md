@@ -32,7 +32,7 @@
 - [ ] UX-10 Confirmação/`--yes` em `rollback` sem id (PR 3)
 
 ### Release, sync e qualidade - plano: [docs/plans/03-RELEASE-SYNC-QUALIDADE.md](../../docs/plans/03-RELEASE-SYNC-QUALIDADE.md)
-- [ ] G3 🔴 Mover `~/.gemini/config/skills/agyo.bak` para fora da raiz de skills + `doctor` detectar skill duplicada
+- [x] G3 Mover `~/.gemini/config/skills/agyo.bak` para `~/.gemini/config/skills-backup/` + check "Agent Skills" no `doctor` detectando pastas .bak
 - [ ] G2 🔴 `sync` não escrever através de symlink (harness-core) + backup antes de sobrescrever rules/skill
 - [ ] G1 🔴 Cortar `v0.5.0` (NotebookLM fora de qualquer release), atualizar Formula/tap, `make install` com `-ldflags`
 - [ ] G6 🟡 Fixar versões `npx` em `templates/mcps/default-servers.json`

@@ -251,3 +251,39 @@ func TestCheckMCPManifest_States(t *testing.T) {
 		t.Fatalf("custom manifest: %+v", c)
 	}
 }
+
+func TestCheckSkills(t *testing.T) {
+	// 1. Missing directory -> INFO
+	tempHome := t.TempDir()
+	info := &platform.Info{HomeDir: tempHome}
+	c := checkSkills(info)
+	if c.Status != "INFO" {
+		t.Errorf("expected INFO for missing skills dir, got %s", c.Status)
+	}
+
+	// 2. Clean directory with active skills -> OK
+	skillsDir := filepath.Join(tempHome, ".gemini", "config", "skills")
+	if err := os.MkdirAll(filepath.Join(skillsDir, "agyo"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(skillsDir, "video-to-article"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	cOK := checkSkills(info)
+	if cOK.Status != "OK" {
+		t.Errorf("expected OK for clean skills dir, got %s: %s", cOK.Status, cOK.Details)
+	}
+
+	// 3. Stale backup skill present -> WARN
+	if err := os.MkdirAll(filepath.Join(skillsDir, "agyo.bak"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	cWarn := checkSkills(info)
+	if cWarn.Status != "WARN" {
+		t.Errorf("expected WARN for stale skill dir, got %s: %s", cWarn.Status, cWarn.Details)
+	}
+	if !strings.Contains(cWarn.Details, "agyo.bak") {
+		t.Errorf("expected details to mention agyo.bak, got %s", cWarn.Details)
+	}
+}
+

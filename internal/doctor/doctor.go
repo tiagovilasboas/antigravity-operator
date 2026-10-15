@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/tiagovilasboas/antigravity-operator/internal/installer"
@@ -77,6 +78,9 @@ func Run(info *platform.Info) *Report {
 
 	// 7. Integração com Harness Core
 	rep.add(checkHarnessCore(info))
+
+	// 7b. Skills de Agentes
+	rep.add(checkSkills(info))
 
 	// 8. Google NotebookLM Readiness
 	rep.add(checkNotebookLM(info))
@@ -319,5 +323,57 @@ func checkNotebookLM(info *platform.Info) CheckItem {
 		Name:    "Google NotebookLM",
 		Status:  "OK",
 		Details: "Conectado e autenticado",
+	}
+}
+
+func checkSkills(info *platform.Info) CheckItem {
+	const name = "Agent Skills"
+	home := info.HomeDir
+	if home == "" {
+		h, err := os.UserHomeDir()
+		if err == nil {
+			home = h
+		}
+	}
+	if home == "" {
+		return CheckItem{Name: name, Status: "INFO", Details: "Diretório home não detectado"}
+	}
+
+	skillsDir := filepath.Join(home, ".gemini", "config", "skills")
+	entries, err := os.ReadDir(skillsDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return CheckItem{Name: name, Status: "INFO", Details: "Diretório de skills (~/.gemini/config/skills) não encontrado"}
+		}
+		return CheckItem{Name: name, Status: "WARN", Details: fmt.Sprintf("Falha ao ler %s: %v", skillsDir, err)}
+	}
+
+	var stale []string
+	activeCount := 0
+	for _, entry := range entries {
+		entryName := entry.Name()
+		if strings.HasPrefix(entryName, ".") {
+			continue
+		}
+		if strings.HasSuffix(entryName, ".bak") || strings.HasSuffix(entryName, ".backup") || strings.HasSuffix(entryName, ".old") || strings.HasSuffix(entryName, ".tmp") {
+			stale = append(stale, entryName)
+			continue
+		}
+		activeCount++
+	}
+
+	if len(stale) > 0 {
+		return CheckItem{
+			Name:   name,
+			Status: "WARN",
+			Details: fmt.Sprintf("%d skills ativas; %d pasta(s) de backup/stale encontradas (%s). Mova pastas .bak para fora de %s para evitar carregamento duplicado",
+				activeCount, len(stale), strings.Join(stale, ", "), skillsDir),
+		}
+	}
+
+	return CheckItem{
+		Name:    name,
+		Status:  "OK",
+		Details: fmt.Sprintf("%d skills ativas registradas em %s (sem pastas .bak)", activeCount, skillsDir),
 	}
 }
