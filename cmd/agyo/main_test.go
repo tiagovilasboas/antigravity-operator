@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"os"
 	"os/exec"
@@ -413,5 +415,73 @@ func TestSubcommandUsageCompleteness(t *testing.T) {
 				t.Errorf("browserUsageString() %q does not contain subcommand %q", browserUsage, tc.subcommand)
 			}
 		})
+	}
+}
+
+func TestCLI_CuratedHelp_UX4(t *testing.T) {
+	// UX-4: Group usage strings must contain descriptions and examples
+	sessUsage := sessionUsageString()
+	if !strings.Contains(sessUsage, "Examples:") || !strings.Contains(sessUsage, "agyo session status") {
+		t.Errorf("session usage missing examples: %s", sessUsage)
+	}
+
+	browserUsage := browserUsageString()
+	if !strings.Contains(browserUsage, "Examples:") || !strings.Contains(browserUsage, "agyo browser start") {
+		t.Errorf("browser usage missing examples: %s", browserUsage)
+	}
+
+	chkUsage := checkpointUsageString()
+	if !strings.Contains(chkUsage, "Examples:") || !strings.Contains(chkUsage, "-list") {
+		t.Errorf("checkpoint usage missing examples or flags: %s", chkUsage)
+	}
+
+	rbUsage := rollbackUsageString()
+	if !strings.Contains(rbUsage, "Examples:") || !strings.Contains(rbUsage, "latest") {
+		t.Errorf("rollback usage missing examples or subcommands: %s", rbUsage)
+	}
+}
+
+func TestCLI_JSONSupport_UX7(t *testing.T) {
+	info := &platform.Info{
+		OS:             "darwin",
+		Arch:           "arm64",
+		BrowserProfile: t.TempDir(),
+	}
+
+	origExit := exitFunc
+	defer func() { exitFunc = origExit }()
+	exitFunc = func(code int) {}
+
+	// Helper to capture stdout
+	captureStdout := func(f func()) string {
+		origStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+
+		f()
+
+		w.Close()
+		os.Stdout = origStdout
+		var buf bytes.Buffer
+		_, _ = buf.ReadFrom(r)
+		return buf.String()
+	}
+
+	// 1. browser status --json
+	out := captureStdout(func() {
+		runBrowser(info, []string{"status", "--json"})
+	})
+	var st map[string]interface{}
+	if err := json.Unmarshal([]byte(out), &st); err != nil {
+		t.Errorf("browser status --json produced invalid JSON: %v, out: %s", err, out)
+	}
+
+	// 2. notebook status --json
+	out = captureStdout(func() {
+		runNotebook(info, []string{"status", "--json"})
+	})
+	var nbSt map[string]interface{}
+	if err := json.Unmarshal([]byte(out), &nbSt); err != nil {
+		t.Errorf("notebook status --json produced invalid JSON: %v, out: %s", err, out)
 	}
 }

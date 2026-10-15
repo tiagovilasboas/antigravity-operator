@@ -55,6 +55,15 @@ func hasHelp(args []string) bool {
 	return false
 }
 
+func hasJSON(args []string) bool {
+	for _, a := range args {
+		if a == "--json" || a == "-json" {
+			return true
+		}
+	}
+	return false
+}
+
 func usageError(format string, a ...interface{}) {
 	fmt.Fprintf(os.Stderr, "Error: "+format+"\n", a...)
 	exitFunc(ExitUsageError)
@@ -117,6 +126,15 @@ func main() {
 	case "about":
 		printAbout()
 	case "version", "-v", "--version":
+		if hasJSON(os.Args[2:]) {
+			data, _ := json.MarshalIndent(map[string]string{
+				"version": Version,
+				"os":      info.OS,
+				"arch":    info.Arch,
+			}, "", "  ")
+			fmt.Println(string(data))
+			return
+		}
 		fmt.Printf("agyo (Antigravity Operator) v%s [%s/%s]\n", Version, info.OS, info.Arch)
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\nRun 'agyo --help' for usage.\n", command)
@@ -227,6 +245,12 @@ Subcommands:
   restore [file] [dir]            Restore a past archived session into active memory with automatic backup
   watch, tail [dir]               Stream active agent reasoning and desktop notifications in real time
   export [--format md|html] [dir] Export consolidated session report in markdown or HTML format
+
+Examples:
+  agyo session status
+  agyo session status --json
+  agyo session compact --threshold 5
+  agyo session list --json
 
 Run 'agyo session <subcommand> --help' for details on each subcommand.`
 }
@@ -604,13 +628,19 @@ func browserUsageString() string {
 
 Subcommands:
   start [--headless] [--port <p>] Launch isolated Chrome with DevTools debugging flags
-  status                          Inspect DevTools port (9222) readiness and Chrome process PID
+  status [--json]                 Inspect DevTools port (9222) readiness and Chrome process PID
   stop                            Gracefully terminate isolated Chrome process
-  tabs                            List all open page tabs and target IDs in isolated Chrome
+  tabs [--json]                   List all open page tabs and target IDs in isolated Chrome
   open <url>                      Open a new tab at the given URL in isolated Chrome
   close <tab-id>                  Close a specific tab by ID
   eval [tab-id] "<js>"            Evaluate JavaScript expression in active or target tab via CDP
   shot [filename]                 Capture PNG screenshot of active tab (default: screenshot.png)
+
+Examples:
+  agyo browser start
+  agyo browser status --json
+  agyo browser tabs --json
+  agyo browser shot auth-screen.png
 
 Run 'agyo browser <subcommand> --help' for details on each subcommand.`
 }
@@ -635,11 +665,16 @@ func runBrowser(info *platform.Info, args []string) {
 	switch sub {
 	case "status":
 		if hasHelp(args[1:]) {
-			fmt.Println("Usage: agyo browser status")
+			fmt.Println("Usage: agyo browser status [--json]")
 			fmt.Println("Inspect DevTools port (9222) readiness and Chrome process PID.")
 			return
 		}
 		st := profile.CheckStatus(info.BrowserProfile)
+		if hasJSON(args[1:]) {
+			data, _ := json.MarshalIndent(st, "", "  ")
+			fmt.Println(string(data))
+			return
+		}
 		if st.IsRunning {
 			pidInfo := ""
 			if st.PID > 0 {
@@ -686,13 +721,22 @@ func runBrowser(info *platform.Info, args []string) {
 
 	case "tabs":
 		if hasHelp(args[1:]) {
-			fmt.Println("Usage: agyo browser tabs")
+			fmt.Println("Usage: agyo browser tabs [--json]")
 			fmt.Println("List all open page tabs and target IDs in isolated Chrome.")
 			return
 		}
 		tabs, err := profile.ListTabs(profile.DefaultDebugPort)
 		if err != nil {
 			runtimeError(err, "")
+			return
+		}
+		if hasJSON(args[1:]) {
+			if tabs == nil {
+				tabs = []profile.Tab{}
+			}
+			data, _ := json.MarshalIndent(tabs, "", "  ")
+			fmt.Println(string(data))
+			return
 		}
 		if len(tabs) == 0 {
 			fmt.Println("ℹ️  No open page tabs found in Chrome.")
@@ -809,11 +853,16 @@ func runNotebook(info *platform.Info, args []string) {
 	switch sub {
 	case "status":
 		if hasHelp(args[1:]) {
-			fmt.Println("Usage: agyo notebook status")
+			fmt.Println("Usage: agyo notebook status [--json]")
 			fmt.Println("Check connection and authentication status with Google NotebookLM.")
 			return
 		}
 		st := notebook.CheckSession(info, profile.DefaultDebugPort)
+		if hasJSON(args[1:]) {
+			data, _ := json.MarshalIndent(st, "", "  ")
+			fmt.Println(string(data))
+			return
+		}
 		if st.IsLoggedIn {
 			fmt.Printf("✅ Google NotebookLM CONNECTED and AUTHENTICATED\n")
 			fmt.Printf("   Active URL: %s\n", st.ActiveURL)
@@ -842,20 +891,32 @@ func runNotebook(info *platform.Info, args []string) {
 		tab, err := notebook.OpenSession(info, profile.DefaultDebugPort)
 		if err != nil {
 			runtimeError(err, "")
+			return
 		}
 		fmt.Printf("✅ NotebookLM tab ready at: %s\n", tab.URL)
 		fmt.Println("   If needed, log in with your Google account. Sessions are preserved in your isolated profile.")
 
 	case "list":
 		if hasHelp(args[1:]) {
-			fmt.Println("Usage: agyo notebook list")
+			fmt.Println("Usage: agyo notebook list [--json]")
 			fmt.Println("List all notebooks available in your Google account.")
 			return
 		}
-		fmt.Println("🔍 Fetching notebooks from Google NotebookLM...")
+		if !hasJSON(args[1:]) {
+			fmt.Println("🔍 Fetching notebooks from Google NotebookLM...")
+		}
 		notebooks, err := notebook.ListNotebooks(info, profile.DefaultDebugPort)
 		if err != nil {
 			runtimeError(err, "")
+			return
+		}
+		if hasJSON(args[1:]) {
+			if notebooks == nil {
+				notebooks = []notebook.Notebook{}
+			}
+			data, _ := json.MarshalIndent(notebooks, "", "  ")
+			fmt.Println(string(data))
+			return
 		}
 		if len(notebooks) == 0 {
 			fmt.Println("ℹ️  No notebooks found on current page. Ensure you are logged in and on the NotebookLM homepage.")
@@ -968,13 +1029,21 @@ func printNotebookUsage() {
 	fmt.Println(`Usage: agyo notebooklm <subcommand> [options] (aliases: agyo notebook, agyo nblm)
 
 Subcommands:
-  status               Check connection and authentication status with Google NotebookLM
+  status [--json]      Check connection and authentication status with Google NotebookLM
   open, login          Launch isolated Chrome and open Google NotebookLM
-  list                 List all notebooks available in your Google account
+  list [--json]        List all notebooks available in your Google account
   ask <id> "<query>"   Ask a grounded question to a NotebookLM notebook
   push <id> <file>     Push markdown note/file content into a notebook
   add-source <id> <url> Add a YouTube or Web URL directly as a source to a notebook
-  mcp                  Run stdio Model Context Protocol (MCP) server for agents`)
+  mcp                  Run stdio Model Context Protocol (MCP) server for agents
+
+Examples:
+  agyo notebook status
+  agyo notebook list --json
+  agyo notebook ask <id> "Quais os principais conceitos desse material?"
+  agyo notebook add-source <id> "https://www.youtube.com/watch?v=..."
+
+Run 'agyo notebook <subcommand> --help' for details on each subcommand.`)
 }
 
 func runSync(info *platform.Info, args []string) {
@@ -1037,6 +1106,11 @@ Subcommands:
                                   Check if agyo lifecycle hooks are active in hooks.json
   run <PreInvocation|PostToolUse|Stop>
                                   Execute lifecycle hook event handler (stdin JSON -> stdout JSON)
+
+Examples:
+  agyo hook install
+  agyo hook antigravity install
+  agyo hook antigravity status
 
 Run 'agyo hook <subcommand> --help' for details on each subcommand.`)
 }
@@ -1269,10 +1343,30 @@ func runCompletion(args []string) {
 	}
 }
 
+func checkpointUsageString() string {
+	return `Usage: agyo checkpoint [name] [options] [dir]
+
+Create an atomic filesystem snapshot before risky refactoring, or list saved checkpoints.
+
+Options:
+  -desc string  Optional human-readable description for the checkpoint
+  -list         List all saved checkpoints in active session (.agents/session/checkpoints.json)
+  -json         Output checkpoint list as machine-readable JSON (used with -list)
+
+Examples:
+  agyo checkpoint
+  agyo checkpoint pre-refactor -desc "Before refactoring auth module"
+  agyo checkpoint -list
+  agyo checkpoint -list -json`
+}
+
+func printCheckpointUsage() {
+	fmt.Println(checkpointUsageString())
+}
+
 func runCheckpoint(args []string) {
 	if hasHelp(args) {
-		fmt.Println("Usage: agyo checkpoint [name] [-desc <description>] [-list] [-json] [dir]")
-		fmt.Println("Create an atomic filesystem snapshot before risky refactoring, or list saved checkpoints.")
+		printCheckpointUsage()
 		return
 	}
 	chkCmd := flag.NewFlagSet("checkpoint", flag.ExitOnError)
@@ -1348,10 +1442,24 @@ func runCheckpoint(args []string) {
 	fmt.Println("💡 Em caso de falha ou refatoração indesejada: agyo rollback")
 }
 
+func rollbackUsageString() string {
+	return `Usage: agyo rollback [checkpoint-id|latest] [dir]
+
+Safely undo agent edits and restore exact working tree from a checkpoint without detaching HEAD.
+
+Examples:
+  agyo rollback
+  agyo rollback latest
+  agyo rollback chk-20261015-025037`
+}
+
+func printRollbackUsage() {
+	fmt.Println(rollbackUsageString())
+}
+
 func runRollback(args []string) {
 	if hasHelp(args) {
-		fmt.Println("Usage: agyo rollback [checkpoint-id] [dir]")
-		fmt.Println("Safely undo agent edits and restore exact working tree from a checkpoint.")
+		printRollbackUsage()
 		return
 	}
 	targetID := ""
