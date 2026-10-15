@@ -92,6 +92,7 @@ O `agyo` implementa o modelo canônico de **Outer Harness (Guia × Sensor)** de 
 | Superpoder | O que faz na prática | Especificação |
 |---|---|---|
 | **Cérebro & Mãos (NotebookLM)** | Externaliza conhecimento denso via CDP nativo e servidor stdio MCP. | [Spec 08](docs/spec/08-NOTEBOOKLM-E-MCP-SERVER.md) |
+| **Google Workspace Bridge** | Agendamento no Calendar e leitura/criação no Docs via OAuth2 puro e MCP. | [Spec 10](docs/spec/10-GOOGLE-WORKSPACE-BRIDGE.md) |
 | **Lifecycle Hooks (Agente de Sessão)** | Conecta direto no ciclo do Antigravity (`PreInvocation`, `PreToolUse`, `PostToolUse`, `Stop`). | [Spec 09](docs/spec/09-LIFECYCLE-HOOKS-SESSION-AGENT.md) |
 | **Memória Determinística de Sessão** | Mantém `.agents/session/` (`state.md`, `decisions.md`, `todo.md`) persistente. | [Spec 02](docs/spec/02-MEMORIA-OPERACIONAL-E-SESSAO.md) |
 | **Botão de Pânico & Checkpoints** | Snapshots atômicos no git para reverter edições destrutivas instantaneamente. | [Spec 04](docs/spec/04-FILESYSTEM-SAFETY-NET-CHECKPOINT.md) |
@@ -115,6 +116,7 @@ O `agyo` implementa o modelo canônico de **Outer Harness (Guia × Sensor)** de 
 | `agyo dashboard` | Inicia o painel visual local sem dependências em `http://127.0.0.1:8080`. | [Spec 06](docs/spec/06-OBSERVABILIDADE-WATCHER-E-DASHBOARD.md) |
 | `agyo browser start\|stop\|tabs` | Inicia e supervisiona o Chrome isolado usando protocolo CDP puro em Go. | [Spec 05](docs/spec/05-SUPERVISAO-CHROME-E-CDP-PURO.md) |
 | `agyo notebooklm ask\|mcp` | Consulta o NotebookLM ou inicia o servidor stdio MCP para IDEs com agentes. | [Spec 08](docs/spec/08-NOTEBOOKLM-E-MCP-SERVER.md) |
+| `agyo google auth\|status\|calendar\|docs` | Conecta ao Google Workspace (eventos do Calendar e documentos do Docs). | [Spec 10](docs/spec/10-GOOGLE-WORKSPACE-BRIDGE.md) |
 | `agyo doctor [--fix]` | Diagnostica dependências do host, variáveis de display e corrige arquivos. | [Spec 07](docs/spec/07-SENSORES-DOCTOR-E-SELF-HEALING.md) |
 | `agyo hook install\|uninstall` | Instala hook de git pre-commit para compactar tarefas e garantir continuidade. | [Spec 02](docs/spec/02-MEMORIA-OPERACIONAL-E-SESSAO.md) |
 | `agyo hook antigravity [status\|install]` | Gerencia hooks de lifecycle do Antigravity (`hooks.json`) para memória de sessão. | [Spec 09](docs/spec/09-LIFECYCLE-HOOKS-SESSION-AGENT.md) |

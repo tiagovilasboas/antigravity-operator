@@ -92,6 +92,7 @@ AI coding agents excel at atomic execution but suffer from two critical flaws: *
 | Capability | What it does | Spec |
 |---|---|---|
 | **Brain & Hands (NotebookLM)** | Externalizes dense multimodal knowledge via pure-Go CDP and stdio MCP server. | [Spec 08](docs/spec/08-NOTEBOOKLM-E-MCP-SERVER.md) |
+| **Google Workspace Bridge** | Calendar scheduling and Docs reading/creation via pure-Go OAuth2 and MCP tools. | [Spec 10](docs/spec/10-GOOGLE-WORKSPACE-BRIDGE.md) |
 | **Lifecycle Hooks (Session Agent)** | Hooks directly into Antigravity loop (`PreInvocation`, `PreToolUse`, `PostToolUse`, `Stop`). | [Spec 09](docs/spec/09-LIFECYCLE-HOOKS-SESSION-AGENT.md) |
 | **Deterministic Session Memory** | Persists `.agents/session/` (`state.md`, `decisions.md`, `todo.md`) across chat resets. | [Spec 02](docs/spec/02-MEMORIA-OPERACIONAL-E-SESSAO.md) |
 | **Panic Button & Checkpoints** | Atomic git snapshots and rollback to instantly undo destructive agent edits. | [Spec 04](docs/spec/04-FILESYSTEM-SAFETY-NET-CHECKPOINT.md) |
@@ -115,6 +116,7 @@ AI coding agents excel at atomic execution but suffer from two critical flaws: *
 | `agyo dashboard` | Spawns zero-dependency local web inspector on `http://127.0.0.1:8080`. | [Spec 06](docs/spec/06-OBSERVABILIDADE-WATCHER-E-DASHBOARD.md) |
 | `agyo browser start\|stop\|tabs` | Launches and supervises isolated Chrome with pure-Go CDP protocol. | [Spec 05](docs/spec/05-SUPERVISAO-CHROME-E-CDP-PURO.md) |
 | `agyo notebooklm ask\|mcp` | Queries Google NotebookLM or exposes stdio MCP server for agent IDEs. | [Spec 08](docs/spec/08-NOTEBOOKLM-E-MCP-SERVER.md) |
+| `agyo google auth\|status\|calendar\|docs` | Connects to Google Workspace (Calendar events and Docs documents). | [Spec 10](docs/spec/10-GOOGLE-WORKSPACE-BRIDGE.md) |
 | `agyo doctor [--fix]` | Diagnoses host dependencies, display env, and repairs session files. | [Spec 07](docs/spec/07-SENSORES-DOCTOR-E-SELF-HEALING.md) |
 | `agyo hook install\|uninstall` | Installs git pre-commit hook that compacts sessions and checks continuity. | [Spec 02](docs/spec/02-MEMORIA-OPERACIONAL-E-SESSAO.md) |
 | `agyo hook antigravity [status\|install]` | Manages Antigravity lifecycle hooks (`hooks.json`) for session memory injection. | [Spec 09](docs/spec/09-LIFECYCLE-HOOKS-SESSION-AGENT.md) |

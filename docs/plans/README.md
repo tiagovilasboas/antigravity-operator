@@ -5,6 +5,7 @@
 | [01](01-LIFECYCLE-HOOKS-SESSION-AGENT.md) | Lifecycle hooks: agente de sessão de verdade | `HK-` |
 | [02](02-CLI-UX-CONTRATO.md) | UX e contrato da CLI | `UX-` |
 | [03](03-RELEASE-SYNC-QUALIDADE.md) | Release, sync e qualidade | `G-` |
+| [04](04-GOOGLE-WORKSPACE-BRIDGE.md) | Google Workspace Bridge (Calendar & Docs) | `WS-` |
 
 Tasks rastreadas em [`.agents/session/todo.md`](../../.agents/session/todo.md).
 
@@ -20,5 +21,6 @@ Tasks rastreadas em [`.agents/session/todo.md`](../../.agents/session/todo.md).
 | 5 | G6, G5, UX PR 2 (UX-4, UX-7) | Concluído ✅ | Pinned MCPs, nota metodológica FinOps nos READMEs, ajuda curada e `--json` |
 | 6 | Bugs #18/#19/#21 -> HK-6 | Concluído ✅ | Checkpoint automático seguro em comandos destrutivos |
 | 7 | UX PR 3, HK-4, HK-5, HK-7, G4, G7 | Concluído ✅ | Sugestão Levenshtein, detecção de concorrência, cobertura de testes >70% e resiliência de CI |
+| 8 | WS-1 a WS-7 (Plano 04) | Concluído ✅ | Google Workspace Bridge em Go puro: Calendar v3, Docs v1, OAuth2 loopback e MCP |
 
-Decisões fechadas: formato e idioma de mensagens consistentes (UX-5) e coexistência idempotente e não destrutiva no `hooks.json` preservando plugins de terceiros (HK-7).
+Decisões fechadas: formato e idioma de mensagens consistentes (UX-5), coexistência idempotente e não destrutiva no `hooks.json` preservando plugins de terceiros (HK-7) e isolamento de credenciais por contexto (SEC-WS-01).
