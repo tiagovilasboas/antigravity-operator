@@ -5,10 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/tiagovilasboas/antigravity-operator/internal/checkpoint"
 	"github.com/tiagovilasboas/antigravity-operator/internal/hook"
 	"github.com/tiagovilasboas/antigravity-operator/internal/session"
 )
@@ -250,3 +252,153 @@ func TestAntigravityHook_DispatchFailOpen(t *testing.T) {
 		t.Errorf("expected {} on unknown event, got %s", buf.String())
 	}
 }
+
+func TestAntigravityHook_PreInvocation_HK4_Conflict(t *testing.T) {
+	ws := t.TempDir()
+	_, _ = session.Init(ws, true)
+
+	// Conversation 1 invokes
+	in1 := &hook.PreInvocationInput{
+		CommonInput: hook.CommonInput{
+			ConversationID: "conv-alpha",
+			WorkspacePaths: []string{ws},
+		},
+		InvocationNum: 1,
+	}
+	out1, err := hook.HandlePreInvocation(context.Background(), in1)
+	if err != nil {
+		t.Fatalf("first invocation failed: %v", err)
+	}
+	if len(out1.InjectSteps) == 0 {
+		t.Fatalf("expected injected steps")
+	}
+	// First conversation should not have conflict
+	if strings.Contains(out1.InjectSteps[0].EphemeralMessage, "Conflito de sessão") {
+		t.Errorf("first conversation should not trigger conflict")
+	}
+
+	// Conversation 2 invokes in the SAME workspace
+	in2 := &hook.PreInvocationInput{
+		CommonInput: hook.CommonInput{
+			ConversationID: "conv-beta",
+			WorkspacePaths: []string{ws},
+		},
+		InvocationNum: 1,
+	}
+	out2, err := hook.HandlePreInvocation(context.Background(), in2)
+	if err != nil {
+		t.Fatalf("second invocation failed: %v", err)
+	}
+	if len(out2.InjectSteps) == 0 {
+		t.Fatalf("expected injected steps")
+	}
+	// Second conversation MUST detect conflict with conv-alpha
+	msg := out2.InjectSteps[0].EphemeralMessage
+	if !strings.Contains(msg, "Conflito de sessão") || !strings.Contains(msg, "conv-alpha") {
+		t.Errorf("expected conflict warning mentioning conv-alpha, got: %s", msg)
+	}
+}
+
+func TestAntigravityHook_PreInvocation_HK5_CompactSuggestion(t *testing.T) {
+	ws := t.TempDir()
+	_, _ = session.Init(ws, true)
+
+	// Add 6 done tasks to todo.md to trigger yellow zone compact suggestion
+	todoPath := filepath.Join(ws, ".agents", "session", "todo.md")
+	var sb strings.Builder
+	sb.WriteString("# Tarefas\n\n## Concluídas ✅\n")
+	for i := 1; i <= 6; i++ {
+		sb.WriteString("- [x] Tarefa concluída\n")
+	}
+	_ = os.WriteFile(todoPath, []byte(sb.String()), 0644)
+
+	in := &hook.PreInvocationInput{
+		CommonInput: hook.CommonInput{
+			ConversationID: "conv-compaction-test",
+			WorkspacePaths: []string{ws},
+		},
+		InvocationNum: 1,
+	}
+	out, err := hook.HandlePreInvocation(context.Background(), in)
+	if err != nil {
+		t.Fatalf("PreInvocation failed: %v", err)
+	}
+	if len(out.InjectSteps) == 0 {
+		t.Fatalf("expected injected steps")
+	}
+	msg := out.InjectSteps[0].EphemeralMessage
+	if !strings.Contains(msg, "agyo session compact") {
+		t.Errorf("expected compact suggestion for 6 done tasks, got: %s", msg)
+	}
+}
+
+func TestAntigravityHook_PreToolUse_HK6_DestructiveCheckpoint(t *testing.T) {
+	ws := t.TempDir()
+	// Init git repository
+	cmds := [][]string{
+		{"git", "init"},
+		{"git", "config", "user.name", "Tester"},
+		{"git", "config", "user.email", "tester@example.com"},
+		{"git", "commit", "--allow-empty", "-m", "Initial commit"},
+	}
+	for _, c := range cmds {
+		cmd := exec.Command(c[0], c[1:]...)
+		cmd.Dir = ws
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("cmd %v failed: %v (%s)", c, err, string(out))
+		}
+	}
+
+	// 1. Non-destructive command (ls -la) should NOT create checkpoint
+	nonDestructiveIn := &hook.PreToolUseInput{
+		CommonInput: hook.CommonInput{
+			ConversationID: "conv-chk-test",
+			WorkspacePaths: []string{ws},
+		},
+		ToolCall: &hook.ToolCall{
+			Name: "run_command",
+			Args: map[string]interface{}{
+				"CommandLine": "ls -la",
+			},
+		},
+	}
+	_, err := hook.HandlePreToolUse(context.Background(), nonDestructiveIn)
+	if err != nil {
+		t.Fatalf("HandlePreToolUse failed on non-destructive: %v", err)
+	}
+
+	chks, _ := checkpoint.List(ws)
+	if len(chks) != 0 {
+		t.Errorf("expected 0 checkpoints for non-destructive command, got %d", len(chks))
+	}
+
+	// 2. Destructive command (git reset --hard) MUST create an automated checkpoint
+	destructiveIn := &hook.PreToolUseInput{
+		CommonInput: hook.CommonInput{
+			ConversationID: "conv-chk-test",
+			WorkspacePaths: []string{ws},
+		},
+		ToolCall: &hook.ToolCall{
+			Name: "run_command",
+			Args: map[string]interface{}{
+				"CommandLine": "git reset --hard HEAD~1",
+			},
+		},
+	}
+	_, err = hook.HandlePreToolUse(context.Background(), destructiveIn)
+	if err != nil {
+		t.Fatalf("HandlePreToolUse failed on destructive: %v", err)
+	}
+
+	chks, err = checkpoint.List(ws)
+	if err != nil {
+		t.Fatalf("checkpoint.List failed: %v", err)
+	}
+	if len(chks) != 1 {
+		t.Fatalf("expected 1 checkpoint created before destructive command, got %d", len(chks))
+	}
+	if chks[0].Name != "pre-destructive" {
+		t.Errorf("expected checkpoint name 'pre-destructive', got %q", chks[0].Name)
+	}
+}
+

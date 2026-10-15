@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tiagovilasboas/antigravity-operator/internal/checkpoint"
 	"github.com/tiagovilasboas/antigravity-operator/internal/session"
 )
 
@@ -51,6 +52,19 @@ type PreInvocationOutput struct {
 type ToolCall struct {
 	Name string                 `json:"name"`
 	Args map[string]interface{} `json:"args"`
+}
+
+// PreToolUseInput is passed to the PreToolUse lifecycle event.
+type PreToolUseInput struct {
+	CommonInput
+	StepIdx  int       `json:"stepIdx"`
+	ToolCall *ToolCall `json:"toolCall,omitempty"`
+}
+
+// PreToolUseOutput is returned by the PreToolUse handler.
+type PreToolUseOutput struct {
+	Decision string `json:"decision,omitempty"`
+	Reason   string `json:"reason,omitempty"`
 }
 
 // PostToolUseInput is passed to the PostToolUse lifecycle event.
@@ -165,7 +179,56 @@ func TargetWorkspace(paths []string) string {
 	return pwd
 }
 
-// HandlePreInvocation implements HK-1: injecting session objective and pending tasks into context.
+type WorkspaceRegistry struct {
+	Workspaces map[string]WorkspaceEntry `json:"workspaces"`
+}
+
+type WorkspaceEntry struct {
+	ConversationID string    `json:"conversation_id"`
+	LastSeen       time.Time `json:"last_seen"`
+}
+
+// RegisterWorkspaceConversation tracks conversationId -> workspace mapping and detects concurrency conflicts (HK-4).
+func RegisterWorkspaceConversation(ws, convID string) (string, bool) {
+	if ws == "" || convID == "" {
+		return "", false
+	}
+	regPath := filepath.Join(hooksStateDir(), "workspaces.json")
+	var reg WorkspaceRegistry
+	reg.Workspaces = make(map[string]WorkspaceEntry)
+
+	data, err := os.ReadFile(regPath)
+	if err == nil {
+		_ = json.Unmarshal(data, &reg)
+	}
+	if reg.Workspaces == nil {
+		reg.Workspaces = make(map[string]WorkspaceEntry)
+	}
+
+	prevConv := ""
+	conflict := false
+
+	if entry, ok := reg.Workspaces[ws]; ok {
+		if entry.ConversationID != "" && entry.ConversationID != convID && time.Since(entry.LastSeen) < 12*time.Hour {
+			prevConv = entry.ConversationID
+			conflict = true
+		}
+	}
+
+	reg.Workspaces[ws] = WorkspaceEntry{
+		ConversationID: convID,
+		LastSeen:       time.Now(),
+	}
+
+	outData, err := json.MarshalIndent(reg, "", "  ")
+	if err == nil {
+		_ = os.WriteFile(regPath, outData, 0600)
+	}
+
+	return prevConv, conflict
+}
+
+// HandlePreInvocation implements HK-1, HK-4, and HK-5: injecting session objective, checking workspace conflicts, and suggesting compaction.
 func HandlePreInvocation(ctx context.Context, in *PreInvocationInput) (*PreInvocationOutput, error) {
 	out := &PreInvocationOutput{InjectSteps: []StepInjection{}}
 
@@ -190,6 +253,13 @@ func HandlePreInvocation(ctx context.Context, in *PreInvocationInput) (*PreInvoc
 		sb.WriteString(fmt.Sprintf("• Status/Fase: %s\n", summary.Status))
 	}
 
+	// HK-4: Check concurrent conversation conflict in active workspace
+	if in.ConversationID != "" {
+		if prevConv, conflict := RegisterWorkspaceConversation(ws, in.ConversationID); conflict {
+			sb.WriteString(fmt.Sprintf("⚠️ [agyo] Conflito de sessão detectado: outra conversa (%s) esteve ativa recentemente neste workspace. A memória operacional (.agents/session/) é compartilhada.\n", prevConv))
+		}
+	}
+
 	// Read active todo.md to collect In Progress tasks
 	todoPath := filepath.Join(ws, ".agents", "session", "todo.md")
 	inProgressTasks := extractInProgressTasks(todoPath)
@@ -198,6 +268,11 @@ func HandlePreInvocation(ctx context.Context, in *PreInvocationInput) (*PreInvoc
 		for _, t := range inProgressTasks {
 			sb.WriteString(fmt.Sprintf("  - %s\n", t))
 		}
+	}
+
+	// HK-5: Suggest compaction if session footprint is in yellow or red zone, or done tasks >= 5
+	if summary.HealthStatus == "Moderate 🟡" || summary.HealthStatus == "Bloated 🔴" || summary.DoneTasks >= 5 {
+		sb.WriteString(fmt.Sprintf("💡 [agyo] Pegada de sessão em zona moderada/crítica (%d tarefas concluídas, ~%d tokens, %s). Execute 'agyo session compact' para evitar context bloat.\n", summary.DoneTasks, summary.EstimatedTokens, summary.HealthStatus))
 	}
 
 	msg := sb.String()
@@ -214,6 +289,29 @@ func HandlePreInvocation(ctx context.Context, in *PreInvocationInput) (*PreInvoc
 
 var codeExtRegex = regexp.MustCompile(`\.(go|ts|tsx|js|jsx|py|rs|rb|php|java|c|cpp|h|hpp|cs)$`)
 var testBuildCommandRegex = regexp.MustCompile(`(?i)\b(go test|make test|npm test|pytest|cargo test|yarn test|pnpm test|vitest|go build|tsc|make build)\b`)
+var destructiveCommandRegex = regexp.MustCompile(`(?i)\b(rm\s+-[a-zA-Z]*r[a-zA-Z]*f|git\s+reset\s+--hard|git\s+clean\s+-[a-zA-Z]*f|drop\s+database|drop\s+table|truncate\s+table)\b`)
+
+// HandlePreToolUse implements HK-6: automated checkpoint creation before destructive commands.
+func HandlePreToolUse(ctx context.Context, in *PreToolUseInput) (*PreToolUseOutput, error) {
+	out := &PreToolUseOutput{}
+	if in.ToolCall == nil {
+		return out, nil
+	}
+
+	toolName := strings.ToLower(in.ToolCall.Name)
+	if toolName == "run_command" || toolName == "execute_bash" || toolName == "shell" {
+		cmdStr := extractCommandLine(in.ToolCall.Args)
+		if destructiveCommandRegex.MatchString(cmdStr) {
+			ws := TargetWorkspace(in.WorkspacePaths)
+			_, err := checkpoint.Create(ws, "pre-destructive", fmt.Sprintf("Automatic safety checkpoint before: %s", cmdStr))
+			if err != nil {
+				LogHookError("pretooluse-checkpoint", err)
+			}
+		}
+	}
+
+	return out, nil
+}
 
 // HandlePostToolUse implements HK-3: tracking code edits vs verification runs per conversation.
 func HandlePostToolUse(ctx context.Context, in *PostToolUseInput) (*PostToolUseOutput, error) {
@@ -361,6 +459,7 @@ type AntigravityHookCommand struct {
 type AntigravityNamedHook struct {
 	Enabled       bool                   `json:"enabled"`
 	PreInvocation []AntigravityHookGroup `json:"PreInvocation,omitempty"`
+	PreToolUse    []AntigravityHookGroup `json:"PreToolUse,omitempty"`
 	PostToolUse   []AntigravityHookGroup `json:"PostToolUse,omitempty"`
 	Stop          []AntigravityHookGroup `json:"Stop,omitempty"`
 }
@@ -375,6 +474,18 @@ func DefaultAgyoHookSpec() AntigravityNamedHook {
 					{
 						Type:    "command",
 						Command: "agyo hook run PreInvocation",
+						Timeout: 5,
+					},
+				},
+			},
+		},
+		PreToolUse: []AntigravityHookGroup{
+			{
+				Matcher: "run_command",
+				Hooks: []AntigravityHookCommand{
+					{
+						Type:    "command",
+						Command: "agyo hook run PreToolUse",
 						Timeout: 5,
 					},
 				},
@@ -559,6 +670,21 @@ func DispatchHookEvent(ctx context.Context, event string, r io.Reader, w io.Writ
 		if handleErr != nil {
 			LogHookError(event, handleErr)
 			out = &PreInvocationOutput{}
+		}
+		res, _ := json.Marshal(out)
+		_, _ = w.Write(append(res, '\n'))
+
+	case "pretooluse":
+		var in PreToolUseInput
+		if len(raw) > 0 {
+			if err := json.Unmarshal(raw, &in); err != nil {
+				LogHookError(event, fmt.Errorf("unmarshal error: %w", err))
+			}
+		}
+		out, handleErr := HandlePreToolUse(ctx, &in)
+		if handleErr != nil {
+			LogHookError(event, handleErr)
+			out = &PreToolUseOutput{}
 		}
 		res, _ := json.Marshal(out)
 		_, _ = w.Write(append(res, '\n'))

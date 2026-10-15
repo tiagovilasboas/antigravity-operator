@@ -1119,7 +1119,7 @@ Subcommands:
                                   Unregister agyo lifecycle hooks from Google Antigravity
   antigravity status [--scope user|workspace]
                                   Check if agyo lifecycle hooks are active in hooks.json
-  run <PreInvocation|PostToolUse|Stop>
+  run <PreInvocation|PreToolUse|PostToolUse|Stop>
                                   Execute lifecycle hook event handler (stdin JSON -> stdout JSON)
 
 Examples:
@@ -1239,7 +1239,7 @@ Subcommands:
 
 	case "run":
 		if len(args) < 2 || isHelp(args[1]) {
-			fmt.Println("Usage: agyo hook run <PreInvocation|PostToolUse|Stop>")
+			fmt.Println("Usage: agyo hook run <PreInvocation|PreToolUse|PostToolUse|Stop>")
 			if len(args) < 2 {
 				exitFunc(ExitUsageError)
 			}

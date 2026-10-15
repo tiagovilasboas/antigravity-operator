@@ -8,10 +8,10 @@
 
 ### Lifecycle hooks - plano: [docs/plans/01-LIFECYCLE-HOOKS-SESSION-AGENT.md](../../docs/plans/01-LIFECYCLE-HOOKS-SESSION-AGENT.md)
 > 📦 *Histórico compactado: 7 tarefas concluídas arquivadas em [completed-tasks-2026-10-15.md](archive/completed-tasks-2026-10-15.md)*
-- [ ] HK-4 Sessão por conversa: registrar `conversationId -> workspace` e avisar conflito
-- [ ] HK-5 Sugerir `session compact` via `PreInvocation` quando footprint passar da zona amarela
-- [ ] HK-6 Checkpoint automático em `PreToolUse` destrutivo (bloqueado por #18, #19, #21)
-- [ ] HK-7 Decidir dono dos hooks (agyo vs `harness-pre-tool`/`harness-post-tool`)
+- [x] HK-4 Sessão por conversa: registrar `conversationId -> workspace` e avisar conflito
+- [x] HK-5 Sugerir `session compact` via `PreInvocation` quando footprint passar da zona amarela
+- [x] HK-6 Checkpoint automático em `PreToolUse` destrutivo (com bugs #18, #19, #21 resolvidos)
+- [x] HK-7 Decidir dono dos hooks: coexistência limpa no `hooks.json` preservando third-party e custom hooks
 - [x] Bug #18 rollback apaga sessão · #19 HEAD detached · #21 colisão de IDs de checkpoint (resolvidos nos PRs #28, #29, #30)
 - [ ] Spike: existe modo headless (estilo `claude -p`) no CLI do Antigravity?
 
