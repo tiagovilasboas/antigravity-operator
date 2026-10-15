@@ -23,11 +23,17 @@ var commandCandidates = []commandCandidate{
 	{"doctor", "doctor"},
 	{"sync", "sync"},
 	{"hook", "hook"},
+	{"google", "google"},
+	{"google", "gsuite"},
+	{"google", "workspace"},
 	{"completion", "completion"},
 	{"version", "version"},
 	{"about", "about"},
 
 	// common aliases & subcommands
+	{"google calendar", "calendar"},
+	{"google docs", "docs"},
+	{"google auth", "auth"},
 	{"session status", "status"},
 	{"session status", "session status"},
 	{"session compact", "compact"},

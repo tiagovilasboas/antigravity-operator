@@ -125,6 +125,8 @@ func main() {
 		runSync(info, os.Args[2:])
 	case "hook":
 		runHook(os.Args[2:])
+	case "google", "gsuite", "workspace":
+		runGoogle(info, os.Args[2:])
 	case "completion":
 		runCompletion(os.Args[2:])
 	case "about":
@@ -184,6 +186,9 @@ Available commands:
   notebooklm ask <id> Ask a grounded query to a NotebookLM notebook
   notebooklm push <id> Push markdown or text file as a source to a notebook
   notebooklm mcp      Serve stdio Model Context Protocol (MCP) server for agents
+  google auth         Authenticate with Google Workspace via local loopback OAuth
+  google calendar     List or schedule Google Calendar events (supports --json)
+  google docs         Read or create Google Docs documents (supports --json)
   sync [--update-mcp] Synchronize canonical rules and MCP manifests to Google Antigravity
                       (--update-mcp backs up and rewrites an outdated MCP manifest)
   hook install [dir]  Install git pre-commit hook to safeguard session continuity

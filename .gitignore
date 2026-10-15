@@ -19,3 +19,5 @@ bin/
 # Perfis locais de teste
 tmp/
 *.log
+*auth*.json
+*token*.json

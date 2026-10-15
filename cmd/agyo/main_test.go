@@ -723,10 +723,72 @@ func TestCLI_MainDispatch(t *testing.T) {
 		{"agyo", "hook", "antigravity", "status", ws},
 		{"agyo", "hook", "install", ws},
 		{"agyo", "hook", "uninstall", ws},
+		{"agyo", "google", "--help"},
+		{"agyo", "google", "status", "--json"},
+		{"agyo", "google", "calendar", "--help"},
+		{"agyo", "google", "docs", "--help"},
+		{"agyo", "google", "mcp", "--help"},
+		{"agyo", "gsuite", "--help"},
+		{"agyo", "workspace", "--help"},
 	}
 
 	for _, cmd := range commands {
 		os.Args = cmd
 		main()
 	}
+}
+
+func TestCLI_RunGoogleCommands(t *testing.T) {
+	info := &platform.Info{
+		OS:        "darwin",
+		Arch:      "arm64",
+		GeminiDir: t.TempDir(),
+	}
+
+	origExit := exitFunc
+	defer func() { exitFunc = origExit }()
+	exitFunc = func(code int) {}
+
+	// Print usages
+	printGoogleUsage()
+	printGoogleCalendarUsage()
+	printGoogleDocsUsage()
+
+	// 1. agyo google without args (usage error)
+	runGoogle(info, []string{})
+
+	// 2. agyo google --help
+	runGoogle(info, []string{"--help"})
+
+	// 3. agyo google auth --help
+	runGoogle(info, []string{"auth", "--help"})
+
+	// 4. agyo google status
+	runGoogle(info, []string{"status"})
+	runGoogle(info, []string{"status", "--json"})
+	runGoogle(info, []string{"status", "--help"})
+
+	// 5. agyo google calendar
+	runGoogle(info, []string{"calendar"})
+	runGoogle(info, []string{"calendar", "--help"})
+	runGoogle(info, []string{"calendar", "list", "--help"})
+	runGoogle(info, []string{"calendar", "list"})
+	runGoogle(info, []string{"calendar", "add", "--help"})
+	runGoogle(info, []string{"calendar", "add"})
+	runGoogle(info, []string{"calendar", "unknown"})
+
+	// 6. agyo google docs
+	runGoogle(info, []string{"docs"})
+	runGoogle(info, []string{"docs", "--help"})
+	runGoogle(info, []string{"docs", "read", "--help"})
+	runGoogle(info, []string{"docs", "read"})
+	runGoogle(info, []string{"docs", "create", "--help"})
+	runGoogle(info, []string{"docs", "create"})
+	runGoogle(info, []string{"docs", "unknown"})
+
+	// 7. agyo google mcp --help
+	runGoogle(info, []string{"mcp", "--help"})
+
+	// 8. agyo google unknown
+	runGoogle(info, []string{"unknown"})
 }

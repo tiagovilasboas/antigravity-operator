@@ -2,11 +2,16 @@ package notebook
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
+	"time"
 
 	"github.com/tiagovilasboas/antigravity-operator/internal/platform"
+	"github.com/tiagovilasboas/antigravity-operator/internal/workspace"
 )
 
 // JSONRPCRequest modela uma requisição JSON-RPC 2.0 do MCP.
@@ -188,7 +193,115 @@ func getToolDefinitions() []map[string]interface{} {
 				"required": []string{"notebook_id", "url"},
 			},
 		},
+		{
+			"name":        "google_calendar_list_events",
+			"description": "Lista eventos agendados no Google Calendar do usuário (reuniões, prazos, blocos de foco).",
+			"inputSchema": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"max_results": map[string]interface{}{
+						"type":        "integer",
+						"description": "Número máximo de eventos a retornar (padrão 20)",
+					},
+					"time_min": map[string]interface{}{
+						"type":        "string",
+						"description": "Data/hora de início em formato RFC3339 (padrão: agora)",
+					},
+					"time_max": map[string]interface{}{
+						"type":        "string",
+						"description": "Data/hora limite em formato RFC3339",
+					},
+				},
+			},
+		},
+		{
+			"name":        "google_calendar_create_event",
+			"description": "Cria um novo evento no Google Calendar primário do usuário.",
+			"inputSchema": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"summary": map[string]interface{}{
+						"type":        "string",
+						"description": "Título ou resumo do evento",
+					},
+					"start_time": map[string]interface{}{
+						"type":        "string",
+						"description": "Horário de início em formato RFC3339 (ex: 2026-10-15T14:00:00Z)",
+					},
+					"end_time": map[string]interface{}{
+						"type":        "string",
+						"description": "Horário de término em formato RFC3339 (padrão: 1h após o início)",
+					},
+					"description": map[string]interface{}{
+						"type":        "string",
+						"description": "Descrição detalhada do evento",
+					},
+					"location": map[string]interface{}{
+						"type":        "string",
+						"description": "Local ou link de videoconferência",
+					},
+				},
+				"required": []string{"summary", "start_time"},
+			},
+		},
+		{
+			"name":        "google_docs_read",
+			"description": "Lê o conteúdo em texto plano estruturado de um documento do Google Docs pelo ID ou URL.",
+			"inputSchema": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"document_id": map[string]interface{}{
+						"type":        "string",
+						"description": "ID ou URL completa do documento no Google Docs",
+					},
+				},
+				"required": []string{"document_id"},
+			},
+		},
+		{
+			"name":        "google_docs_create",
+			"description": "Cria um novo documento no Google Docs com título e conteúdo inicial opcional.",
+			"inputSchema": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"title": map[string]interface{}{
+						"type":        "string",
+						"description": "Título do novo documento",
+					},
+					"content": map[string]interface{}{
+						"type":        "string",
+						"description": "Conteúdo inicial em texto a ser gravado no documento",
+					},
+				},
+				"required": []string{"title"},
+			},
+		},
 	}
+}
+
+func getWorkspaceToken(info *platform.Info) (string, error) {
+	geminiDir := ""
+	if info != nil {
+		geminiDir = info.GeminiDir
+	}
+	if geminiDir == "" {
+		home, _ := os.UserHomeDir()
+		geminiDir = filepath.Join(home, ".gemini", "antigravity")
+	}
+	contextName := os.Getenv("AGYO_GOOGLE_CONTEXT")
+	authPath := workspace.AuthFilePathForContext(geminiDir, contextName)
+	tok, err := workspace.LoadToken(authPath)
+	if err != nil {
+		return "", fmt.Errorf("Google Workspace não autenticado. Execute 'agyo google auth' no terminal para conectar sua conta: %w", err)
+	}
+	if tok.IsExpired() && tok.RefreshToken != "" {
+		refreshed, err := workspace.RefreshAccessToken(context.Background(), nil, "", tok)
+		if err == nil {
+			_ = workspace.SaveToken(authPath, refreshed)
+			return refreshed.AccessToken, nil
+		}
+	}
+	return tok.AccessToken, nil
 }
 
 func executeTool(info *platform.Info, out io.Writer, id interface{}, name string, args map[string]interface{}) {
@@ -252,6 +365,104 @@ func executeTool(info *platform.Info, out io.Writer, id interface{}, name string
 			return
 		}
 		sendToolSuccess(out, id, fmt.Sprintf("Fonte '%s' adicionada com sucesso ao caderno %s.", sourceURL, notebookID))
+
+	case "google_calendar_list_events":
+		tokenGetter := func(ctx context.Context) (string, error) {
+			return getWorkspaceToken(info)
+		}
+		client := workspace.NewCalendarClient(nil, "", tokenGetter)
+		maxResults := 20
+		if mr, ok := args["max_results"].(float64); ok && mr > 0 {
+			maxResults = int(mr)
+		}
+		var timeMin, timeMax time.Time
+		if tm, ok := args["time_min"].(string); ok && tm != "" {
+			timeMin, _ = time.Parse(time.RFC3339, tm)
+		}
+		if tm, ok := args["time_max"].(string); ok && tm != "" {
+			timeMax, _ = time.Parse(time.RFC3339, tm)
+		}
+		events, err := client.ListEvents(context.Background(), "primary", timeMin, timeMax, maxResults)
+		if err != nil {
+			sendToolError(out, id, fmt.Sprintf("Erro ao listar eventos do Google Calendar: %v", err))
+			return
+		}
+		resJSON, _ := json.MarshalIndent(events, "", "  ")
+		sendToolSuccess(out, id, string(resJSON))
+
+	case "google_calendar_create_event":
+		summary, _ := args["summary"].(string)
+		startTimeStr, _ := args["start_time"].(string)
+		if summary == "" || startTimeStr == "" {
+			sendToolError(out, id, "Os campos 'summary' e 'start_time' são obrigatórios.")
+			return
+		}
+		startTime, err := time.Parse(time.RFC3339, startTimeStr)
+		if err != nil {
+			sendToolError(out, id, fmt.Sprintf("Formato de 'start_time' inválido (use RFC3339, ex: 2026-10-15T14:00:00Z): %v", err))
+			return
+		}
+		var endTime time.Time
+		if etStr, ok := args["end_time"].(string); ok && etStr != "" {
+			endTime, _ = time.Parse(time.RFC3339, etStr)
+		}
+		desc, _ := args["description"].(string)
+		loc, _ := args["location"].(string)
+
+		tokenGetter := func(ctx context.Context) (string, error) {
+			return getWorkspaceToken(info)
+		}
+		client := workspace.NewCalendarClient(nil, "", tokenGetter)
+		created, err := client.CreateEvent(context.Background(), "primary", workspace.CalendarEvent{
+			Summary:     summary,
+			Description: desc,
+			Location:    loc,
+			Start:       startTime,
+			End:         endTime,
+		})
+		if err != nil {
+			sendToolError(out, id, fmt.Sprintf("Erro ao criar evento no Google Calendar: %v", err))
+			return
+		}
+		resJSON, _ := json.MarshalIndent(created, "", "  ")
+		sendToolSuccess(out, id, string(resJSON))
+
+	case "google_docs_read":
+		docID, _ := args["document_id"].(string)
+		if docID == "" {
+			sendToolError(out, id, "O campo 'document_id' é obrigatório.")
+			return
+		}
+		tokenGetter := func(ctx context.Context) (string, error) {
+			return getWorkspaceToken(info)
+		}
+		client := workspace.NewDocsClient(nil, "", tokenGetter)
+		doc, err := client.GetDocument(context.Background(), docID)
+		if err != nil {
+			sendToolError(out, id, fmt.Sprintf("Erro ao ler Google Doc: %v", err))
+			return
+		}
+		resJSON, _ := json.MarshalIndent(doc, "", "  ")
+		sendToolSuccess(out, id, string(resJSON))
+
+	case "google_docs_create":
+		title, _ := args["title"].(string)
+		content, _ := args["content"].(string)
+		if title == "" {
+			sendToolError(out, id, "O campo 'title' é obrigatório.")
+			return
+		}
+		tokenGetter := func(ctx context.Context) (string, error) {
+			return getWorkspaceToken(info)
+		}
+		client := workspace.NewDocsClient(nil, "", tokenGetter)
+		created, err := client.CreateDocument(context.Background(), title, content)
+		if err != nil {
+			sendToolError(out, id, fmt.Sprintf("Erro ao criar Google Doc: %v", err))
+			return
+		}
+		resJSON, _ := json.MarshalIndent(created, "", "  ")
+		sendToolSuccess(out, id, string(resJSON))
 
 	default:
 		sendToolError(out, id, fmt.Sprintf("Ferramenta '%s' não suportada.", name))

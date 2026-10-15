@@ -145,6 +145,7 @@ antigravity-operator/
 │   ├── hook/                 # SRP: Git pre-commit continuity sensor & safeguards
 │   ├── installer/            # SRP: Idempotent rule and MCP manifesto synchronization
 │   ├── notebook/             # SRP: Native Google NotebookLM integration & stdio MCP server
+│   ├── workspace/            # SRP: Google Workspace Bridge (Calendar v3, Docs v1 & loopback auth)
 │   └── doctor/               # SRP: Machine diagnostic computational sensors
 ├── templates/                # Embedded static assets via //go:embed (zero external deps)
 ├── skills/                   # Bonus student skills (video-to-article, feynman, etc.)

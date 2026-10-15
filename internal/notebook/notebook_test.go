@@ -312,6 +312,30 @@ func TestNotebook_MCPToolExecutionCoverage(t *testing.T) {
 	if !strings.Contains(out, "Erro ao listar cadernos") {
 		t.Errorf("expected error on inactive port for notebooklm_list: %s", out)
 	}
+
+	// 6. google_calendar_list_events without auth
+	out = callTool("google_calendar_list_events", map[string]interface{}{})
+	if !strings.Contains(out, "não autenticado") {
+		t.Errorf("expected auth error for google_calendar_list_events: %s", out)
+	}
+
+	// 7. google_calendar_create_event missing summary
+	out = callTool("google_calendar_create_event", map[string]interface{}{})
+	if !strings.Contains(out, "obrigatórios") {
+		t.Errorf("expected required fields error for google_calendar_create_event: %s", out)
+	}
+
+	// 8. google_docs_read missing document_id
+	out = callTool("google_docs_read", map[string]interface{}{})
+	if !strings.Contains(out, "obrigatório") {
+		t.Errorf("expected required field error for google_docs_read: %s", out)
+	}
+
+	// 9. google_docs_create missing title
+	out = callTool("google_docs_create", map[string]interface{}{})
+	if !strings.Contains(out, "obrigatório") {
+		t.Errorf("expected required field error for google_docs_create: %s", out)
+	}
 }
 
 func TestNotebook_FindTabAndOpenSession_InactivePort(t *testing.T) {

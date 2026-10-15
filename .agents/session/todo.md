@@ -28,6 +28,15 @@
 - [x] G4 🟡 Cobertura: `internal/notebook` 31% -> 84.5%; `cmd/agyo` 49% -> 73.6%
 - [x] G7 🟢 `windows-latest` no CI ou marcar Windows como não testado (WSL2 documentado como alvo suportado e CI protegido)
 
+### Google Workspace Bridge - plano: [docs/plans/04-GOOGLE-WORKSPACE-BRIDGE.md](../../docs/plans/04-GOOGLE-WORKSPACE-BRIDGE.md)
+- [x] WS-1 Auth & Storage: TokenInfo, Save/Load (0600), refresh automático, isolamento de contexto e loopback server seguro (SEC-WS-01, SEC-WS-02, SEC-WS-03)
+- [x] WS-2 Calendar Client: Métodos ListEvents e CreateEvent para Google Calendar API v3 com timeout de 30s
+- [x] WS-3 Docs Client: Métodos GetDocument e CreateDocument para Google Docs API v1 com tratamento de batchUpdate
+- [x] WS-4 CLI Subcommands: Integrar `agyo google` (auth, status, calendar, docs) no dispatcher da CLI
+- [x] WS-5 MCP Tools: Expor ferramentas do Workspace no servidor MCP stdio
+- [x] WS-6 Testes & Qualidade: Cobertura 86.9% com httptest.Server e -race 100% verde
+- [x] WS-7 Docs & Sync: Atualizar documentações e registrar Spec 10
+
 ### Fora do agyo (Downshift)
 - [ ] DS-1 Reinstalar `downshift`: binário instalado imprime percentuais no `context benchmark` que contradizem o README
 - [ ] DS-2 Validar build do `dsmon` (interrompido pelo restart)
