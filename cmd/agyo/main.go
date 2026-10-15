@@ -1024,11 +1024,19 @@ func runSync(info *platform.Info, args []string) {
 }
 
 func printHookUsage() {
-	fmt.Println(`Usage: agyo hook <subcommand> [dir]
+	fmt.Println(`Usage: agyo hook <subcommand> [arguments]
 
 Subcommands:
-  install [dir]        Install git pre-commit hook to safeguard session continuity
-  uninstall [dir]      Remove agyo git pre-commit hook
+  install [dir]                   Install git pre-commit hook to safeguard session continuity
+  uninstall [dir]                 Remove agyo git pre-commit hook
+  antigravity install [--scope user|workspace] [--dry-run]
+                                  Register agyo lifecycle hooks into Google Antigravity (hooks.json)
+  antigravity uninstall [--scope user|workspace]
+                                  Unregister agyo lifecycle hooks from Google Antigravity
+  antigravity status [--scope user|workspace]
+                                  Check if agyo lifecycle hooks are active in hooks.json
+  run <PreInvocation|PostToolUse|Stop>
+                                  Execute lifecycle hook event handler (stdin JSON -> stdout JSON)
 
 Run 'agyo hook <subcommand> --help' for details on each subcommand.`)
 }
@@ -1044,10 +1052,7 @@ func runHook(args []string) {
 		printHookUsage()
 		return
 	}
-	targetDir := "."
-	if len(args) > 1 {
-		targetDir = args[1]
-	}
+
 	switch sub {
 	case "install":
 		if hasHelp(args[1:]) {
@@ -1055,21 +1060,106 @@ func runHook(args []string) {
 			fmt.Println("Install git pre-commit hook to safeguard session continuity.")
 			return
 		}
+		targetDir := "."
+		if len(args) > 1 {
+			targetDir = args[1]
+		}
 		path, err := hook.Install(targetDir)
 		if err != nil {
 			runtimeError(err, "")
+			return
 		}
 		fmt.Printf("✅ Pre-commit session hook installed at: %s\n", path)
+
 	case "uninstall":
 		if hasHelp(args[1:]) {
 			fmt.Println("Usage: agyo hook uninstall [dir]")
 			fmt.Println("Remove agyo git pre-commit hook.")
 			return
 		}
+		targetDir := "."
+		if len(args) > 1 {
+			targetDir = args[1]
+		}
 		if err := hook.Uninstall(targetDir); err != nil {
 			runtimeError(err, "")
+			return
 		}
 		fmt.Println("✅ Pre-commit session hook uninstalled successfully.")
+
+	case "antigravity":
+		if len(args) < 2 || isHelp(args[1]) {
+			fmt.Println(`Usage: agyo hook antigravity <subcommand> [options]
+
+Subcommands:
+  install [--scope user|workspace] [--dry-run] [dir]
+  uninstall [--scope user|workspace] [dir]
+  status [--scope user|workspace] [dir]`)
+			if len(args) < 2 {
+				exitFunc(ExitUsageError)
+			}
+			return
+		}
+		action := args[1]
+		fs := flag.NewFlagSet("hook antigravity "+action, flag.ExitOnError)
+		scope := fs.String("scope", "user", "Scope for hooks.json (user or workspace)")
+		dryRun := fs.Bool("dry-run", false, "Preview changes without writing to disk")
+		_ = fs.Parse(args[2:])
+
+		workspace := "."
+		if fs.NArg() > 0 {
+			workspace = fs.Arg(0)
+		}
+
+		switch action {
+		case "install":
+			path, content, err := hook.InstallAntigravityHook(*scope, workspace, *dryRun)
+			if err != nil {
+				runtimeError(err, "")
+				return
+			}
+			if *dryRun {
+				fmt.Printf("🔍 [Dry Run] Target file: %s\n", path)
+				fmt.Println(content)
+				return
+			}
+			fmt.Printf("✅ Antigravity lifecycle hook (%s) registered at: %s\n", hook.AgyoHookName, path)
+		case "uninstall":
+			path, err := hook.UninstallAntigravityHook(*scope, workspace)
+			if err != nil {
+				runtimeError(err, "")
+				return
+			}
+			fmt.Printf("✅ Antigravity lifecycle hook (%s) removed from: %s\n", hook.AgyoHookName, path)
+		case "status":
+			active, path, err := hook.AntigravityHookStatus(*scope, workspace)
+			if err != nil {
+				runtimeError(err, "")
+				return
+			}
+			if active {
+				fmt.Printf("✅ Antigravity lifecycle hook (%s) is ACTIVE at: %s\n", hook.AgyoHookName, path)
+			} else {
+				fmt.Printf("⚠️  Antigravity lifecycle hook (%s) is NOT active at: %s\n", hook.AgyoHookName, path)
+				fmt.Println("→ Install with: agyo hook antigravity install")
+			}
+		default:
+			usageError("unknown antigravity hook action %q\nRun 'agyo hook antigravity --help' for usage.", action)
+			return
+		}
+
+	case "run":
+		if len(args) < 2 || isHelp(args[1]) {
+			fmt.Println("Usage: agyo hook run <PreInvocation|PostToolUse|Stop>")
+			if len(args) < 2 {
+				exitFunc(ExitUsageError)
+			}
+			return
+		}
+		event := args[1]
+		_ = hook.DispatchHookEvent(context.Background(), event, os.Stdin, os.Stdout)
+		return
+
 	default:
 		usageError("unknown hook subcommand %q\nRun 'agyo hook --help' for usage.", sub)
 	}

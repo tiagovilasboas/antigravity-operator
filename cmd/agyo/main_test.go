@@ -103,6 +103,18 @@ func TestCLI_RunHook(t *testing.T) {
 
 	runHook([]string{"install", tempDir})
 	runHook([]string{"uninstall", tempDir})
+
+	// Antigravity lifecycle hooks via CLI
+	runHook([]string{"antigravity", "status", "--scope=workspace", tempDir})
+	runHook([]string{"antigravity", "install", "--scope=workspace", "--dry-run", tempDir})
+	runHook([]string{"antigravity", "install", "--scope=workspace", tempDir})
+	runHook([]string{"antigravity", "status", "--scope=workspace", tempDir})
+	runHook([]string{"antigravity", "uninstall", "--scope=workspace", tempDir})
+
+	// Run events via CLI
+	runHook([]string{"run", "PreInvocation"})
+	runHook([]string{"run", "PostToolUse"})
+	runHook([]string{"run", "Stop"})
 }
 
 func TestCLI_RunSessionExport(t *testing.T) {

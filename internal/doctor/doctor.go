@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/tiagovilasboas/antigravity-operator/internal/hook"
 	"github.com/tiagovilasboas/antigravity-operator/internal/installer"
 	"github.com/tiagovilasboas/antigravity-operator/internal/notebook"
 	"github.com/tiagovilasboas/antigravity-operator/internal/platform"
@@ -87,6 +88,9 @@ func Run(info *platform.Info) *Report {
 
 	// 9. Memória Operacional de Sessão (.agents/session/)
 	rep.add(checkSessionMemory("."))
+
+	// 10. Lifecycle Hooks de Sessão (Google Antigravity hooks.json)
+	rep.add(checkLifecycleHooks(info))
 
 	return rep
 }
@@ -375,5 +379,29 @@ func checkSkills(info *platform.Info) CheckItem {
 		Name:    name,
 		Status:  "OK",
 		Details: fmt.Sprintf("%d skills ativas registradas em %s (sem pastas .bak)", activeCount, skillsDir),
+	}
+}
+
+func checkLifecycleHooks(info *platform.Info) CheckItem {
+	name := "Lifecycle Hooks"
+	active, targetFile, err := hook.AntigravityHookStatus("user", "")
+	if err != nil {
+		return CheckItem{
+			Name:    name,
+			Status:  "WARN",
+			Details: fmt.Sprintf("Erro ao inspecionar %s: %v", targetFile, err),
+		}
+	}
+	if !active {
+		return CheckItem{
+			Name:    name,
+			Status:  "INFO",
+			Details: fmt.Sprintf("Não instalados em %s (execute: agyo hook antigravity install)", targetFile),
+		}
+	}
+	return CheckItem{
+		Name:    name,
+		Status:  "OK",
+		Details: fmt.Sprintf("agyo-session-agent ativo em %s", targetFile),
 	}
 }

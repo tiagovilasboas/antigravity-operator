@@ -286,3 +286,16 @@ func TestCheckSkills(t *testing.T) {
 		t.Errorf("expected details to mention agyo.bak, got %s", cWarn.Details)
 	}
 }
+
+func TestCheckLifecycleHooks(t *testing.T) {
+	info := &platform.Info{
+		OS: "darwin",
+	}
+	c := checkLifecycleHooks(info)
+	if c.Name != "Lifecycle Hooks" {
+		t.Errorf("expected check name 'Lifecycle Hooks', got %s", c.Name)
+	}
+	if c.Status != "OK" && c.Status != "INFO" && c.Status != "WARN" {
+		t.Errorf("unexpected check status %s", c.Status)
+	}
+}

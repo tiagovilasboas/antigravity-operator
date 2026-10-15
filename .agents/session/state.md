@@ -4,11 +4,12 @@
 - Implementar a integração nativa com o Google NotebookLM no `agyo` (`agyo notebooklm` CLI e servidor MCP stdio) seguindo Clean Code, KISS, YAGNI e SRP.
 
 ## Status em Tempo Real
-- **Fase Atual:** UX PR 1 concluído com sucesso (UX-1, UX-2, UX-6, UX-8, UX-5): exit codes 0/1/2 padronizados, interceptação universal de `--help` sem side-effects, actionable error hints para porta 9222.
+- **Fase Atual:** Lifecycle hooks de sessão implementados com sucesso (HK-0, HK-1, HK-2, HK-3, HK-doctor): `PreInvocation` injeta resumo de memória, `PostToolUse` rastreia alterações de código, `Stop` bloqueia parada com tarefas em progresso ou código sem verificação (anti-loop máx 2), `doctor` audita hooks e Spec 09 documentada.
 - **Bloqueios:** Nenhum
-- **Última Validação:** `go test -race ./...` 100% verde com testes de contrato CLI.
+- **Última Validação:** `go test -race ./...` 100% verde em todos os pacotes.
 
 ## Próximos Passos Imediatos
-1. Wave 3 / Release G1: cortar tag `v0.5.0`, atualizar Formula Homebrew e validar `make install`.
-2. Wave 4 / Lifecycle Hooks: implementar `agyo hook antigravity install` e runtime dos hooks (`PreInvocation`, `Stop`, `PostToolUse`).
+1. Reinstalar binário local via `make install`.
+2. Registrar hooks no Antigravity localmente via `agyo hook antigravity install`.
+3. Prosseguir com as próximas tasks do roadmap (UX PR 2, bugs #18/#19/#21).
 

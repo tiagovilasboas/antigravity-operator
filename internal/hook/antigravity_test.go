@@ -1,0 +1,252 @@
+package hook_test
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/tiagovilasboas/antigravity-operator/internal/hook"
+	"github.com/tiagovilasboas/antigravity-operator/internal/session"
+)
+
+func TestAntigravityHook_InstallDryRunAndReal(t *testing.T) {
+	ws := t.TempDir()
+	hooksFile := filepath.Join(ws, ".agents", "hooks.json")
+	_ = os.MkdirAll(filepath.Dir(hooksFile), 0755)
+
+	// Existing third-party hook
+	initialContent := `{
+  "custom-router": {
+    "enabled": true,
+    "PreToolUse": []
+  }
+}`
+	if err := os.WriteFile(hooksFile, []byte(initialContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// 1. Dry run
+	target, dryContent, err := hook.InstallAntigravityHook("workspace", ws, true)
+	if err != nil {
+		t.Fatalf("dry run failed: %v", err)
+	}
+	if target != hooksFile {
+		t.Errorf("expected target %s, got %s", hooksFile, target)
+	}
+	if !strings.Contains(dryContent, hook.AgyoHookName) || !strings.Contains(dryContent, "custom-router") {
+		t.Errorf("dry content missing keys: %s", dryContent)
+	}
+
+	// Ensure disk was NOT modified during dry-run
+	diskData, _ := os.ReadFile(hooksFile)
+	if strings.Contains(string(diskData), hook.AgyoHookName) {
+		t.Errorf("dry-run wrote to disk")
+	}
+
+	// 2. Real install
+	_, _, err = hook.InstallAntigravityHook("workspace", ws, false)
+	if err != nil {
+		t.Fatalf("real install failed: %v", err)
+	}
+
+	// Check backup was created
+	backups, _ := filepath.Glob(hooksFile + ".bak-*")
+	if len(backups) != 1 {
+		t.Errorf("expected 1 backup file, found %d", len(backups))
+	}
+
+	// Verify status
+	active, _, err := hook.AntigravityHookStatus("workspace", ws)
+	if err != nil {
+		t.Fatalf("status failed: %v", err)
+	}
+	if !active {
+		t.Errorf("expected hook to be active")
+	}
+
+	// 3. Uninstall
+	_, err = hook.UninstallAntigravityHook("workspace", ws)
+	if err != nil {
+		t.Fatalf("uninstall failed: %v", err)
+	}
+
+	active, _, _ = hook.AntigravityHookStatus("workspace", ws)
+	if active {
+		t.Errorf("expected hook to be inactive after uninstall")
+	}
+
+	// Ensure original custom-router is still preserved!
+	finalDisk, _ := os.ReadFile(hooksFile)
+	if !strings.Contains(string(finalDisk), "custom-router") {
+		t.Errorf("custom-router was removed during uninstall")
+	}
+}
+
+func TestAntigravityHook_PreInvocation_HK1(t *testing.T) {
+	ws := t.TempDir()
+	_, _ = session.Init(ws, true)
+
+	// Put in-progress task in todo.md
+	todoPath := filepath.Join(ws, ".agents", "session", "todo.md")
+	todoContent := `# Lista de Tarefas da Sessão
+
+## Em Progresso ⏳
+- [ ] Implementar sensor de verificação
+- [ ] Refatorar CLI
+
+## Pendentes 📋
+- [ ] Task 3
+`
+	_ = os.WriteFile(todoPath, []byte(todoContent), 0644)
+
+	// Invocation 1
+	in1 := &hook.PreInvocationInput{
+		CommonInput: hook.CommonInput{
+			ConversationID: "conv-123",
+			WorkspacePaths: []string{ws},
+		},
+		InvocationNum: 1,
+	}
+
+	out1, err := hook.HandlePreInvocation(context.Background(), in1)
+	if err != nil {
+		t.Fatalf("handle pre-invocation failed: %v", err)
+	}
+
+	if len(out1.InjectSteps) != 1 {
+		t.Fatalf("expected 1 injected step, got %d", len(out1.InjectSteps))
+	}
+
+	msg := out1.InjectSteps[0].EphemeralMessage
+	if !strings.Contains(msg, "Implementar sensor de verificação") {
+		t.Errorf("injected message missing in-progress task: %s", msg)
+	}
+
+	// Invocation 2 (must NOT inject steps again)
+	in2 := &hook.PreInvocationInput{
+		CommonInput:   in1.CommonInput,
+		InvocationNum: 2,
+	}
+	out2, err := hook.HandlePreInvocation(context.Background(), in2)
+	if err != nil {
+		t.Fatalf("handle pre-invocation 2 failed: %v", err)
+	}
+	if len(out2.InjectSteps) != 0 {
+		t.Errorf("expected 0 injected steps on invocation 2, got %d", len(out2.InjectSteps))
+	}
+}
+
+func TestAntigravityHook_PostToolUseAndStop_HK2_HK3(t *testing.T) {
+	ws := t.TempDir()
+	_, _ = session.Init(ws, true)
+	todoPath := filepath.Join(ws, ".agents", "session", "todo.md")
+	_ = os.WriteFile(todoPath, []byte("# Lista de Tarefas\n\n## Em Progresso ⏳\n\n## Pendentes 📋\n"), 0644)
+
+	convID := "conv-test-stop"
+	st := hook.LoadConversationState(convID, ws)
+	st.DirtyCode = false
+	st.StopBlocks = 0
+	_ = st.Save()
+
+	// 1. PostToolUse: edit a .go file -> marks DirtyCode = true
+	postIn := &hook.PostToolUseInput{
+		CommonInput: hook.CommonInput{
+			ConversationID: convID,
+			WorkspacePaths: []string{ws},
+		},
+		ToolCall: &hook.ToolCall{
+			Name: "write_to_file",
+			Args: map[string]interface{}{
+				"TargetFile": "/path/to/main.go",
+			},
+		},
+	}
+	_, err := hook.HandlePostToolUse(context.Background(), postIn)
+	if err != nil {
+		t.Fatalf("PostToolUse failed: %v", err)
+	}
+
+	st = hook.LoadConversationState(convID, ws)
+	if !st.DirtyCode {
+		t.Errorf("expected dirtyCode to be true after editing .go file")
+	}
+
+	// 2. Stop: should block because dirtyCode is true
+	stopIn := &hook.StopInput{
+		CommonInput: hook.CommonInput{
+			ConversationID: convID,
+			WorkspacePaths: []string{ws},
+		},
+		TerminationReason: "model_stop",
+	}
+	stopOut, err := hook.HandleStop(context.Background(), stopIn)
+	if err != nil {
+		t.Fatalf("HandleStop failed: %v", err)
+	}
+	if stopOut.Decision != "continue" {
+		t.Errorf("expected decision 'continue', got %q", stopOut.Decision)
+	}
+	if !strings.Contains(stopOut.Reason, "testes de verificação") {
+		t.Errorf("expected reason to mention verification tests, got %q", stopOut.Reason)
+	}
+
+	// 3. PostToolUse: run test successfully -> marks DirtyCode = false
+	testRunIn := &hook.PostToolUseInput{
+		CommonInput: hook.CommonInput{
+			ConversationID: convID,
+			WorkspacePaths: []string{ws},
+		},
+		ToolCall: &hook.ToolCall{
+			Name: "run_command",
+			Args: map[string]interface{}{
+				"CommandLine": "go test -v ./...",
+			},
+		},
+		Error: "", // success!
+	}
+	_, _ = hook.HandlePostToolUse(context.Background(), testRunIn)
+	st = hook.LoadConversationState(convID, ws)
+	if st.DirtyCode {
+		t.Errorf("expected dirtyCode to be false after successful test command")
+	}
+
+	// 4. Now add an in-progress task to todo.md -> Stop should block again
+	_ = os.WriteFile(todoPath, []byte("## Em Progresso ⏳\n- [ ] Pending work\n"), 0644)
+
+	stopOut, _ = hook.HandleStop(context.Background(), stopIn)
+	if stopOut.Decision != "continue" {
+		t.Errorf("expected decision 'continue' due to in-progress task, got %q", stopOut.Decision)
+	}
+
+	// 5. Anti-loop test: repeated stop blocks must allow termination after MaxStopBlocks (2)
+	// Currently StopBlocks is 2, next call should allow stopping
+	stopOut, _ = hook.HandleStop(context.Background(), stopIn)
+	if stopOut.Decision == "continue" {
+		t.Errorf("anti-loop threshold should allow stop, but got decision 'continue'")
+	}
+}
+
+func TestAntigravityHook_DispatchFailOpen(t *testing.T) {
+	// DispatchHookEvent must be strictly fail-open: bad json, unknown event, etc. must output valid JSON and not crash
+	var buf bytes.Buffer
+	err := hook.DispatchHookEvent(context.Background(), "PreInvocation", strings.NewReader("invalid-json{"), &buf)
+	if err != nil {
+		t.Fatalf("expected nil error on fail-open dispatch, got: %v", err)
+	}
+
+	var parsed map[string]interface{}
+	if err := json.Unmarshal(buf.Bytes(), &parsed); err != nil {
+		t.Fatalf("expected valid JSON output on dispatch fail-open: %v", err)
+	}
+
+	// Unknown event
+	buf.Reset()
+	_ = hook.DispatchHookEvent(context.Background(), "unknown_event", strings.NewReader("{}"), &buf)
+	if strings.TrimSpace(buf.String()) != "{}" {
+		t.Errorf("expected {} on unknown event, got %s", buf.String())
+	}
+}

@@ -75,6 +75,7 @@ A especificação completa está modularizada por domínios de responsabilidade 
 | **06. Observabilidade & Watch** | [06-OBSERVABILIDADE-WATCHER-E-DASHBOARD.md](06-OBSERVABILIDADE-WATCHER-E-DASHBOARD.md) | Streaming JSONL reativo de transcript, árvore de subagentes concorrente, alertas nativos de SO e Dashboard Web HTTP. |
 | **07. Sensores & Self-Healing** | [07-SENSORES-DOCTOR-E-SELF-HEALING.md](07-SENSORES-DOCTOR-E-SELF-HEALING.md) | Diagnóstico computacional, pre-commit hook de continuidade, autorrecuperação (`doctor --fix`) e contrato machine-readable `--json`. |
 | **08. NotebookLM & MCP** | [08-NOTEBOOKLM-E-MCP-SERVER.md](08-NOTEBOOKLM-E-MCP-SERVER.md) | Ponte nativa com Google NotebookLM via CDP, extração de fontes e servidor MCP stdio JSON-RPC 2.0. |
+| **09. Lifecycle Hooks** | [09-LIFECYCLE-HOOKS-SESSION-AGENT.md](09-LIFECYCLE-HOOKS-SESSION-AGENT.md) | Conexão do agyo no loop do Antigravity (PreInvocation, PostToolUse, Stop) via hooks.json. |
 
 ---
 

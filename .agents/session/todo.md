@@ -7,11 +7,7 @@
 - [ ] Divulgar no TabNews e LinkedIn
 
 ### Lifecycle hooks - plano: [docs/plans/01-LIFECYCLE-HOOKS-SESSION-AGENT.md](../../docs/plans/01-LIFECYCLE-HOOKS-SESSION-AGENT.md)
-- [ ] HK-1 `PreInvocation`: injetar resumo de `state.md` + `todo.md` na 1a invocação (teto 1.5 KB)
-- [ ] HK-2 `Stop`: bloquear término com item em progresso ou código sem verificação (anti-loop: máx. 2)
-- [ ] HK-3 `PostToolUse`: rastrear `dirty` (escrita de código) vs teste/build verde, por `conversationId`
-- [ ] HK-0 `agyo hook antigravity install|uninstall|status` + `agyo hook run <event>` (merge com backup, fail-open, < 200 ms)
-- [ ] HK-doctor: check "Lifecycle hooks" no `agyo doctor` + `docs/spec/09-...`
+> 📦 *Histórico compactado: 7 tarefas concluídas arquivadas em [completed-tasks-2026-10-15.md](archive/completed-tasks-2026-10-15.md)*
 - [ ] HK-4 Sessão por conversa: registrar `conversationId -> workspace` e avisar conflito
 - [ ] HK-5 Sugerir `session compact` via `PreInvocation` quando footprint passar da zona amarela
 - [ ] HK-6 Checkpoint automático em `PreToolUse` destrutivo (bloqueado por #18, #19, #21)
@@ -28,8 +24,6 @@
 - [ ] UX-10 Confirmação/`--yes` em `rollback` sem id (PR 3)
 
 ### Release, sync e qualidade - plano: [docs/plans/03-RELEASE-SYNC-QUALIDADE.md](../../docs/plans/03-RELEASE-SYNC-QUALIDADE.md)
-- [x] G1 🔴 Cortar `v0.5.0` (NotebookLM fora de qualquer release), atualizar Formula/tap, `make install` com `-ldflags`
-- [x] G6 🟡 Fixar versões `npx` em `templates/mcps/default-servers.json`
 - [ ] G5 🟡 Medir ou remover "~99% token savings" do README
 - [ ] G4 🟡 Cobertura: `internal/notebook` 31% -> 70% (fixtures HTML + smoke `AGYO_E2E=1`); `cmd/agyo` 49% -> 70%
 - [ ] G7 🟢 `windows-latest` no CI ou marcar Windows como não testado
