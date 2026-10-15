@@ -823,6 +823,12 @@ func runSync(info *platform.Info, args []string) {
 	if res.SkillsPath != "" {
 		fmt.Printf("✅ Antigravity skill installed at: %s\n", res.SkillsPath)
 	}
+	for _, b := range res.Backups {
+		fmt.Printf("🗂️  Previous file backed up to: %s\n", b)
+	}
+	for _, s := range res.Skipped {
+		fmt.Printf("ℹ️  Preserved external symlink: %s\n", s)
+	}
 }
 
 func runHook(args []string) {

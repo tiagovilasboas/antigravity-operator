@@ -1,10 +1,12 @@
 package installer
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/tiagovilasboas/antigravity-operator/internal/platform"
 	"github.com/tiagovilasboas/antigravity-operator/templates"
@@ -16,11 +18,52 @@ type SyncResult struct {
 	MCPPath    string
 	SkillsPath string
 	Updated    []string
+	Skipped    []string
+	Backups    []string
+}
+
+// writeSafeFile grava o arquivo com segurança:
+// 1. Não escreve se o arquivo ou seu diretório pai for symlink (preserva repositórios externos como harness-core).
+// 2. Se o arquivo já existir com conteúdo idêntico, não faz nada.
+// 3. Se o arquivo já existir e diferir, cria backup datado (.bak-<timestamp>) antes de sobrescrever.
+func writeSafeFile(targetPath string, content []byte, perm os.FileMode, now time.Time) (wrote bool, backup string, skippedSymlink bool, err error) {
+	parentDir := filepath.Dir(targetPath)
+	if pfi, lerr := os.Lstat(parentDir); lerr == nil && (pfi.Mode()&os.ModeSymlink != 0) {
+		return false, "", true, nil
+	}
+
+	fi, lerr := os.Lstat(targetPath)
+	if lerr == nil {
+		if fi.Mode()&os.ModeSymlink != 0 {
+			return false, "", true, nil
+		}
+		existing, rerr := os.ReadFile(targetPath)
+		if rerr == nil && bytes.Equal(existing, content) {
+			return false, "", false, nil
+		}
+		backup = targetPath + ".bak-" + now.UTC().Format("20060102T150405Z")
+		if berr := os.WriteFile(backup, existing, 0600); berr != nil {
+			return false, "", false, fmt.Errorf("falha ao criar backup de %s: %w", targetPath, berr)
+		}
+	} else if !os.IsNotExist(lerr) {
+		return false, "", false, fmt.Errorf("falha ao inspecionar %s: %w", targetPath, lerr)
+	}
+
+	if err := os.MkdirAll(parentDir, 0755); err != nil {
+		return false, "", false, fmt.Errorf("falha ao criar pasta %s: %w", parentDir, err)
+	}
+
+	if err := os.WriteFile(targetPath, content, perm); err != nil {
+		return false, backup, false, fmt.Errorf("falha ao gravar %s: %w", targetPath, err)
+	}
+
+	return true, backup, false, nil
 }
 
 // Sync instala ou atualiza as configurações do Antigravity na máquina local.
 func Sync(info *platform.Info) (*SyncResult, error) {
 	result := &SyncResult{}
+	now := time.Now()
 
 	// 1. Assegurar diretórios base
 	rulesDir := filepath.Join(info.GeminiDir, "rules")
@@ -40,11 +83,19 @@ func Sync(info *platform.Info) (*SyncResult, error) {
 	}
 
 	sessionRuleTarget := filepath.Join(rulesDir, "session-agent.md")
-	if err := os.WriteFile(sessionRuleTarget, ruleContent, 0644); err != nil {
+	result.RulesPath = sessionRuleTarget
+	wrote, backup, skipped, err := writeSafeFile(sessionRuleTarget, ruleContent, 0644, now)
+	if err != nil {
 		return nil, fmt.Errorf("falha ao gravar regra do session agent: %w", err)
 	}
-	result.RulesPath = sessionRuleTarget
-	result.Updated = append(result.Updated, sessionRuleTarget)
+	if backup != "" {
+		result.Backups = append(result.Backups, backup)
+	}
+	if skipped {
+		result.Skipped = append(result.Skipped, sessionRuleTarget)
+	} else if wrote {
+		result.Updated = append(result.Updated, sessionRuleTarget)
+	}
 
 	// 3. MCPs padrão
 	mcpDefaultTarget := filepath.Join(mcpDir, "default-servers.json")
@@ -84,10 +135,17 @@ func Sync(info *platform.Info) (*SyncResult, error) {
 			homeDir = filepath.Dir(filepath.Dir(info.GeminiDir))
 		}
 		skillDir := filepath.Join(homeDir, ".gemini", "config", "skills", "agyo")
-		if err := os.MkdirAll(skillDir, 0755); err == nil {
-			skillTarget := filepath.Join(skillDir, "SKILL.md")
-			if err := os.WriteFile(skillTarget, skillContent, 0644); err == nil {
-				result.SkillsPath = skillTarget
+		skillTarget := filepath.Join(skillDir, "SKILL.md")
+		result.SkillsPath = skillTarget
+
+		wrote, backup, skipped, err := writeSafeFile(skillTarget, skillContent, 0644, now)
+		if err == nil {
+			if backup != "" {
+				result.Backups = append(result.Backups, backup)
+			}
+			if skipped {
+				result.Skipped = append(result.Skipped, skillTarget)
+			} else if wrote {
 				result.Updated = append(result.Updated, skillTarget)
 			}
 		}

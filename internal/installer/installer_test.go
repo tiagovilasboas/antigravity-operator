@@ -127,3 +127,94 @@ func bytesContains(b, sub []byte) bool {
 	}
 	return false
 }
+
+func TestSync_PreservesSymlinks(t *testing.T) {
+	tempHome := t.TempDir()
+	externalDir := filepath.Join(t.TempDir(), "harness-core", "skills", "agyo")
+	if err := os.MkdirAll(externalDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	externalFile := filepath.Join(externalDir, "SKILL.md")
+	canonicalContent := []byte("# Canonical Harness Core Skill Content")
+	if err := os.WriteFile(externalFile, canonicalContent, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create symlink ~/.gemini/config/skills/agyo -> externalDir
+	skillsDir := filepath.Join(tempHome, ".gemini", "config", "skills")
+	if err := os.MkdirAll(skillsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	symlinkPath := filepath.Join(skillsDir, "agyo")
+	if err := os.Symlink(externalDir, symlinkPath); err != nil {
+		t.Fatal(err)
+	}
+
+	info := &platform.Info{
+		HomeDir:   tempHome,
+		GeminiDir: filepath.Join(tempHome, ".gemini", "antigravity"),
+	}
+
+	res, err := Sync(info)
+	if err != nil {
+		t.Fatalf("Sync failed: %v", err)
+	}
+
+	// Verify symlink was preserved and skipped
+	foundSkipped := false
+	for _, s := range res.Skipped {
+		if s == res.SkillsPath {
+			foundSkipped = true
+			break
+		}
+	}
+	if !foundSkipped {
+		t.Errorf("expected SkillsPath %s to be in res.Skipped, got %v", res.SkillsPath, res.Skipped)
+	}
+
+	// Verify external file was untouched
+	afterBytes, err := os.ReadFile(externalFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(afterBytes) != string(canonicalContent) {
+		t.Errorf("external file was mutated! want %s, got %s", string(canonicalContent), string(afterBytes))
+	}
+}
+
+func TestSync_CreatesBackupOnDifference(t *testing.T) {
+	tempGemini := filepath.Join(t.TempDir(), ".gemini", "antigravity")
+	info := &platform.Info{
+		GeminiDir: tempGemini,
+		HomeDir:   t.TempDir(),
+	}
+
+	rulesDir := filepath.Join(tempGemini, "rules")
+	if err := os.MkdirAll(rulesDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	ruleTarget := filepath.Join(rulesDir, "session-agent.md")
+	oldContent := []byte("# Custom Legacy Rule Content")
+	if err := os.WriteFile(ruleTarget, oldContent, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := Sync(info)
+	if err != nil {
+		t.Fatalf("Sync failed: %v", err)
+	}
+
+	if len(res.Backups) == 0 {
+		t.Fatal("expected at least one backup when overwriting differing file")
+	}
+
+	backupFile := res.Backups[0]
+	backupBytes, err := os.ReadFile(backupFile)
+	if err != nil {
+		t.Fatalf("failed to read backup file %s: %v", backupFile, err)
+	}
+	if string(backupBytes) != string(oldContent) {
+		t.Errorf("backup file content mismatch: want %s, got %s", string(oldContent), string(backupBytes))
+	}
+}
+
