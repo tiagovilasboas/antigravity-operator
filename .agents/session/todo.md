@@ -21,8 +21,8 @@
 ### Gaps, Performance & Student Edition - plano: [docs/plans/05-GAPS-PERFORMANCE-STUDENT-EDITION.md](../../docs/plans/05-GAPS-PERFORMANCE-STUDENT-EDITION.md)
 
 ### Fora do agyo (Downshift)
-- [ ] DS-1 Reinstalar `downshift`: binário instalado imprime percentuais no `context benchmark` que contradizem o README
-- [ ] DS-2 Validar build do `dsmon` (interrompido pelo restart)
+- [x] DS-1 Reinstalar `downshift`: resolvido pela instalação da v0.1.0-beta.14 em `~/go/bin` (2026-10-15). Os percentuais vinham de builds sem tag de 2026-10-08; código, README e teste concordam (tabela de bytes medidos). Binários antigos sombreados em `~/.local/bin` e `/opt/homebrew/bin`.
+- [x] DS-2 Validar build do `dsmon`: build, vet e testes passam a partir de um clone limpo (2026-10-16). O hook do Kiro apontava para um `dsmon-hook` de 2026-09-30 que gravava texto do prompt; recompilado da main atual, junto com `dsmon`, `dsmon-server` e o `downshift` usado pelo LaunchAgent.
 
 ## Concluídas ✅
 > 📦 *Histórico compactado: 8 tarefas concluídas arquivadas em [completed-tasks-2026-10-08.md](archive/completed-tasks-2026-10-08.md)*
