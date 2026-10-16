@@ -174,11 +174,13 @@ Available commands:
   rollback [id]       Safely undo agent edits and restore exact working tree from a checkpoint
   dashboard           Launch local web dashboard for live monitoring and DevTools inspection
   doctor [--fix]      Audit host readiness or auto-repair session memory (supports --json)
-  browser start       Launch isolated Chrome instance with remote debugging flags
+  browser start       Launch isolated Chrome instance with remote debugging flags (--profile supported)
   browser status      Inspect DevTools port (9222) readiness and Chrome process PID
+  browser profiles    Discover and classify Chrome profiles (personal, workspace, ghost)
+  browser resolve <u> Resolve the best authenticated profile and authuser URL for a domain/URL
   browser stop        Gracefully terminate isolated Chrome process (SIGTERM)
   browser tabs        List all open tabs and target IDs in the isolated Chrome
-  browser open <url>  Open a new tab at the given URL in the isolated Chrome
+  browser open <url>  Open or reuse a tab at the given URL in the isolated Chrome
   browser close <id>  Close a specific tab by ID
   browser eval "<js>" Evaluate JavaScript expression in the active tab (pure Go CDP)
   browser shot [file] Capture PNG screenshot of active tab without external libraries
@@ -659,17 +661,21 @@ func browserUsageString() string {
 	return `Usage: agyo browser <subcommand> [options]
 
 Subcommands:
-  start [--headless] [--port <p>] Launch isolated Chrome with DevTools debugging flags
-  status [--json]                 Inspect DevTools port (9222) readiness and Chrome process PID
-  stop                            Gracefully terminate isolated Chrome process
-  tabs [--json]                   List all open page tabs and target IDs in isolated Chrome
-  open <url>                      Open a new tab at the given URL in isolated Chrome
-  close <tab-id>                  Close a specific tab by ID
-  eval [tab-id] "<js>"            Evaluate JavaScript expression in active or target tab via CDP
-  shot [filename]                 Capture PNG screenshot of active tab (default: screenshot.png)
+  start [--profile <p>] [--headless] [--port <n>] Launch isolated Chrome with DevTools debugging flags
+  status [--json]                                 Inspect DevTools port (9222) readiness and Chrome process PID
+  profiles [--isolated|--system|--all] [--json]   Discover and classify Chrome profiles (personal, workspace, ghost)
+  resolve <url-or-domain> [--json]                Resolve best authenticated profile and authuser URL for a target
+  stop                                            Gracefully terminate isolated Chrome process
+  tabs [--json]                                   List all open page tabs and target IDs in isolated Chrome
+  open [--new-tab] <url>                          Open or reuse tab at the given URL in isolated Chrome
+  close <tab-id>                                  Close a specific tab by ID
+  eval [tab-id] "<js>"                            Evaluate JavaScript expression in active or target tab via CDP
+  shot [filename]                                 Capture PNG screenshot of active tab (default: screenshot.png)
 
 Examples:
-  agyo browser start
+  agyo browser profiles
+  agyo browser resolve https://docs.google.com/forms/d/e/1FAIpQLS/viewform
+  agyo browser start --profile workspace
   agyo browser status --json
   agyo browser tabs --json
   agyo browser shot auth-screen.png
@@ -679,6 +685,21 @@ Run 'agyo browser <subcommand> --help' for details on each subcommand.`
 
 func printBrowserUsage() {
 	fmt.Println(browserUsageString())
+}
+
+func collectRequestedProfiles(info *platform.Info, scope string) []profile.ChromeProfile {
+	var all []profile.ChromeProfile
+	if scope == "isolated" || scope == "all" {
+		if iso, err := profile.DiscoverProfiles(info.BrowserProfile, "isolated"); err == nil {
+			all = append(all, iso...)
+		}
+	}
+	if scope == "system" || scope == "all" {
+		if sys, err := profile.DiscoverProfiles(info.SystemChromeDir, "system"); err == nil {
+			all = append(all, sys...)
+		}
+	}
+	return all
 }
 
 func runBrowser(info *platform.Info, args []string) {
@@ -714,25 +735,152 @@ func runBrowser(info *platform.Info, args []string) {
 			}
 			fmt.Printf("✅ Chrome DevTools ACTIVE on port %d (%s)%s\n", st.Port, st.Version, pidInfo)
 			fmt.Printf("   Isolated profile: %s\n", st.ProfileDir)
+			if st.ActiveProfileDir != "" {
+				fmt.Printf("   Active directory: %s\n", st.ActiveProfileDir)
+			}
 		} else {
 			fmt.Printf("⚠️  Chrome DevTools INACTIVE on port %d\n", st.Port)
 			fmt.Printf("   To launch, run: agyo browser start\n")
 		}
+
+	case "profiles":
+		if hasHelp(args[1:]) {
+			fmt.Println("Usage: agyo browser profiles [--isolated|--system|--all] [--json]")
+			fmt.Println("Discover and classify Chrome profiles (personal, workspace, ghost) without hardcoding.")
+			return
+		}
+		profCmd := flag.NewFlagSet("browser profiles", flag.ExitOnError)
+		onlyIso := profCmd.Bool("isolated", false, "Show only isolated agyo Chrome profiles")
+		onlySys := profCmd.Bool("system", false, "Show only system Chrome profiles")
+		showAll := profCmd.Bool("all", false, "Show both isolated and system Chrome profiles")
+		jsonOut := profCmd.Bool("json", false, "Output in JSON format")
+		_ = profCmd.Parse(args[1:])
+
+		scope := "all"
+		if *onlyIso && !*onlySys && !*showAll {
+			scope = "isolated"
+		} else if *onlySys && !*onlyIso && !*showAll {
+			scope = "system"
+		}
+
+		profiles := collectRequestedProfiles(info, scope)
+		if *jsonOut || hasJSON(args[1:]) {
+			if profiles == nil {
+				profiles = []profile.ChromeProfile{}
+			}
+			data, _ := json.MarshalIndent(profiles, "", "  ")
+			fmt.Println(string(data))
+			return
+		}
+
+		if len(profiles) == 0 {
+			fmt.Println("ℹ️  No Chrome profiles found.")
+			return
+		}
+
+		fmt.Printf("👥 Discovered Chrome Profiles (%d total):\n", len(profiles))
+		fmt.Println("--------------------------------------------------------------------------------")
+		ghostCount := 0
+		for _, p := range profiles {
+			var badge string
+			switch p.Kind {
+			case profile.ProfileKindWorkspace:
+				badge = fmt.Sprintf("🏢 WORKSPACE [%s]", p.HostedDomain)
+			case profile.ProfileKindPersonal:
+				badge = "👤 PERSONAL"
+			default:
+				badge = "👻 GHOST (unauthenticated)"
+				ghostCount++
+			}
+			activeTag := ""
+			if p.IsLastUsed {
+				activeTag = " ★ last-used"
+			}
+			emailInfo := p.PrimaryEmail
+			if emailInfo == "" {
+				emailInfo = "(no signed-in account)"
+			}
+			fmt.Printf("[%s] %-11s | %-26s | %s%s\n", p.Source, p.Directory, badge, emailInfo, activeTag)
+		}
+		fmt.Println("--------------------------------------------------------------------------------")
+		if ghostCount > 0 {
+			fmt.Printf("💡 Note: %d ghost/unauthenticated profile(s) detected. 'agyo' automatically ignores them when resolving profiles.\n", ghostCount)
+		}
+
+	case "resolve":
+		if hasHelp(args[1:]) {
+			fmt.Println("Usage: agyo browser resolve <url-or-domain> [--json]")
+			fmt.Println("Resolve the best authenticated profile and authuser URL for a given target URL or domain.")
+			return
+		}
+		var target string
+		for _, a := range args[1:] {
+			if !strings.HasPrefix(a, "-") {
+				target = a
+				break
+			}
+		}
+		if target == "" {
+			usageError("missing URL or domain\nUsage: agyo browser resolve <url-or-domain> [--json]")
+			return
+		}
+
+		// Prefer isolated profiles if they have workspace/personal accounts, fallback to all
+		profiles := collectRequestedProfiles(info, "isolated")
+		if len(profiles) == 0 {
+			profiles = collectRequestedProfiles(info, "system")
+		} else {
+			// Also include system profiles if isolated lacks workspace accounts present in system
+			sysProfiles := collectRequestedProfiles(info, "system")
+			profiles = append(profiles, sysProfiles...)
+		}
+
+		res, err := profile.ResolveURLForProfiles(profiles, target)
+		if err != nil {
+			runtimeError(err, "")
+			return
+		}
+
+		if hasJSON(args[1:]) {
+			data, _ := json.MarshalIndent(res, "", "  ")
+			fmt.Println(string(data))
+			return
+		}
+
+		fmt.Printf("🧭 Profile Resolution for: %s\n", res.InputURL)
+		fmt.Println("--------------------------------------------------------------------------------")
+		if res.Recommended != nil {
+			fmt.Printf("   Recommended Profile : [%s] %s (%s)\n", res.Recommended.Source, res.Recommended.Directory, res.Recommended.Kind)
+			if res.Recommended.PrimaryEmail != "" {
+				fmt.Printf("   Account Email       : %s\n", res.Recommended.PrimaryEmail)
+			}
+			if res.Recommended.HostedDomain != "" {
+				fmt.Printf("   Organization Domain : %s\n", res.Recommended.HostedDomain)
+			}
+			fmt.Printf("   Matched By          : %s\n", res.MatchedBy)
+			fmt.Printf("   Suggested URL       : %s\n", res.SuggestedURL)
+			fmt.Printf("   Launch Command      : %s\n", res.StartCommand)
+		}
+		fmt.Printf("   Guidance            : %s\n", res.Hint)
+		fmt.Println("--------------------------------------------------------------------------------")
+
 	case "start":
 		if hasHelp(args[1:]) {
-			fmt.Println("Usage: agyo browser start [--headless] [--port <p>]")
+			fmt.Println("Usage: agyo browser start [--profile <id|email|domain|kind>] [--headless] [--port <p>]")
 			fmt.Println("Launch isolated Chrome with remote debugging flags.")
 			return
 		}
 		browserCmd := flag.NewFlagSet("browser start", flag.ExitOnError)
 		headless := browserCmd.Bool("headless", false, "Force headless mode even with display available")
 		port := browserCmd.Int("port", profile.DefaultDebugPort, "Chrome remote debugging port")
+		profSel := browserCmd.String("profile", "", "Profile selector (directory, email, domain, 'workspace' or 'personal')")
 		_ = browserCmd.Parse(args[1:])
 
 		fmt.Printf("🚀 Launching isolated Chrome for Google Antigravity on port %d...\n", *port)
 		err := profile.Start(info, profile.StartOptions{
-			Port:          *port,
-			ForceHeadless: *headless,
+			Port:            *port,
+			ForceHeadless:   *headless,
+			ProfileSelector: *profSel,
 		})
 		if err != nil {
 			runtimeError(err, "Check if Chrome is installed or if the port is already in use")
@@ -789,16 +937,26 @@ func runBrowser(info *platform.Info, args []string) {
 
 	case "open":
 		if hasHelp(args[1:]) {
-			fmt.Println("Usage: agyo browser open <url>")
-			fmt.Println("Open a new tab at the given URL in isolated Chrome.")
+			fmt.Println("Usage: agyo browser open [--new-tab] <url>")
+			fmt.Println("Open or reuse an existing/blank tab at the given URL in isolated Chrome.")
 			return
 		}
-		if len(args) < 2 {
-			usageError("missing URL\nUsage: agyo browser open <url>")
+		forceNew := false
+		var targetURL string
+		for _, a := range args[1:] {
+			if a == "--new-tab" || a == "-new-tab" {
+				forceNew = true
+				continue
+			}
+			if !strings.HasPrefix(a, "-") && targetURL == "" {
+				targetURL = a
+			}
+		}
+		if targetURL == "" {
+			usageError("missing URL\nUsage: agyo browser open [--new-tab] <url>")
 			return
 		}
-		targetURL := args[1]
-		tab, err := profile.OpenTab(profile.DefaultDebugPort, targetURL)
+		tab, reused, err := profile.OpenOrReuseTab(profile.DefaultDebugPort, targetURL, forceNew)
 		if err != nil {
 			runtimeError(err, "")
 			return
@@ -807,7 +965,11 @@ func runBrowser(info *platform.Info, args []string) {
 		if len(idPrefix) > 8 {
 			idPrefix = idPrefix[:8]
 		}
-		fmt.Printf("✅ Tab opened [%s]: %s\n", idPrefix, targetURL)
+		if reused {
+			fmt.Printf("♻️  Tab reused [%s]: %s\n", idPrefix, targetURL)
+		} else {
+			fmt.Printf("✅ Tab opened [%s]: %s\n", idPrefix, targetURL)
+		}
 
 	case "close":
 		if hasHelp(args[1:]) {

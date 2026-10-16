@@ -137,6 +137,72 @@ func EnsureTab(port int, targetURL string, urlSubstr string) (*Tab, error) {
 	return OpenTab(port, targetURL)
 }
 
+// NavigateTab navega uma aba existente para targetURL via comando CDP Page.navigate.
+func NavigateTab(port int, tabID string, targetURL string) (*Tab, error) {
+	tabs, err := ListTabs(port)
+	if err != nil {
+		return nil, err
+	}
+	for i := range tabs {
+		t := &tabs[i]
+		if t.ID == tabID || strings.HasPrefix(t.ID, tabID) {
+			if t.WebSocketDebuggerURL == "" {
+				return nil, fmt.Errorf("a aba %s não possui endpoint WebSocket", tabID)
+			}
+			client, err := dialCDP(t.WebSocketDebuggerURL)
+			if err != nil {
+				return nil, fmt.Errorf("falha ao conectar no WebSocket da aba %s: %w", tabID, err)
+			}
+			defer client.Close()
+
+			payload, _ := json.Marshal(map[string]interface{}{
+				"id":     1,
+				"method": "Page.navigate",
+				"params": map[string]interface{}{
+					"url": targetURL,
+				},
+			})
+			if err := client.Send(payload); err != nil {
+				return nil, fmt.Errorf("falha ao enviar Page.navigate: %w", err)
+			}
+			_, _ = client.ReadForID(1)
+			t.URL = targetURL
+			return t, nil
+		}
+	}
+	return nil, fmt.Errorf("aba com ID '%s' não encontrada", tabID)
+}
+
+// OpenOrReuseTab reutiliza uma aba existente que já esteja na mesma URL ou uma aba em branco (about:blank / chrome://newtab/),
+// evitando abrir abas duplicadas desnecessárias a menos que forceNewTab seja true.
+func OpenOrReuseTab(port int, targetURL string, forceNewTab bool) (*Tab, bool, error) {
+	if !forceNewTab {
+		if tabs, err := ListTabs(port); err == nil {
+			// 1. Verifica se já existe aba com a mesma URL (ou mesma URL base sem query transitória)
+			for i := range tabs {
+				if strings.EqualFold(strings.TrimRight(tabs[i].URL, "/"), strings.TrimRight(targetURL, "/")) {
+					return &tabs[i], true, nil
+				}
+			}
+			// 2. Verifica se existe aba em branco ociosa (about:blank ou chrome://newtab/) para navegar in-place
+			for i := range tabs {
+				u := strings.ToLower(strings.TrimSpace(tabs[i].URL))
+				if u == "about:blank" || strings.HasPrefix(u, "chrome://newtab") || strings.HasPrefix(u, "chrome://startpage") {
+					if navTab, navErr := NavigateTab(port, tabs[i].ID, targetURL); navErr == nil {
+						return navTab, true, nil
+					}
+				}
+			}
+		}
+	}
+
+	tab, err := OpenTab(port, targetURL)
+	if err != nil {
+		return nil, false, err
+	}
+	return tab, false, nil
+}
+
 // EvalTab executa uma expressão JavaScript em uma aba específica identificada pelo ID.
 func EvalTab(port int, tabID string, expression string) (string, error) {
 	tabs, err := ListTabs(port)

@@ -23,4 +23,15 @@ func TestDetect(t *testing.T) {
 	if info.BrowserProfile == "" {
 		t.Errorf("esperava BrowserProfile preenchido")
 	}
+
+	if info.SystemChromeDir == "" {
+		t.Errorf("esperava SystemChromeDir preenchido")
+	}
+
+	for _, osName := range []string{"darwin", "linux", "windows"} {
+		dir := platform.FindSystemChromeDir(osName, "/tmp/home")
+		if dir == "" {
+			t.Errorf("esperava FindSystemChromeDir não vazio para %s", osName)
+		}
+	}
 }

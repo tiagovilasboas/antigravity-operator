@@ -401,3 +401,54 @@ func TestAntigravityHook_PreToolUse_HK6_DestructiveCheckpoint(t *testing.T) {
 		t.Errorf("expected checkpoint name 'pre-destructive', got %q", chks[0].Name)
 	}
 }
+
+func TestAntigravityHook_PreToolUse_HK7_BrowserGuardrail(t *testing.T) {
+	blockedCommands := []string{
+		`open -a "Google Chrome" https://example.com`,
+		`/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --profile-directory="Profile 3"`,
+		`osascript -e 'tell application "Google Chrome" to tell front window to make new tab with properties {URL:"https://example.com"}'`,
+		`osascript -e 'tell application "System Events" to tell process "Google Chrome" to click menu item "Profile"'`,
+	}
+
+	for _, cmdStr := range blockedCommands {
+		in := &hook.PreToolUseInput{
+			CommonInput: hook.CommonInput{ConversationID: "conv-hk7"},
+			ToolCall: &hook.ToolCall{
+				Name: "run_command",
+				Args: map[string]interface{}{"CommandLine": cmdStr},
+			},
+		}
+		out, err := hook.HandlePreToolUse(context.Background(), in)
+		if err != nil {
+			t.Fatalf("unexpected error for %q: %v", cmdStr, err)
+		}
+		if out.Decision != "block" {
+			t.Errorf("expected command %q to be blocked by HK-7, got decision=%q", cmdStr, out.Decision)
+		}
+	}
+
+	// Safe read-only or active-tab reuse commands must NOT be blocked
+	allowedCommands := []string{
+		`agyo browser profiles`,
+		`agyo browser start --profile workspace`,
+		`osascript -e 'tell application "Google Chrome" to get {title, URL} of active tab of front window'`,
+		`osascript -e 'tell application "Google Chrome" to set URL of active tab of front window to "https://example.com"'`,
+	}
+
+	for _, cmdStr := range allowedCommands {
+		in := &hook.PreToolUseInput{
+			CommonInput: hook.CommonInput{ConversationID: "conv-hk7"},
+			ToolCall: &hook.ToolCall{
+				Name: "run_command",
+				Args: map[string]interface{}{"CommandLine": cmdStr},
+			},
+		}
+		out, err := hook.HandlePreToolUse(context.Background(), in)
+		if err != nil {
+			t.Fatalf("unexpected error for %q: %v", cmdStr, err)
+		}
+		if out.Decision == "block" {
+			t.Errorf("expected command %q to be allowed, but was blocked: %s", cmdStr, out.Reason)
+		}
+	}
+}

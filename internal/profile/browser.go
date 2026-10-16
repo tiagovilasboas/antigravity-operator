@@ -33,12 +33,14 @@ type ChromeVersionResponse struct {
 
 // Status indica a situação atual do navegador isolado.
 type Status struct {
-	IsRunning  bool
-	Port       int
-	PID        int
-	Version    string
-	ProfileDir string
-	Headless   bool
+	IsRunning        bool            `json:"IsRunning"`
+	Port             int             `json:"Port"`
+	PID              int             `json:"PID"`
+	Version          string          `json:"Version"`
+	ProfileDir       string          `json:"ProfileDir"`
+	ActiveProfileDir string          `json:"ActiveProfileDir,omitempty"`
+	Profiles         []ChromeProfile `json:"Profiles,omitempty"`
+	Headless         bool            `json:"Headless"`
 }
 
 // CheckStatus verifica se a porta padrão está ativa e respondendo com a API DevTools.
@@ -52,6 +54,19 @@ func CheckStatusOnPort(profileDir string, port int) Status {
 		Port:       port,
 		ProfileDir: profileDir,
 		PID:        ReadPID(profileDir),
+	}
+
+	if profiles, err := DiscoverProfiles(profileDir, "isolated"); err == nil && len(profiles) > 0 {
+		st.Profiles = profiles
+		for _, p := range profiles {
+			if p.IsLastUsed {
+				st.ActiveProfileDir = p.Directory
+				break
+			}
+		}
+		if st.ActiveProfileDir == "" {
+			st.ActiveProfileDir = profiles[0].Directory
+		}
 	}
 
 	endpoint := fmt.Sprintf("http://127.0.0.1:%d/json/version", port)
@@ -76,8 +91,9 @@ func CheckStatusOnPort(profileDir string, port int) Status {
 
 // StartOptions configura a inicialização do Chrome isolado.
 type StartOptions struct {
-	Port          int
-	ForceHeadless bool
+	Port            int
+	ForceHeadless   bool
+	ProfileSelector string
 }
 
 // Start inicializa o Chrome com o perfil isolado e flags corretas para a plataforma.
@@ -102,13 +118,26 @@ func Start(info *platform.Info, opts StartOptions) error {
 		return nil // já está ativo e operando
 	}
 
-	// 3. Montar flags do Chrome
+	// 3. Resolver subdiretório de perfil se solicitado (--profile)
+	profileSubDir := ""
+	if strings.TrimSpace(opts.ProfileSelector) != "" {
+		matched, err := ResolveProfile(info.BrowserProfile, opts.ProfileSelector)
+		if err != nil {
+			return fmt.Errorf("não foi possível resolver o perfil %q em %s: %w (use 'agyo browser profiles' para listar)", opts.ProfileSelector, info.BrowserProfile, err)
+		}
+		profileSubDir = matched.Directory
+	}
+
+	// 4. Montar flags do Chrome
 	args := []string{
 		fmt.Sprintf("--user-data-dir=%s", info.BrowserProfile),
 		fmt.Sprintf("--remote-debugging-port=%d", port),
 		"--remote-debugging-address=127.0.0.1",
 		"--no-first-run",
 		"--no-default-browser-check",
+	}
+	if profileSubDir != "" {
+		args = append(args, fmt.Sprintf("--profile-directory=%s", profileSubDir))
 	}
 
 	// Decisão de Headless: forçado por flag ou obrigatório por falta de display gráfico no Linux

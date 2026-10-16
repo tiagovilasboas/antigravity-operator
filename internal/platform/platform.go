@@ -9,14 +9,15 @@ import (
 
 // Info agrega informações sobre a plataforma e ambiente de execução.
 type Info struct {
-	OS             string
-	Arch           string
-	HomeDir        string
-	HasDisplay     bool
-	ChromeBin      string
-	GeminiDir      string
-	BrowserProfile string
-	HarnessCore    string
+	OS              string
+	Arch            string
+	HomeDir         string
+	HasDisplay      bool
+	ChromeBin       string
+	GeminiDir       string
+	BrowserProfile  string
+	SystemChromeDir string
+	HarnessCore     string
 }
 
 // Detect inspeciona o sistema operacional e resolve os caminhos canônicos.
@@ -27,18 +28,53 @@ func Detect() (*Info, error) {
 	}
 
 	info := &Info{
-		OS:             runtime.GOOS,
-		Arch:           runtime.GOARCH,
-		HomeDir:        home,
-		GeminiDir:      filepath.Join(home, ".gemini", "antigravity"),
-		BrowserProfile: filepath.Join(home, ".gemini", "antigravity-browser-profile"),
-		HarnessCore:    filepath.Join(home, "Github", "harness-core"),
+		OS:              runtime.GOOS,
+		Arch:            runtime.GOARCH,
+		HomeDir:         home,
+		GeminiDir:       filepath.Join(home, ".gemini", "antigravity"),
+		BrowserProfile:  filepath.Join(home, ".gemini", "antigravity-browser-profile"),
+		SystemChromeDir: FindSystemChromeDir(runtime.GOOS, home),
+		HarnessCore:     filepath.Join(home, "Github", "harness-core"),
 	}
 
 	info.HasDisplay = checkDisplay(info.OS)
 	info.ChromeBin = findChromeBinary(info.OS)
 
 	return info, nil
+}
+
+// FindSystemChromeDir retorna o diretório padrão de User Data do Google Chrome/Chromium para o SO informado.
+func FindSystemChromeDir(osName, home string) string {
+	switch osName {
+	case "darwin":
+		candidates := []string{
+			filepath.Join(home, "Library", "Application Support", "Google", "Chrome"),
+			filepath.Join(home, "Library", "Application Support", "Chromium"),
+		}
+		for _, c := range candidates {
+			if _, err := os.Stat(c); err == nil {
+				return c
+			}
+		}
+		return candidates[0]
+	case "windows":
+		localAppData := os.Getenv("LocalAppData")
+		if localAppData == "" {
+			localAppData = filepath.Join(home, "AppData", "Local")
+		}
+		return filepath.Join(localAppData, "Google", "Chrome", "User Data")
+	default:
+		candidates := []string{
+			filepath.Join(home, ".config", "google-chrome"),
+			filepath.Join(home, ".config", "chromium"),
+		}
+		for _, c := range candidates {
+			if _, err := os.Stat(c); err == nil {
+				return c
+			}
+		}
+		return candidates[0]
+	}
 }
 
 func checkDisplay(osName string) bool {

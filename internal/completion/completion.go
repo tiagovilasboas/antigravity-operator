@@ -37,7 +37,7 @@ _agyo_completion() {
 
     local commands="init session checkpoint rollback dashboard doctor browser sync hook completion about version help"
     local session_subcommands="status compact archive list restore watch export"
-    local browser_subcommands="start status stop tabs open close eval shot"
+    local browser_subcommands="start status profiles resolve stop tabs open close eval shot"
     local hook_subcommands="install uninstall"
     local completion_subcommands="bash zsh fish"
 
@@ -109,9 +109,11 @@ _agyo() {
     browser_cmds=(
         'start:Launch isolated Chrome instance with remote debugging flags'
         'status:Inspect DevTools port (9222) readiness and Chrome PID'
+        'profiles:Discover and classify Chrome profiles (personal, workspace, ghost)'
+        'resolve:Resolve best authenticated profile and authuser URL for a target'
         'stop:Gracefully terminate isolated Chrome process (SIGTERM)'
         'tabs:List all open tabs and target IDs in isolated Chrome'
-        'open:Open a new tab at given URL in isolated Chrome'
+        'open:Open or reuse tab at given URL in isolated Chrome'
         'close:Close target tab by ID'
         'eval:Evaluate JavaScript expression in active tab'
         'shot:Capture PNG screenshot of active tab'
@@ -186,7 +188,7 @@ complete -c agyo -n '__agyo_needs_command' -a 'version' -d 'Print version'
 
 # Subcommands
 complete -c agyo -n '__fish_seen_subcommand_from session' -a 'status compact archive list restore watch export'
-complete -c agyo -n '__fish_seen_subcommand_from browser' -a 'start status stop tabs open close eval shot'
+complete -c agyo -n '__fish_seen_subcommand_from browser' -a 'start status profiles resolve stop tabs open close eval shot'
 complete -c agyo -n '__fish_seen_subcommand_from hook' -a 'install uninstall'
 complete -c agyo -n '__fish_seen_subcommand_from completion' -a 'bash zsh fish'
 complete -c agyo -n '__fish_seen_subcommand_from sync' -l update-mcp -d 'Back up and rewrite the MCP manifest'

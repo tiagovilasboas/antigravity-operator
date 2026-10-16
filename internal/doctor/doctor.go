@@ -76,6 +76,9 @@ func Run(info *platform.Info) *Report {
 	// 4. Porta DevTools & Perfil Isolado
 	rep.add(checkDevTools(info))
 
+	// 4b. Multi-Profile Intelligence (Perfis Isolados e do Sistema)
+	rep.add(checkChromeProfiles(info))
+
 	// 5. Node e NPX (para MCPs)
 	rep.add(checkNode())
 
@@ -168,6 +171,58 @@ func checkDevTools(info *platform.Info) CheckItem {
 		Name:    "Chrome DevTools (Port 9222)",
 		Status:  "WARN",
 		Details: "Inativo (execute 'agyo browser start' para iniciar)",
+	}
+}
+
+func checkChromeProfiles(info *platform.Info) CheckItem {
+	var all []profile.ChromeProfile
+	if iso, err := profile.DiscoverProfiles(info.BrowserProfile, "isolated"); err == nil {
+		all = append(all, iso...)
+	}
+	if sys, err := profile.DiscoverProfiles(info.SystemChromeDir, "system"); err == nil {
+		all = append(all, sys...)
+	}
+
+	if len(all) == 0 {
+		return CheckItem{
+			Name:    "Chrome Profiles",
+			Status:  "INFO",
+			Details: "Nenhum diretório de perfil Local State encontrado",
+		}
+	}
+
+	personalCount := 0
+	workspaceCount := 0
+	ghostCount := 0
+	var domains []string
+	seenDomains := make(map[string]bool)
+
+	for _, p := range all {
+		switch p.Kind {
+		case profile.ProfileKindPersonal:
+			personalCount++
+		case profile.ProfileKindWorkspace:
+			workspaceCount++
+			if p.HostedDomain != "" && !seenDomains[p.HostedDomain] {
+				seenDomains[p.HostedDomain] = true
+				domains = append(domains, p.HostedDomain)
+			}
+		case profile.ProfileKindGhost:
+			ghostCount++
+		}
+	}
+
+	publicSummary := fmt.Sprintf("%d personal, %d workspace, %d ghost (use 'agyo browser profiles')", personalCount, workspaceCount, ghostCount)
+	detailSummary := publicSummary
+	if len(domains) > 0 {
+		detailSummary = fmt.Sprintf("%d personal, %d workspace [%s], %d ghost (use 'agyo browser profiles')", personalCount, workspaceCount, strings.Join(domains, ", "), ghostCount)
+	}
+
+	return CheckItem{
+		Name:          "Chrome Profiles",
+		Status:        "OK",
+		Details:       detailSummary,
+		PublicDetails: publicSummary,
 	}
 }
 

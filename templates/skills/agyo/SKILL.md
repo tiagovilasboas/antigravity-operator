@@ -50,21 +50,28 @@ agyo session watch --once --steps 5
 agyo session archive
 ```
 
-### 3. Navegador Isolado & Chrome DevTools Protocol (CDP)
+### 3. Navegador Isolado, Multi-Profile Intelligence & CDP
 ```bash
-# Iniciar Chrome isolado na porta 9222 (GUI no macOS/Linux desktop, Headless em servidor):
+# Descobrir e classificar perfis do Chrome (personal, workspace, ghost):
+agyo browser profiles
+
+# Resolver qual perfil autenticado e URL (?authuser=) usar para um domínio/URL:
+agyo browser resolve <url-ou-dominio>
+
+# Iniciar Chrome isolado na porta 9222 (com seletor agnóstico de perfil opcional):
 agyo browser start
+agyo browser start --profile workspace
 
 # Forçar modo headless explicitamente:
 agyo browser start --headless
 
-# Verificar status do Chrome e PID:
+# Verificar status do Chrome, perfil ativo e PID:
 agyo browser status
 
 # Listar abas abertas e IDs:
 agyo browser tabs
 
-# Abrir nova aba:
+# Abrir ou reutilizar aba existente/em branco na URL:
 agyo browser open <url>
 
 # Fechar aba por ID:

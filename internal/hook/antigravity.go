@@ -290,8 +290,10 @@ func HandlePreInvocation(ctx context.Context, in *PreInvocationInput) (*PreInvoc
 var codeExtRegex = regexp.MustCompile(`\.(go|ts|tsx|js|jsx|py|rs|rb|php|java|c|cpp|h|hpp|cs)$`)
 var testBuildCommandRegex = regexp.MustCompile(`(?i)\b(go test|make test|npm test|pytest|cargo test|yarn test|pnpm test|vitest|go build|tsc|make build)\b`)
 var destructiveCommandRegex = regexp.MustCompile(`(?i)\b(rm\s+-[a-zA-Z]*r[a-zA-Z]*f|git\s+reset\s+--hard|git\s+clean\s+-[a-zA-Z]*f|drop\s+database|drop\s+table|truncate\s+table)\b`)
+var rogueBrowserSpawnRegex = regexp.MustCompile(`(?i)(open\s+(-[a-zA-Z]+\s+)*["']?Google Chrome|--profile-directory=|osascript[\s\S]*Google Chrome[\s\S]*(make\s+new\s+(tab|window)|click\s+menu\s+item))`)
 
-// HandlePreToolUse implements HK-6: automated checkpoint creation before destructive commands.
+// HandlePreToolUse implements HK-6 (automated checkpoint before destructive commands)
+// and HK-7 (Single-Window & Multi-Profile Browser Guardrail sensor).
 func HandlePreToolUse(ctx context.Context, in *PreToolUseInput) (*PreToolUseOutput, error) {
 	out := &PreToolUseOutput{}
 	if in.ToolCall == nil {
@@ -301,6 +303,16 @@ func HandlePreToolUse(ctx context.Context, in *PreToolUseInput) (*PreToolUseOutp
 	toolName := strings.ToLower(in.ToolCall.Name)
 	if toolName == "run_command" || toolName == "execute_bash" || toolName == "shell" {
 		cmdStr := extractCommandLine(in.ToolCall.Args)
+
+		// HK-7: Block rogue Chrome window/tab/profile spawning commands
+		if rogueBrowserSpawnRegex.MatchString(cmdStr) {
+			return &PreToolUseOutput{
+				Decision: "block",
+				Reason:   "Bloqueado pelo guardrail de Instância Única e Multi-Profile do agyo: é proibido abrir janelas paralelas ('open -a Google Chrome'), criar abas avulsas ('make new tab') ou alternar perfis via menu AppleScript. Use 'agyo browser profiles' e 'agyo browser resolve <url>' para descobrir o perfil autenticado correto, 'agyo browser start --profile <seletor>' para o Chrome isolado (CDP 9222), ou reutilize estritamente a aba ativa existente.",
+			}, nil
+		}
+
+		// HK-6: Automated checkpoint before destructive commands
 		if destructiveCommandRegex.MatchString(cmdStr) {
 			ws := TargetWorkspace(in.WorkspacePaths)
 			_, err := checkpoint.Create(ws, "pre-destructive", fmt.Sprintf("Automatic safety checkpoint before: %s", cmdStr))
