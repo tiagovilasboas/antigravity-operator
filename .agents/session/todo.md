@@ -37,6 +37,17 @@
 - [x] WS-6 Testes & Qualidade: Cobertura 86.9% com httptest.Server e -race 100% verde
 - [x] WS-7 Docs & Sync: Atualizar documentações e registrar Spec 10
 
+### Gaps, Performance & Student Edition - plano: [docs/plans/05-GAPS-PERFORMANCE-STUDENT-EDITION.md](../../docs/plans/05-GAPS-PERFORMANCE-STUDENT-EDITION.md)
+- [x] GAP-01: Exporter com formato nativo de tool_calls (tc.Name) e leitor ate 10 MB sem travar
+- [x] GAP-02: CDP WebSocket resiliente com deadline 15s e loop de matching id
+- [x] GAP-03: NotebookLM PushSource com injecao real de title e content no DOM
+- [x] GAP-04: NotebookLM AskNotebook com medicao de initialCount e estabilizacao de streaming
+- [x] GAP-05: Embutir skills academicas no FS e instalar no agyo sync + check do Workspace no doctor
+- [x] PERF-01: Cache com TTL no doctor do dashboard e janela deslizante no watcher
+- [x] PERF-02: Fast-path de redacao de segredos no analytics
+- [x] STU-01: Comando CLI `agyo study` (ingest, exam-prep, quiz) integrando NotebookLM + Calendar + Docs
+- [x] STU-02: Testes unitarios com -race 100% verdes across all packages
+
 ### Fora do agyo (Downshift)
 - [ ] DS-1 Reinstalar `downshift`: binário instalado imprime percentuais no `context benchmark` que contradizem o README
 - [ ] DS-2 Validar build do `dsmon` (interrompido pelo restart)

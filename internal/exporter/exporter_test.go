@@ -62,7 +62,7 @@ func TestExportHTML(t *testing.T) {
 
 	transcriptPath := filepath.Join(tempDir, "transcript.jsonl")
 	transcriptContent := "{\"type\": \"PLANNER_RESPONSE\", \"thinking\": \"Let's test\", \"created_at\": \"" + time.Now().Format(time.RFC3339) + "\"}\n" +
-		"{\"type\": \"PLANNER_RESPONSE\", \"tool_calls\": [{\"function\": {\"name\": \"invoke_subagent\"}}], \"created_at\": \"" + time.Now().Add(5*time.Second).Format(time.RFC3339) + "\"}\n"
+		"{\"type\": \"PLANNER_RESPONSE\", \"tool_calls\": [{\"name\": \"invoke_subagent\"}], \"created_at\": \"" + time.Now().Add(5*time.Second).Format(time.RFC3339) + "\"}\n"
 	os.WriteFile(transcriptPath, []byte(transcriptContent), 0644)
 
 	opts := ExportOptions{
@@ -83,3 +83,42 @@ func TestExportHTML(t *testing.T) {
 		t.Errorf("esperava métricas de subagentes, não encontrou")
 	}
 }
+
+func TestParseTranscript_LargeLineAndSubagents(t *testing.T) {
+	tempDir := t.TempDir()
+	transcriptPath := filepath.Join(tempDir, "large_transcript.jsonl")
+
+	// 1. Line with invoke_subagent
+	line1 := `{"type": "PLANNER_RESPONSE", "thinking": "Spawning researcher", "tool_calls": [{"name": "invoke_subagent"}], "created_at": "2026-10-15T12:00:00Z"}` + "\n"
+
+	// 2. Large line (1.5 MB) that would fail standard 1MB bufio.Scanner
+	largePayload := strings.Repeat("A", 1500000)
+	line2 := `{"type": "USER_INPUT", "content": "` + largePayload + `", "created_at": "2026-10-15T12:01:00Z"}` + "\n"
+
+	// 3. Line with regular tool_call
+	line3 := `{"type": "PLANNER_RESPONSE", "tool_calls": [{"name": "run_command"}], "created_at": "2026-10-15T12:02:00Z"}` + "\n"
+
+	err := os.WriteFile(transcriptPath, []byte(line1+line2+line3), 0644)
+	if err != nil {
+		t.Fatalf("failed to write large transcript: %v", err)
+	}
+
+	metrics := parseTranscript(transcriptPath)
+	if metrics == nil {
+		t.Fatal("expected non-nil metrics")
+	}
+
+	if metrics.SubagentsInvoked != 1 {
+		t.Errorf("expected 1 subagent invoked, got %d", metrics.SubagentsInvoked)
+	}
+	if metrics.ToolCalls != 2 {
+		t.Errorf("expected 2 tool calls, got %d", metrics.ToolCalls)
+	}
+	if metrics.Thoughts != 1 {
+		t.Errorf("expected 1 thought, got %d", metrics.Thoughts)
+	}
+	if metrics.Duration != "2m0s" {
+		t.Errorf("expected duration 2m0s, got %s", metrics.Duration)
+	}
+}
+

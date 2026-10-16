@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/tiagovilasboas/antigravity-operator/internal/doctor"
@@ -35,10 +36,13 @@ type Config struct {
 
 // Server encapsula o servidor HTTP do dashboard.
 type Server struct {
-	cfg      Config
-	server   *http.Server
-	listener net.Listener
-	port     int // port actually bound, used by the Host/Origin allowlist
+	cfg           Config
+	server        *http.Server
+	listener      net.Listener
+	port          int // port actually bound, used by the Host/Origin allowlist
+	doctorMu      sync.Mutex
+	doctorCache   map[string]interface{}
+	doctorCacheAt time.Time
 }
 
 // ConsolidatedData agrupa todos os dados para consumo da UI em 1 requisição.
@@ -244,6 +248,14 @@ func (s *Server) getSessionData() map[string]interface{} {
 }
 
 func (s *Server) getDoctorData() map[string]interface{} {
+	s.doctorMu.Lock()
+	if s.doctorCache != nil && time.Since(s.doctorCacheAt) < 10*time.Second {
+		cached := s.doctorCache
+		s.doctorMu.Unlock()
+		return cached
+	}
+	s.doctorMu.Unlock()
+
 	rep := doctor.Run(s.cfg.PlatformInfo)
 	checks := make([]map[string]interface{}, 0, len(rep.Checks))
 	for _, c := range rep.Checks {
@@ -257,12 +269,19 @@ func (s *Server) getDoctorData() map[string]interface{} {
 			"message": msg,
 		})
 	}
-	return map[string]interface{}{
+	res := map[string]interface{}{
 		"os":         s.cfg.PlatformInfo.OS,
 		"arch":       s.cfg.PlatformInfo.Arch,
 		"hasDisplay": s.cfg.PlatformInfo.HasDisplay,
 		"checks":     checks,
 	}
+
+	s.doctorMu.Lock()
+	s.doctorCache = res
+	s.doctorCacheAt = time.Now()
+	s.doctorMu.Unlock()
+
+	return res
 }
 
 func (s *Server) getTabsData() []profile.Tab {

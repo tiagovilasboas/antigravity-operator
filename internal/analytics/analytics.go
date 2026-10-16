@@ -95,9 +95,24 @@ var (
 
 // RedactSecrets replaces sensitive tokens, passwords, and API keys with [REDACTED].
 func RedactSecrets(s string) string {
-	if s == "" {
-		return ""
+	if len(s) < 8 {
+		return s
 	}
+	// Fast-path: bypass 13 regular expressions if candidate secret tokens/patterns are absent
+	if !strings.Contains(s, "sk-") &&
+		!strings.Contains(s, "ghp_") &&
+		!strings.Contains(s, "xox") &&
+		!strings.Contains(s, "AIza") &&
+		!strings.Contains(s, "AKIA") &&
+		!strings.Contains(s, "eyJ") &&
+		!strings.Contains(s, "-----BEGIN") &&
+		!strings.Contains(s, "://") &&
+		!strings.Contains(s, "-p") &&
+		!strings.Contains(s, "-u") &&
+		!strings.ContainsAny(s, ":=") {
+		return s
+	}
+
 	s = rePEMBlock.ReplaceAllString(s, "[REDACTED PRIVATE KEY]")
 	s = reAuthHeader.ReplaceAllString(s, "Authorization: [REDACTED]")
 	s = reBearer.ReplaceAllString(s, "Bearer [REDACTED]")

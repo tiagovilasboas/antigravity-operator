@@ -6,7 +6,7 @@ evidence_level: curated
 last_verified: 2026-10-08
 ---
 
-# Video to Article — Síntese com NotebookLM & Antigravity
+# Video to Article - Síntese com NotebookLM & Antigravity
 
 Esta skill estabelece a ponte operacional entre o **Google NotebookLM (Research Brain)** e o **Google Antigravity (Execution Hands)**, transformando vídeos longos do YouTube (palestras, conferências GOTO/Strange Loop/re:Invent, cursos e tutoriais) em três tipos de artefatos de alto valor para o repositório local (`~/Estudos`):
 

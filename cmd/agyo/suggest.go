@@ -26,11 +26,15 @@ var commandCandidates = []commandCandidate{
 	{"google", "google"},
 	{"google", "gsuite"},
 	{"google", "workspace"},
+	{"study", "study"},
 	{"completion", "completion"},
 	{"version", "version"},
 	{"about", "about"},
 
 	// common aliases & subcommands
+	{"study ingest", "ingest"},
+	{"study exam-prep", "exam-prep"},
+	{"study quiz", "quiz"},
 	{"google calendar", "calendar"},
 	{"google docs", "docs"},
 	{"google auth", "auth"},

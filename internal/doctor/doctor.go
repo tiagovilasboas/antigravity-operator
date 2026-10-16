@@ -13,6 +13,7 @@ import (
 	"github.com/tiagovilasboas/antigravity-operator/internal/platform"
 	"github.com/tiagovilasboas/antigravity-operator/internal/profile"
 	"github.com/tiagovilasboas/antigravity-operator/internal/session"
+	"github.com/tiagovilasboas/antigravity-operator/internal/workspace"
 )
 
 // CheckItem representa o resultado de uma verificação individual.
@@ -48,6 +49,13 @@ func Fix(targetDir string, info *platform.Info) (*FixResult, error) {
 	}
 	res.Repaired = append(res.Repaired, initRes.Created...)
 	res.Skipped = append(res.Skipped, initRes.Skipped...)
+
+	// 2. Sincroniza regras, MCPs e skills embutidas
+	syncRes, err := installer.Sync(info)
+	if err == nil {
+		res.Repaired = append(res.Repaired, syncRes.Updated...)
+		res.Skipped = append(res.Skipped, syncRes.Skipped...)
+	}
 
 	return res, nil
 }
@@ -85,6 +93,9 @@ func Run(info *platform.Info) *Report {
 
 	// 8. Google NotebookLM Readiness
 	rep.add(checkNotebookLM(info))
+
+	// 8b. Google Workspace Bridge (Calendar e Docs)
+	rep.add(checkGoogleWorkspace(info))
 
 	// 9. Memória Operacional de Sessão (.agents/session/)
 	rep.add(checkSessionMemory("."))
@@ -290,13 +301,53 @@ func checkSessionMemory(dir string) CheckItem {
 	status := "OK"
 	if sum.HealthStatus == "Bloated 🔴" {
 		status = "WARN"
-		details += " — Execute 'agyo session compact' para reduzir context bloat"
+		details += " - Execute 'agyo session compact' para reduzir context bloat"
 	}
 
 	return CheckItem{
 		Name:    "Session Memory (.agents/session/)",
 		Status:  status,
 		Details: details,
+	}
+}
+
+func checkGoogleWorkspace(info *platform.Info) CheckItem {
+	const name = "Google Workspace Bridge"
+	geminiDir := ""
+	if info != nil {
+		geminiDir = info.GeminiDir
+	}
+	if geminiDir == "" {
+		home, _ := os.UserHomeDir()
+		geminiDir = filepath.Join(home, ".gemini", "antigravity")
+	}
+	authPath := workspace.AuthFilePathForContext(geminiDir, os.Getenv("AGYO_GOOGLE_CONTEXT"))
+	tok, err := workspace.LoadToken(authPath)
+	if err != nil {
+		return CheckItem{
+			Name:    name,
+			Status:  "INFO",
+			Details: "Não autenticado (execute: agyo google auth)",
+		}
+	}
+	if tok.IsExpired() {
+		if tok.RefreshToken != "" {
+			return CheckItem{
+				Name:    name,
+				Status:  "OK",
+				Details: "Autenticado (token expirado com auto-refresh configurado)",
+			}
+		}
+		return CheckItem{
+			Name:    name,
+			Status:  "WARN",
+			Details: "Token expirado sem refresh token (execute: agyo google auth)",
+		}
+	}
+	return CheckItem{
+		Name:    name,
+		Status:  "OK",
+		Details: "Autenticado e pronto para Calendar e Docs",
 	}
 }
 

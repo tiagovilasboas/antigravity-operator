@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"time"
@@ -127,29 +128,42 @@ func Sync(info *platform.Info) (*SyncResult, error) {
 		}
 	}
 
-	// 4. Instalar skill nativa do Antigravity (agyo)
-	skillContent, err := templates.FS.ReadFile("skills/agyo/SKILL.md")
-	if err == nil {
-		homeDir := info.HomeDir
-		if homeDir == "" {
-			homeDir = filepath.Dir(filepath.Dir(info.GeminiDir))
-		}
-		skillDir := filepath.Join(homeDir, ".gemini", "config", "skills", "agyo")
-		skillTarget := filepath.Join(skillDir, "SKILL.md")
-		result.SkillsPath = skillTarget
+	// 4. Instalar todas as skills embutidas (agyo + student pack)
+	homeDir = info.HomeDir
+	if homeDir == "" {
+		homeDir = filepath.Dir(filepath.Dir(info.GeminiDir))
+	}
+	skillsBaseDir := filepath.Join(homeDir, ".gemini", "config", "skills")
 
-		wrote, backup, skipped, err := writeSafeFile(skillTarget, skillContent, 0644, now)
-		if err == nil {
+	_ = fs.WalkDir(templates.FS, "skills", func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		relPath, rerr := filepath.Rel("skills", path)
+		if rerr != nil {
+			return nil
+		}
+		targetPath := filepath.Join(skillsBaseDir, relPath)
+		if relPath == filepath.Join("agyo", "SKILL.md") {
+			result.SkillsPath = targetPath
+		}
+		content, rerr := templates.FS.ReadFile(path)
+		if rerr != nil {
+			return nil
+		}
+		wrote, backup, skipped, werr := writeSafeFile(targetPath, content, 0644, now)
+		if werr == nil {
 			if backup != "" {
 				result.Backups = append(result.Backups, backup)
 			}
 			if skipped {
-				result.Skipped = append(result.Skipped, skillTarget)
+				result.Skipped = append(result.Skipped, targetPath)
 			} else if wrote {
-				result.Updated = append(result.Updated, skillTarget)
+				result.Updated = append(result.Updated, targetPath)
 			}
 		}
-	}
+		return nil
+	})
 
 	return result, nil
 }

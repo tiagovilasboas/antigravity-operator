@@ -3,9 +3,9 @@ package exporter
 import (
 	"bufio"
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"html/template"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/tiagovilasboas/antigravity-operator/internal/session"
+	"github.com/tiagovilasboas/antigravity-operator/internal/watcher"
 )
 
 type ExportOptions struct {
@@ -179,42 +180,65 @@ func parseTranscript(path string) *Metrics {
 	defer f.Close()
 
 	metrics := &Metrics{}
-	scanner := bufio.NewScanner(f)
+	const maxLineBytes = 10 * 1024 * 1024
+	reader := bufio.NewReaderSize(f, 64*1024)
 
-	buf := make([]byte, 0, 64*1024)
-	scanner.Buffer(buf, 1024*1024)
-
-	for scanner.Scan() {
-		line := scanner.Bytes()
-		var entry struct {
-			Type      string `json:"type"`
-			CreatedAt string `json:"created_at"`
-			Thinking  string `json:"thinking"`
-			ToolCalls []struct {
-				Function struct {
-					Name string `json:"name"`
-				} `json:"function"`
-			} `json:"tool_calls"`
+	for {
+		var line []byte
+		var oversized bool
+		for {
+			chunk, isPrefix, err := reader.ReadLine()
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				return metrics
+			}
+			if !oversized {
+				if len(line)+len(chunk) > maxLineBytes {
+					oversized = true
+					line = nil
+				} else {
+					line = append(line, chunk...)
+				}
+			}
+			if !isPrefix {
+				break
+			}
 		}
-		if err := json.Unmarshal(line, &entry); err != nil {
+		if oversized || len(line) == 0 {
+			if _, err := reader.Peek(1); err != nil {
+				break
+			}
 			continue
 		}
 
-		t, _ := time.Parse(time.RFC3339, entry.CreatedAt)
-		if !t.IsZero() {
-			if metrics.Start.IsZero() {
-				metrics.Start = t
+		evt, err := watcher.ParseLine(line)
+		if err != nil {
+			continue
+		}
+
+		if evt.CreatedAt != "" {
+			t, err := time.Parse(time.RFC3339, evt.CreatedAt)
+			if err == nil && !t.IsZero() {
+				if metrics.Start.IsZero() || t.Before(metrics.Start) {
+					metrics.Start = t
+				}
+				if t.After(metrics.End) {
+					metrics.End = t
+				}
 			}
-			metrics.End = t
 		}
 
-		if entry.Type == "PLANNER_RESPONSE" {
-			metrics.Thoughts++
+		if evt.Type == "PLANNER_RESPONSE" {
+			if evt.Thinking != "" {
+				metrics.Thoughts++
+			}
 		}
 
-		for _, tc := range entry.ToolCalls {
+		for _, tc := range evt.ToolCalls {
 			metrics.ToolCalls++
-			if tc.Function.Name == "invoke_subagent" {
+			if tc.Name == "invoke_subagent" {
 				metrics.SubagentsInvoked++
 			}
 		}

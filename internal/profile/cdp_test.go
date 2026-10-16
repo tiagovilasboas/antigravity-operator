@@ -322,3 +322,123 @@ func TestCDP_FindTabAndEnsureTab(t *testing.T) {
 		t.Fatalf("expected newly opened tab-created, got %s", ensuredNew.ID)
 	}
 }
+
+func TestCDP_AsyncEventsAndPingHandling(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("failed to listen on random port: %v", err)
+	}
+	defer ln.Close()
+
+	port := ln.Addr().(*net.TCPAddr).Port
+
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			go func(c net.Conn) {
+				defer c.Close()
+				r := bufio.NewReader(c)
+				reqLine, err := r.ReadString('\n')
+				if err != nil {
+					return
+				}
+
+				if strings.HasPrefix(reqLine, "GET /json") && !strings.Contains(reqLine, "devtools") {
+					for {
+						line, err := r.ReadString('\n')
+						if err != nil || line == "\r\n" {
+							break
+						}
+					}
+					tabs := []profile.Tab{
+						{
+							ID:                   "test-async-tab",
+							Title:                "Async Page",
+							Type:                 "page",
+							URL:                  "http://example.com",
+							WebSocketDebuggerURL: fmt.Sprintf("ws://127.0.0.1:%d/devtools/page/test-async-tab", port),
+						},
+					}
+					body, _ := json.Marshal(tabs)
+					resp := fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: %d\r\n\r\n%s", len(body), string(body))
+					_, _ = c.Write([]byte(resp))
+					return
+				}
+
+				if strings.Contains(reqLine, "devtools") {
+					var secKey string
+					for {
+						line, err := r.ReadString('\n')
+						if err != nil || line == "\r\n" {
+							break
+						}
+						if strings.HasPrefix(strings.ToLower(line), "sec-websocket-key:") {
+							parts := strings.SplitN(line, ":", 2)
+							if len(parts) == 2 {
+								secKey = strings.TrimSpace(parts[1])
+							}
+						}
+					}
+
+					h := sha1.New()
+					h.Write([]byte(secKey + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"))
+					acceptKey := base64.StdEncoding.EncodeToString(h.Sum(nil))
+
+					upgradeResp := fmt.Sprintf("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: %s\r\n\r\n", acceptKey)
+					_, _ = c.Write([]byte(upgradeResp))
+
+					// Drain client eval request
+					_, _ = r.ReadByte()
+					b1, _ := r.ReadByte()
+					length := int(b1 & 0x7F)
+					mask := make([]byte, 4)
+					_, _ = io.ReadFull(r, mask)
+					payload := make([]byte, length)
+					_, _ = io.ReadFull(r, payload)
+
+					// 1. Send Ping to client
+					pingFrame := []byte{0x89, 0x00}
+					_, _ = c.Write(pingFrame)
+
+					// 2. Read Pong from client
+					_, _ = r.ReadByte()
+					pongB1, _ := r.ReadByte()
+					pongLen := int(pongB1 & 0x7F)
+					if (pongB1 & 0x80) != 0 {
+						pongMask := make([]byte, 4)
+						_, _ = io.ReadFull(r, pongMask)
+						pongData := make([]byte, pongLen)
+						_, _ = io.ReadFull(r, pongData)
+					}
+
+					// 3. Send async DOM event (id = 0)
+					asyncEvent := []byte(`{"method":"DOM.childNodeCountUpdated","params":{"nodeId":1,"childNodeCount":5}}`)
+					var eventFrame bytes.Buffer
+					eventFrame.WriteByte(0x81)
+					eventFrame.WriteByte(byte(len(asyncEvent)))
+					eventFrame.Write(asyncEvent)
+					_, _ = c.Write(eventFrame.Bytes())
+
+					// 4. Send actual evaluated response (id = 1)
+					actualResp := []byte(`{"id":1,"result":{"result":{"type":"string","value":"FilteredAsyncSuccess"}}}`)
+					var respFrame bytes.Buffer
+					respFrame.WriteByte(0x81)
+					respFrame.WriteByte(byte(len(actualResp)))
+					respFrame.Write(actualResp)
+					_, _ = c.Write(respFrame.Bytes())
+				}
+			}(conn)
+		}
+	}()
+
+	val, err := profile.Eval(port, "window.location.href")
+	if err != nil {
+		t.Fatalf("Eval failed when encountering ping and async events: %v", err)
+	}
+	if !strings.Contains(val, "FilteredAsyncSuccess") {
+		t.Errorf("expected 'FilteredAsyncSuccess', got '%s'", val)
+	}
+}

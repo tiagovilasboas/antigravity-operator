@@ -127,6 +127,8 @@ func main() {
 		runHook(os.Args[2:])
 	case "google", "gsuite", "workspace":
 		runGoogle(info, os.Args[2:])
+	case "study":
+		runStudy(info, os.Args[2:])
 	case "completion":
 		runCompletion(os.Args[2:])
 	case "about":
@@ -189,6 +191,9 @@ Available commands:
   google auth         Authenticate with Google Workspace via local loopback OAuth
   google calendar     List or schedule Google Calendar events (supports --json)
   google docs         Read or create Google Docs documents (supports --json)
+  study ingest <url>  Absorb YouTube/web sources and generate Feynman guides + flashcards
+  study exam-prep     Calculate reverse study schedule and sync to todo.md / Google Calendar
+  study quiz          Interactive Feynman checkpoint with instant AI tutor feedback
   sync [--update-mcp] Synchronize canonical rules and MCP manifests to Google Antigravity
                       (--update-mcp backs up and rewrites an outdated MCP manifest)
   hook install [dir]  Install git pre-commit hook to safeguard session continuity
@@ -200,7 +205,7 @@ Available commands:
 
 func printAbout() {
 	fmt.Println(`================================================================================
-  ANTIGRAVITY OPERATOR (agyo) — SESSION RUNTIME & OUTER HARNESS
+  ANTIGRAVITY OPERATOR (agyo) - SESSION RUNTIME & OUTER HARNESS
 ================================================================================
 
 This project is an open engineering tribute to the developer community, students,
@@ -210,7 +215,7 @@ student access program through Google AI Pro.
 Mission:
 Connect the deep research intelligence of Google NotebookLM (the Brain) to the autonomous
 execution power of Google Antigravity (the Hands), governed by a deterministic Outer
-Harness with filesystem memory (.agents/session/) and seamless parity across macOS and Linux —
+Harness with filesystem memory (.agents/session/) and seamless parity across macOS and Linux -
 empowering every student and engineer to build grounded, verified software without token
 waste, hallucinations, or runtime friction.
 

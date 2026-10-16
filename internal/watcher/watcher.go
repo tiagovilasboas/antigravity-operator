@@ -581,6 +581,10 @@ func Stream(ctx context.Context, transcriptPath string, opts WatchOptions, handl
 	defer file.Close()
 
 	reader := bufio.NewReader(file)
+	var window []*Event
+	if opts.InitialSteps > 0 {
+		window = make([]*Event, 0, opts.InitialSteps)
+	}
 	var allEvents []*Event
 	var partial []byte
 
@@ -594,8 +598,17 @@ func Stream(ctx context.Context, transcriptPath string, opts WatchOptions, handl
 			}
 			if line[len(line)-1] == '\n' {
 				if evt, pErr := ParseLine(line); pErr == nil {
-					allEvents = append(allEvents, evt)
 					globalSubagentTree.ProcessEvent(evt)
+					if opts.InitialSteps > 0 {
+						if len(window) < opts.InitialSteps {
+							window = append(window, evt)
+						} else {
+							copy(window, window[1:])
+							window[len(window)-1] = evt
+						}
+					} else {
+						allEvents = append(allEvents, evt)
+					}
 				}
 			} else {
 				partial = append(partial, line...)
@@ -610,12 +623,14 @@ func Stream(ctx context.Context, transcriptPath string, opts WatchOptions, handl
 	}
 
 	// Emite os passos iniciais solicitados (ex: últimos N passos)
-	startIdx := 0
-	if opts.InitialSteps > 0 && len(allEvents) > opts.InitialSteps {
-		startIdx = len(allEvents) - opts.InitialSteps
-	}
-	for i := startIdx; i < len(allEvents); i++ {
-		handler(allEvents[i])
+	if opts.InitialSteps > 0 {
+		for _, evt := range window {
+			handler(evt)
+		}
+	} else {
+		for _, evt := range allEvents {
+			handler(evt)
+		}
 	}
 
 	if !opts.Follow {

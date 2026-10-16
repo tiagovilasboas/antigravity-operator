@@ -116,6 +116,16 @@ func AskNotebook(info *platform.Info, port int, notebookID, query string) (*AskR
 		return nil, fmt.Errorf("falha ao acessar caderno %s: %w", notebookID, err)
 	}
 
+	// 0. Captura a contagem de mensagens atual para isolamento multi-turn
+	jsCount := `(function() {
+		const pairs = document.querySelectorAll('.chat-message-pair, [data-message-author="model"], .chat-message, .model-response');
+		return pairs.length;
+	})()`
+	var initialCount int
+	if countRes, err := profile.EvalTab(port, tab.ID, jsCount); err == nil {
+		_ = json.Unmarshal([]byte(countRes), &initialCount)
+	}
+
 	// 1. Script para submeter a pergunta no input de chat
 	escapedQuery, _ := json.Marshal(query)
 	jsSubmit := fmt.Sprintf(`(function() {
@@ -168,44 +178,55 @@ func AskNotebook(info *platform.Info, port int, notebookID, query string) (*AskR
 		time.Sleep(500 * time.Millisecond)
 	}
 
-	// 2. Aguarda até 15 segundos pela geração da resposta (polling via CDP)
+	// 2. Aguarda até 20 segundos pela resposta (polling via CDP com estabilização por detecção de quiescência)
 	var finalAnswer string
 	var citations []string
 
-	jsPoll := `(function() {
-		const pairs = Array.from(document.querySelectorAll('.chat-message-pair'));
-		if (pairs.length > 0) {
-			const lastPair = pairs[pairs.length - 1];
+	jsPoll := fmt.Sprintf(`(function() {
+		const minCount = %d;
+		const pairs = Array.from(document.querySelectorAll('.chat-message-pair, [data-message-author="model"], .chat-message, .model-response'));
+		if (pairs.length > 0 && pairs.length <= minCount) {
+			return { ready: false, length: 0 };
+		}
+		const lastPair = pairs.length > 0 ? pairs[pairs.length - 1] : null;
+		if (lastPair) {
 			const text = lastPair.innerText || '';
-			if (text.length > 0 && !text.includes('Carregando')) {
+			const isLoading = text.includes('Carregando') || text.includes('Pensando') || text.includes('Thinking...') || lastPair.querySelector('.loading, .typing, [role="progressbar"]') !== null;
+			if (!isLoading && text.length > 0) {
 				const cites = Array.from(lastPair.querySelectorAll('button, a, sup, [class*="citation"]')).map(el => el.innerText.trim()).filter(Boolean);
-				return { answer: text, citations: cites, ready: true };
+				return { answer: text, citations: cites, length: text.length, ready: true };
 			}
 		}
-		const bubbles = Array.from(document.querySelectorAll('[data-message-author="model"], .chat-message, [role="article"], .model-response'));
-		if (bubbles.length > 0) {
-			const last = bubbles[bubbles.length - 1];
-			const text = last.innerText || '';
-			const cites = Array.from(last.querySelectorAll('button, a, sup, [class*="citation"]')).map(el => el.innerText.trim()).filter(Boolean);
-			return { answer: text, citations: cites, ready: text.length > 0 };
-		}
-		return { ready: false };
-	})()`
+		return { ready: false, length: 0 };
+	})()`, initialCount)
 
-	deadline := time.Now().Add(15 * time.Second)
+	deadline := time.Now().Add(20 * time.Second)
+	prevLength := -1
+	stableTicks := 0
+
 	for time.Now().Before(deadline) {
-		time.Sleep(1 * time.Second)
+		time.Sleep(500 * time.Millisecond)
 		pollRes, err := profile.EvalTab(port, tab.ID, jsPoll)
 		if err == nil {
 			var pollData struct {
 				Answer    string   `json:"answer"`
 				Citations []string `json:"citations"`
+				Length    int      `json:"length"`
 				Ready     bool     `json:"ready"`
 			}
 			if err := json.Unmarshal([]byte(pollRes), &pollData); err == nil && pollData.Ready && pollData.Answer != "" {
 				finalAnswer = pollData.Answer
 				citations = pollData.Citations
-				break
+				if pollData.Length == prevLength {
+					stableTicks++
+					if stableTicks >= 2 {
+						// Resposta estabilizada por 2 ciclos consecutivos: quiescência confirmada
+						break
+					}
+				} else {
+					prevLength = pollData.Length
+					stableTicks = 0
+				}
 			}
 		}
 	}
@@ -246,33 +267,74 @@ func PushSource(info *platform.Info, port int, notebookID, title, content string
 	titlePayload, _ := json.Marshal(title)
 	contentPayload, _ := json.Marshal(content)
 
-	jsAddNote := fmt.Sprintf(`(function() {
+	jsAddAndFillNote := fmt.Sprintf(`(function() {
 		const t = %s;
 		const c = %s;
-		// Procura botão "Adicionar nota" ou "Adicionar fonte"
-		let addBtn = document.querySelector('button[aria-label*="Adicionar nota"], button[aria-label*="Add note"]');
-		if (!addBtn) {
-			const buttons = Array.from(document.querySelectorAll('button'));
-			addBtn = buttons.find(b => b.textContent && (b.textContent.includes('Adicionar nota') || b.textContent.includes('Add note')));
+
+		// 1. Abre o editor se necessário
+		const existingTitle = document.querySelector('input[placeholder*="Título"], input[placeholder*="Title"], .note-title input, [aria-label*="Título"], [aria-label*="Title"]');
+		if (!existingTitle) {
+			let addBtn = document.querySelector('button[aria-label*="Adicionar nota"], button[aria-label*="Add note"]');
+			if (!addBtn) {
+				const buttons = Array.from(document.querySelectorAll('button'));
+				addBtn = buttons.find(b => b.textContent && (b.textContent.includes('Adicionar nota') || b.textContent.includes('Add note')));
+			}
+			if (addBtn) {
+				addBtn.click();
+			} else {
+				return { ok: false, message: "Botão de adicionar nota não encontrado na interface ativa" };
+			}
 		}
-		if (addBtn) {
-			addBtn.click();
-			return { ok: true, method: "button" };
+
+		// 2. Preenche os campos de título e conteúdo
+		let titleInput = document.querySelector('input[placeholder*="Título"], input[placeholder*="Title"], .note-title input, [aria-label*="Título"], [aria-label*="Title"]');
+		if (titleInput && t) {
+			titleInput.value = t;
+			titleInput.dispatchEvent(new Event('input', { bubbles: true }));
+			titleInput.dispatchEvent(new Event('change', { bubbles: true }));
 		}
-		return { ok: false, message: "Botão de adicionar nota não encontrado na interface ativa" };
+
+		let bodyInput = document.querySelector('textarea[placeholder*="nota"], textarea[placeholder*="Note"], [contenteditable="true"], .note-body textarea, .note-body [contenteditable="true"]');
+		if (bodyInput && c) {
+			if (bodyInput.tagName.toLowerCase() === 'textarea' || bodyInput.tagName.toLowerCase() === 'input') {
+				bodyInput.value = c;
+				bodyInput.dispatchEvent(new Event('input', { bubbles: true }));
+				bodyInput.dispatchEvent(new Event('change', { bubbles: true }));
+			} else {
+				bodyInput.innerText = c;
+				bodyInput.dispatchEvent(new InputEvent('input', { bubbles: true, data: c }));
+			}
+			bodyInput.dispatchEvent(new Event('blur', { bubbles: true }));
+		}
+
+		// 3. Salva ou fecha se houver botão específico
+		const closeOrSaveBtn = document.querySelector('button[aria-label*="Salvar"], button[aria-label*="Save"], button[aria-label*="Fechar"], button[aria-label*="Close"]');
+		if (closeOrSaveBtn) {
+			closeOrSaveBtn.click();
+		}
+
+		return { ok: true, injected: true };
 	})()`, string(titlePayload), string(contentPayload))
 
-	res, err := profile.EvalTab(port, tab.ID, jsAddNote)
-	if err != nil {
-		return fmt.Errorf("falha ao injetar nota no caderno: %w", err)
+	deadline := time.Now().Add(6 * time.Second)
+	var status struct {
+		OK       bool   `json:"ok"`
+		Injected bool   `json:"injected"`
+		Message  string `json:"message"`
 	}
 
-	var status struct {
-		OK      bool   `json:"ok"`
-		Message string `json:"message"`
+	for time.Now().Before(deadline) {
+		res, err := profile.EvalTab(port, tab.ID, jsAddAndFillNote)
+		if err == nil {
+			_ = json.Unmarshal([]byte(res), &status)
+			if status.OK {
+				return nil
+			}
+		}
+		time.Sleep(400 * time.Millisecond)
 	}
-	_ = json.Unmarshal([]byte(res), &status)
-	if !status.OK && status.Message != "" {
+
+	if status.Message != "" {
 		return fmt.Errorf("aviso da interface: %s", status.Message)
 	}
 

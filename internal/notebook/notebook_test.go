@@ -455,11 +455,15 @@ func handleMockNotebookCDPConn(conn net.Conn, port int) {
 				retVal = []map[string]interface{}{
 					{"id": "test-nb-123", "title": "Caderno de Redes", "url": "https://notebooklm.google.com/notebook/test-nb-123"},
 				}
+			} else if strings.Contains(expr, "return pairs.length") {
+				retVal = 0
+				valType = "number"
 			} else if strings.Contains(expr, "chat-message-pair") {
 				retVal = map[string]interface{}{
 					"ready":     true,
 					"answer":    "Resposta fundamentada com sucesso.",
 					"citations": []string{"https://youtube.com/watch?v=123"},
+					"length":    35,
 				}
 			} else if strings.Contains(expr, "query-box-input") {
 				retVal = map[string]interface{}{

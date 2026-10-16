@@ -190,7 +190,10 @@ func TestCheckSessionMemory(t *testing.T) {
 
 func TestFix(t *testing.T) {
 	tempDir := t.TempDir()
-	info := &platform.Info{}
+	info := &platform.Info{
+		GeminiDir: tempDir,
+		HomeDir:   tempDir,
+	}
 
 	// 1. Executa Fix em diretório vazio (deve criar templates)
 	res, err := Fix(tempDir, info)
@@ -297,5 +300,18 @@ func TestCheckLifecycleHooks(t *testing.T) {
 	}
 	if c.Status != "OK" && c.Status != "INFO" && c.Status != "WARN" {
 		t.Errorf("unexpected check status %s", c.Status)
+	}
+}
+
+func TestCheckGoogleWorkspace(t *testing.T) {
+	info := &platform.Info{
+		GeminiDir: t.TempDir(),
+	}
+	c := checkGoogleWorkspace(info)
+	if c.Name != "Google Workspace Bridge" {
+		t.Errorf("expected check name 'Google Workspace Bridge', got %s", c.Name)
+	}
+	if c.Status != "INFO" {
+		t.Errorf("expected INFO when not authenticated, got %s: %s", c.Status, c.Details)
 	}
 }

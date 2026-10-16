@@ -91,6 +91,7 @@ AI coding agents excel at atomic execution but suffer from two critical flaws: *
 
 | Capability | What it does | Spec |
 |---|---|---|
+| **Student Workflow (agyo study)** | Synthesizes YouTube lectures, generates Feynman guides/flashcards, and schedules reverse exam prep. | [Spec 11](docs/spec/11-STUDENT-WORKFLOW-STUDY.md) |
 | **Brain & Hands (NotebookLM)** | Externalizes dense multimodal knowledge via pure-Go CDP and stdio MCP server. | [Spec 08](docs/spec/08-NOTEBOOKLM-E-MCP-SERVER.md) |
 | **Google Workspace Bridge** | Calendar scheduling and Docs reading/creation via pure-Go OAuth2 and MCP tools. | [Spec 10](docs/spec/10-GOOGLE-WORKSPACE-BRIDGE.md) |
 | **Lifecycle Hooks (Session Agent)** | Hooks directly into Antigravity loop (`PreInvocation`, `PreToolUse`, `PostToolUse`, `Stop`). | [Spec 09](docs/spec/09-LIFECYCLE-HOOKS-SESSION-AGENT.md) |
@@ -117,6 +118,7 @@ AI coding agents excel at atomic execution but suffer from two critical flaws: *
 | `agyo browser start\|stop\|tabs` | Launches and supervises isolated Chrome with pure-Go CDP protocol. | [Spec 05](docs/spec/05-SUPERVISAO-CHROME-E-CDP-PURO.md) |
 | `agyo notebooklm ask\|mcp` | Queries Google NotebookLM or exposes stdio MCP server for agent IDEs. | [Spec 08](docs/spec/08-NOTEBOOKLM-E-MCP-SERVER.md) |
 | `agyo google auth\|status\|calendar\|docs` | Connects to Google Workspace (Calendar events and Docs documents). | [Spec 10](docs/spec/10-GOOGLE-WORKSPACE-BRIDGE.md) |
+| `agyo study ingest\|exam-prep\|quiz` | Academic workflow: video-to-article, reverse exam planning, and Feynman quiz. | [Spec 11](docs/spec/11-STUDENT-WORKFLOW-STUDY.md) |
 | `agyo doctor [--fix]` | Diagnoses host dependencies, display env, and repairs session files. | [Spec 07](docs/spec/07-SENSORES-DOCTOR-E-SELF-HEALING.md) |
 | `agyo hook install\|uninstall` | Installs git pre-commit hook that compacts sessions and checks continuity. | [Spec 02](docs/spec/02-MEMORIA-OPERACIONAL-E-SESSAO.md) |
 | `agyo hook antigravity [status\|install]` | Manages Antigravity lifecycle hooks (`hooks.json`) for session memory injection. | [Spec 09](docs/spec/09-LIFECYCLE-HOOKS-SESSION-AGENT.md) |
