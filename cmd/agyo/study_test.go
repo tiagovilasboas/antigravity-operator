@@ -143,3 +143,33 @@ func TestStudy_Ingest_Validation(t *testing.T) {
 		t.Errorf("expected exit on missing --notebook flag")
 	}
 }
+
+func TestStudy_ExamPrep_SanitizesNewlines(t *testing.T) {
+	tempDir := t.TempDir()
+	origWd, _ := os.Getwd()
+	_ = os.Chdir(tempDir)
+	defer func() { _ = os.Chdir(origWd) }()
+
+	sessionDir := filepath.Join(".agents", "session")
+	_ = os.MkdirAll(sessionDir, 0755)
+	todoPath := filepath.Join(sessionDir, "todo.md")
+	_ = os.WriteFile(todoPath, []byte("# Tarefas\n"), 0644)
+
+	info := &platform.Info{GeminiDir: tempDir}
+
+	// Injeta quebras de linha no nome da disciplina
+	runStudy(info, []string{"exam-prep", "--disciplina", "Seguranca\nInjetada\r\nTask", "--data", "2026-12-01", "--context", "estudos"})
+
+	updatedTodo, err := os.ReadFile(todoPath)
+	if err != nil {
+		t.Fatalf("failed to read todo: %v", err)
+	}
+
+	content := string(updatedTodo)
+	if strings.Contains(content, "Seguranca\nInjetada") {
+		t.Errorf("expected newlines to be stripped from disciplina: %s", content)
+	}
+	if !strings.Contains(content, "Seguranca Injetada Task") {
+		t.Errorf("expected sanitized string 'Seguranca Injetada Task': %s", content)
+	}
+}

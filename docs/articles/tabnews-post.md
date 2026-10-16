@@ -14,7 +14,7 @@ Foi para cuidar dessa fronteira determinística que escrevi o `agyo`, uma CLI lo
 
 Um coding agent na prática é a soma de duas coisas: **modelo + harness**. 
 
-O fornecedor (Google, Anthropic, OpenAI) cuida do modelo e da interface de chat. Mas o **user harness** — o contexto da sua máquina, a persistência de decisões no disco e a validação do código gerado — continua sendo nossa responsabilidade como engenheiros.
+O fornecedor (Google, Anthropic, OpenAI) cuida do modelo e da interface de chat. Mas o **user harness** (o contexto da sua máquina, a persistência de decisões no disco e a validação do código gerado) continua sendo nossa responsabilidade como engenheiros.
 
 No `agyo`, decidi que a máquina de estados não precisava de banco de dados nem de runtime pesado em Python ou Node. Um comando `agyo init` cria três arquivos simples em Markdown no projeto:
 
@@ -49,6 +49,8 @@ Inspirado no modelo de *Harness Engineering* do Martin Fowler, separei cada resp
 | **Continuidade de Sessão** | Templates embutidos de `state.md` e regras de sessão | `agyo session status` e git pre-commit hook (`agyo hook install`) |
 | **Ambiente e Host** | Diagnósticos esperados de OS, Git, Chrome e NPX | `agyo doctor` checa binários, display X11/Wayland e porta 9222 |
 | **Navegação Web** | Flag de perfil isolado em `~/.gemini/antigravity-browser-profile` | Pure-Go CDP client consulta `/json/list` e WebSocket na porta 9222 |
+| **RAG e FinOps de Tokens** | Grounding externo no Google NotebookLM (sem context stuffing) | Bridge CDP/MCP consulta notas e fontes com ~99,2% de economia de cota |
+| **Automação de Estudos** | Skills embutidas (`feynman-code-tutor`, `student-study-planner`) | `agyo study` orquestra ingestão, Google Calendar e Google Docs |
 | **Qualidade do Operator** | Arquitetura por pacotes desacoplados (SRP, KISS, YAGNI) | Testes unitários com `-race` (>80% cobertura) e CI cross-platform |
 
 ---
@@ -70,6 +72,35 @@ agyo browser eval "document.title"   # Executa JS na página ativa
 agyo browser shot tela.png           # Tira screenshot PNG via CDP
 agyo browser stop                    # Encerra graciosamente com SIGTERM
 ```
+
+---
+
+## FinOps de contexto: economizando 99,2% de tokens com NotebookLM
+
+Quem já tentou usar um coding agent para estudar uma biblioteca nova ou analisar uma aula técnica longa conhece o problema do *context stuffing*: colar uma transcrição de 1 hora (~20.000 tokens) na janela de chat. Em uma conversa de 15 turnos, esse histórico acumulado passa facilmente de 1,5 milhão de tokens trafegados. Além de estourar limites de taxa, o modelo sofre com perda de foco no meio do prompt (*lost in the middle*).
+
+Para resolver isso de forma pragmática, o `agyo` traz integração nativa com o Google NotebookLM:
+1. O material bruto (PDFs, vídeos ou transcrições) é enviado para um caderno dedicado no NotebookLM via automação CDP ou MCP embutido.
+2. A indexação pesada e o RAG multimodal rodam no Gemini 1.5 Pro dentro da infraestrutura do Google, a custo zero de cota no Antigravity.
+3. O agente envia apenas perguntas cirúrgicas (~60 tokens) e recebe respostas fundamentadas com citações (~800 tokens).
+
+O tráfego total acumulado ao longo da sessão cai de ~1.500.000 para ~12.000 tokens: uma **redução medida de 99,2% no consumo de tokens do prompt**.
+
+---
+
+## Student Edition: o fluxo contínuo do `agyo study`
+
+Com o subcomando `agyo study`, estendemos esse harness para além da programação, conectando o fluxo de estudos de ponta a ponta:
+
+```bash
+agyo study ingest "https://youtu.be/..." --notebook <id>  # Indexa aula ou artigo no NotebookLM
+agyo study exam-prep --notebook <id>                      # Gera guia e agenda blocos no Calendar
+agyo study quiz --notebook <id>                           # Simulado interativo e relatório no Docs
+```
+
+Para integrar a agenda e os relatórios, implementamos o **Google Workspace Bridge**:
+* **OAuth 2.0 Loopback nativo em Go puro (RFC 8252):** o usuário autentica no navegador uma única vez, recebendo o token de forma segura em porta local efêmera, sem exigir Node.js ou gcloud CLI instalado.
+* **Ferramentas MCP para Google Calendar e Google Docs:** o agente consegue consultar e criar eventos de revisão espaçada na agenda, bem como redigir cadernos de revisão formatados no Docs.
 
 ---
 

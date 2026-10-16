@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/tiagovilasboas/antigravity-operator/internal/notebook"
 	"github.com/tiagovilasboas/antigravity-operator/internal/platform"
@@ -123,12 +124,21 @@ func runStudyIngest(info *platform.Info, args []string) {
 
 	answerText := res.Answer
 	if len(answerText) > maxStudyPayloadBytes {
-		answerText = answerText[:maxStudyPayloadBytes]
+		cut := maxStudyPayloadBytes
+		for cut > 0 && !utf8.RuneStart(answerText[cut]) {
+			cut--
+		}
+		answerText = answerText[:cut]
 	}
 
-	// 3. Determina pasta de destino
+	// 3. Determina pasta de destino com prevencao contra path traversal (SEC-STU-01)
 	destFolder := *outDir
-	if destFolder == "" {
+	if destFolder != "" {
+		destFolder = filepath.Clean(destFolder)
+		if strings.HasPrefix(destFolder, "..") || strings.Contains(destFolder, "/../") {
+			destFolder = filepath.Join("estudos", filepath.Base(destFolder))
+		}
+	} else {
 		topicSlug := "geral"
 		if *title != "" {
 			topicSlug = slugify(*title)
@@ -190,14 +200,17 @@ func runStudyExamPrep(info *platform.Info, args []string) {
 	disciplina := fs.String("disciplina", "", "Nome da disciplina ou prova")
 	dataStr := fs.String("data", "", "Data da prova no formato YYYY-MM-DD")
 	dias := fs.Int("dias", 7, "Quantidade de dias de preparacao reversa (padrao: 7)")
+	contextFlag := fs.String("context", "pessoal", "Contexto de autenticacao Google Workspace (padrao: pessoal)")
 
 	if err := fs.Parse(args); err != nil {
 		return
 	}
 
-	if *disciplina == "" || *dataStr == "" {
+	cleanDisciplina := strings.Join(strings.Fields(*disciplina), " ")
+
+	if cleanDisciplina == "" || *dataStr == "" {
 		fmt.Fprintln(os.Stderr, "Erro: as flags --disciplina <nome> e --data <YYYY-MM-DD> sao obrigatorias.")
-		fmt.Fprintln(os.Stderr, "Uso: agyo study exam-prep --disciplina \"Calculo III\" --data 2026-11-20 [--dias 7]")
+		fmt.Fprintln(os.Stderr, "Uso: agyo study exam-prep --disciplina \"Calculo III\" --data 2026-11-20 [--dias 7] [--context pessoal]")
 		exitFunc(ExitUsageError)
 		return
 	}
@@ -209,7 +222,7 @@ func runStudyExamPrep(info *platform.Info, args []string) {
 		return
 	}
 
-	fmt.Printf("🎯 Plano de Preparacao Reversa para: %s (Data da Prova: %s)\n", *disciplina, *dataStr)
+	fmt.Printf("🎯 Plano de Preparacao Reversa para: %s (Data da Prova: %s)\n", cleanDisciplina, *dataStr)
 
 	// Define marcos do cronograma reverso
 	type milestone struct {
@@ -219,14 +232,14 @@ func runStudyExamPrep(info *platform.Info, args []string) {
 	}
 
 	plan := []milestone{
-		{DaysBefore: *dias, Title: fmt.Sprintf("Fundamentos e Leitura Base de %s", *disciplina), Desc: "Revisao dos conceitos centrais e resumos"},
-		{DaysBefore: *dias * 5 / 7, Title: fmt.Sprintf("Resolucao de Exercicios de %s", *disciplina), Desc: "Pratica intensiva de listas e exercicios chave"},
-		{DaysBefore: *dias * 3 / 7, Title: fmt.Sprintf("Simulado e Mapeamento de Gaps de %s", *disciplina), Desc: "Simulado contra o relogio e levantamento de duvidas"},
-		{DaysBefore: 1, Title: fmt.Sprintf("Revisao Leve e Flashcards de %s", *disciplina), Desc: "Passada rapida nos flashcards e descanso mental"},
-		{DaysBefore: 0, Title: fmt.Sprintf("Avaliacao: Dia da Prova de %s", *disciplina), Desc: "Dia do exame presencial ou online"},
+		{DaysBefore: *dias, Title: fmt.Sprintf("Fundamentos e Leitura Base de %s", cleanDisciplina), Desc: "Revisao dos conceitos centrais e resumos"},
+		{DaysBefore: *dias * 5 / 7, Title: fmt.Sprintf("Resolucao de Exercicios de %s", cleanDisciplina), Desc: "Pratica intensiva de listas e exercicios chave"},
+		{DaysBefore: *dias * 3 / 7, Title: fmt.Sprintf("Simulado e Mapeamento de Gaps de %s", cleanDisciplina), Desc: "Simulado contra o relogio e levantamento de duvidas"},
+		{DaysBefore: 1, Title: fmt.Sprintf("Revisao Leve e Flashcards de %s", cleanDisciplina), Desc: "Passada rapida nos flashcards e descanso mental"},
+		{DaysBefore: 0, Title: fmt.Sprintf("Avaliacao: Dia da Prova de %s", cleanDisciplina), Desc: "Dia do exame presencial ou online"},
 	}
 
-	// 1. Registra tarefas em .agents/session/todo.md se existir
+	// 1. Registra tarefas em .agents/session/todo.md se existir (SEC-STU-03)
 	todoPath := filepath.Join(".agents", "session", "todo.md")
 	var addedTasks []string
 	if todoBytes, err := os.ReadFile(todoPath); err == nil {
@@ -239,13 +252,13 @@ func runStudyExamPrep(info *platform.Info, args []string) {
 			}
 		}
 		if len(addedTasks) > 0 {
-			updated := content + "\n\n### Cronograma de Prova: " + *disciplina + "\n" + strings.Join(addedTasks, "\n") + "\n"
+			updated := content + "\n\n### Cronograma de Prova: " + cleanDisciplina + "\n" + strings.Join(addedTasks, "\n") + "\n"
 			_ = os.WriteFile(todoPath, []byte(updated), 0644)
 			fmt.Printf("📝 %d tarefas adicionadas a %s\n", len(addedTasks), todoPath)
 		}
 	}
 
-	// 2. Tenta agendar no Google Calendar se autenticado
+	// 2. Tenta agendar no Google Calendar se autenticado (SEC-STU-02, SEC-STU-05)
 	geminiDir := ""
 	if info != nil {
 		geminiDir = info.GeminiDir
@@ -254,7 +267,11 @@ func runStudyExamPrep(info *platform.Info, args []string) {
 		home, _ := os.UserHomeDir()
 		geminiDir = filepath.Join(home, ".gemini", "antigravity")
 	}
-	authPath := workspace.AuthFilePathForContext(geminiDir, os.Getenv("AGYO_GOOGLE_CONTEXT"))
+	ctxName := *contextFlag
+	if env := os.Getenv("AGYO_GOOGLE_CONTEXT"); env != "" && *contextFlag == "pessoal" {
+		ctxName = env
+	}
+	authPath := workspace.AuthFilePathForContext(geminiDir, ctxName)
 	if tok, err := workspace.LoadToken(authPath); err == nil && (!tok.IsExpired() || tok.RefreshToken != "") {
 		tokenGetter := func(ctx context.Context) (string, error) {
 			return getGoogleWorkspaceToken(info, authPath)
@@ -269,18 +286,20 @@ func runStudyExamPrep(info *platform.Info, args []string) {
 				startTime = time.Date(targetDay.Year(), targetDay.Month(), targetDay.Day(), 9, 0, 0, 0, time.Local)
 				endTime = startTime.Add(3 * time.Hour)
 			}
-			_, err := calClient.CreateEvent(context.Background(), "primary", workspace.CalendarEvent{
+			callCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			_, err := calClient.CreateEvent(callCtx, "primary", workspace.CalendarEvent{
 				Summary:     m.Title,
 				Description: fmt.Sprintf("Bloco de preparacao academica: %s", m.Desc),
 				Start:       startTime,
 				End:         endTime,
 			})
+			cancel()
 			if err == nil {
 				createdCount++
 			}
 		}
 		if createdCount > 0 {
-			fmt.Printf("📅 %d eventos sincronizados no Google Calendar.\n", createdCount)
+			fmt.Printf("📅 %d eventos sincronizados no Google Calendar (contexto: %s).\n", createdCount, ctxName)
 		}
 	} else {
 		fmt.Println("ℹ️  Google Calendar nao autenticado. Execute 'agyo google auth' para sincronizacao automatica da agenda.")

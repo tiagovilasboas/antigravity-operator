@@ -1,4 +1,4 @@
-# Post LinkedIn — Antigravity Operator (agyo)
+# Post LinkedIn: Antigravity Operator (agyo)
 
 Dar ferramentas para um coding agent não resolve sozinho a operação ao redor dele.
 
@@ -18,11 +18,17 @@ Persistência simples e auditável em Markdown (`.agents/session/state.md`, `dec
 🔹 **Supervisor de Navegador e Protocolo CDP (`agyo browser`):**
 Inicia uma instância isolada do Chrome na porta 9222 com profile dedicado. No Mac/desktop abre a janela visual; em servidores Linux sem tela ativa modo Headless automaticamente. Inclui um cliente nativo do Chrome DevTools Protocol em Go puro para inspecionar abas, executar JavaScript e capturar screenshots sem precisar de Node.js ou Python.
 
+🔹 **FinOps de Tokens e Student Edition (`agyo study`):**
+Redução medida de 99,2% no consumo de tokens em tarefas de pesquisa e estudo. Em vez de entupir o prompt com transcrições de 1 hora (~20.000 tokens) que acumulam 1,5 milhão de tokens ao longo de 15 turnos, o `agyo` ancora o material denso no Google NotebookLM via CDP e MCP embutido. O agente faz apenas consultas cirúrgicas com citações (~12.000 tokens ativos no total), economizando cota e evitando alucinações.
+
+🔹 **Google Workspace Bridge (Calendar + Docs):**
+Ponte nativa com OAuth 2.0 loopback em Go puro para agendar blocos de estudo no Google Calendar e exportar relatórios de revisão diretamente no Google Docs, fechando o fluxo acadêmico contínuo sem nenhuma biblioteca externa.
+
 🔹 **Git Pre-Commit Hook (`agyo hook install`):**
 Um sensor que protege o fluxo de trabalho: se o desenvolvedor ou o agente tentarem commitar código sem atualizar o objetivo ou o progresso da sessão, o hook alerta antes do commit ser gravado.
 
 🔹 **Diagnóstico de Host (`agyo doctor`):**
-Audita em segundos se a máquina está pronta: Git, Chrome, porta DevTools 9222, variáveis de display gráfico e runtimes MCP.
+Audita em segundos se a máquina está pronta: Git, Chrome, porta DevTools 9222, variáveis de display gráfico, runtimes MCP e credenciais do Google Workspace.
 
 O projeto é 100% open source e focado no ecossistema do Google Antigravity e desenvolvedores Google AI.
 
