@@ -1,6 +1,6 @@
 ---
 name: agyo
-description: Operates the local Antigravity Operator CLI (agyo) — session memory lifecycle, host environment diagnostics, isolated Chrome supervision, native CDP browser inspection, and git pre-commit session continuity hooks. Activate when the user mentions "agyo", "status da sessão", "iniciar browser", "doctor", "ver abas", "screenshot cdp", or wants to verify the outer harness state.
+description: Operates the local Antigravity Operator CLI (agyo) - session memory lifecycle, host environment diagnostics, isolated Chrome supervision, native CDP browser inspection, and git pre-commit session continuity hooks. Activate when the user mentions "agyo", "status da sessão", "iniciar browser", "doctor", "ver abas", "screenshot cdp", or wants to verify the outer harness state.
 inclusion: manual
 evidence_level: curated
 last_verified: 2026-09-29

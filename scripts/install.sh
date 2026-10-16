@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Antigravity Operator (agyo) — Universal One-Line Installer
+# Antigravity Operator (agyo) - Universal One-Line Installer
 # Usage: curl -fsSL https://raw.githubusercontent.com/tiagovilasboas/antigravity-operator/main/scripts/install.sh | bash
 
 REPO="tiagovilasboas/antigravity-operator"

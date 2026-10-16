@@ -1,4 +1,4 @@
-# .agentignore — Antigravity Operator Context Blacklist
+# .agentignore - Antigravity Operator Context Blacklist
 # Previne que o agente leia ou indexe arquivos gigantes ou sensíveis, economizando milhares de tokens.
 
 # Dependências e Builds

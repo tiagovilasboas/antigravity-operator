@@ -23,7 +23,7 @@ O template embutido em `templates/session/agentignore` é estruturado em blocos 
 
 ```gitignore
 # ==============================================================================
-# .agentignore — Token Blacklist & Context Optimization for AI Agents
+# .agentignore - Token Blacklist & Context Optimization for AI Agents
 # ==============================================================================
 
 # 1. Pastas pesadas de dependências e pacotes

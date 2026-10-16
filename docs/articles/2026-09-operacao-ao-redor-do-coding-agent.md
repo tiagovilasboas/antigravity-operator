@@ -98,6 +98,6 @@ O Antigravity Operator é um projeto comunitário; não é patrocinado nem manti
 
 Essa fronteira é importante para mim. Um operador pode diminuir setup repetido e tornar o estado mais visível, mas a autonomia segura depende do conjunto: modelo, harness do fornecedor e user harness, incluindo revisão humana onde a consequência pede julgamento.
 
-Minha hipótese é que uma CLI pequena pode transformar parte desse harness em operação reproduzível entre sessões e máquinas. O que ainda precisa ser medido é se isso reduz falhas de setup e retrabalho em ambientes de uso variados — não basta contar comandos ou linhas de teste.
+Minha hipótese é que uma CLI pequena pode transformar parte desse harness em operação reproduzível entre sessões e máquinas. O que ainda precisa ser medido é se isso reduz falhas de setup e retrabalho em ambientes de uso variados - não basta contar comandos ou linhas de teste.
 
 Se você montou uma camada operacional para coding agents, qual parte mais te deu trabalho: memória entre sessões, permissões, navegador isolado ou diferenças entre máquinas?

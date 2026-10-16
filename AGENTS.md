@@ -1,4 +1,4 @@
-# AGENTS.md — Contrato Operacional de IA para o antigravity-operator
+# AGENTS.md - Contrato Operacional de IA para o antigravity-operator
 
 Bem-vindo ao repositório **`antigravity-operator`** (`agyo`). Este documento define a governança técnica, os princípios canônicos e as regras operacionais que **qualquer agente autônomo ou assistido de IA** deve seguir obrigatoriamente neste projeto.
 
