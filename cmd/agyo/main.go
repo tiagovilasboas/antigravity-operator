@@ -938,7 +938,7 @@ func runBrowser(info *platform.Info, args []string) {
 	case "open":
 		if hasHelp(args[1:]) {
 			fmt.Println("Usage: agyo browser open [--new-tab] <url>")
-			fmt.Println("Open or reuse an existing/blank tab at the given URL in isolated Chrome.")
+			fmt.Println("Open or reuse an existing/blank tab at the given URL in isolated Chrome with automatic profile & authuser routing.")
 			return
 		}
 		forceNew := false
@@ -956,7 +956,43 @@ func runBrowser(info *platform.Info, args []string) {
 			usageError("missing URL\nUsage: agyo browser open [--new-tab] <url>")
 			return
 		}
-		tab, reused, err := profile.OpenOrReuseTab(profile.DefaultDebugPort, targetURL, forceNew)
+
+		// 1. Observe & Resolve URL against discovered profiles
+		profiles := collectRequestedProfiles(info, "isolated")
+		if len(profiles) == 0 {
+			profiles = collectRequestedProfiles(info, "system")
+		} else {
+			profiles = append(profiles, collectRequestedProfiles(info, "system")...)
+		}
+
+		openURL := targetURL
+		recommendedDir := ""
+		if res, rErr := profile.ResolveURLForProfiles(profiles, targetURL); rErr == nil && res != nil {
+			if res.SuggestedURL != "" && res.SuggestedURL != targetURL {
+				openURL = res.SuggestedURL
+				if res.Recommended != nil {
+					fmt.Printf("🧭 Auto-routing URL for %s (%s): %s\n", res.Recommended.Directory, res.Recommended.PrimaryEmail, openURL)
+				}
+			}
+			if res.Recommended != nil && res.Recommended.Source == "isolated" {
+				recommendedDir = res.Recommended.Directory
+			}
+		}
+
+		// 2. Auto-start isolated Chrome with the matched profile if not running
+		if !profile.CheckStatus(info.BrowserProfile).IsRunning {
+			fmt.Printf("🚀 Auto-starting isolated Chrome on port %d...\n", profile.DefaultDebugPort)
+			if sErr := profile.Start(info, profile.StartOptions{
+				Port:            profile.DefaultDebugPort,
+				ProfileSelector: recommendedDir,
+			}); sErr != nil {
+				runtimeError(sErr, "")
+				return
+			}
+		}
+
+		// 3. Open or reuse tab
+		tab, reused, err := profile.OpenOrReuseTab(profile.DefaultDebugPort, openURL, forceNew)
 		if err != nil {
 			runtimeError(err, "")
 			return
@@ -966,9 +1002,14 @@ func runBrowser(info *platform.Info, args []string) {
 			idPrefix = idPrefix[:8]
 		}
 		if reused {
-			fmt.Printf("♻️  Tab reused [%s]: %s\n", idPrefix, targetURL)
+			fmt.Printf("♻️  Tab reused [%s]: %s\n", idPrefix, openURL)
 		} else {
-			fmt.Printf("✅ Tab opened [%s]: %s\n", idPrefix, targetURL)
+			fmt.Printf("✅ Tab opened [%s]: %s\n", idPrefix, openURL)
+		}
+
+		// 4. Observe post-navigation state for Auth/VPN walls
+		if wall, reason := profile.DetectAuthWall(tab.Title, tab.URL); wall {
+			fmt.Printf("⚠️  [Auth Sensor] %s\n", reason)
 		}
 
 	case "close":

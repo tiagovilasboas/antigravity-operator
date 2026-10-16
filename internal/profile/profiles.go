@@ -613,3 +613,80 @@ func ApplyAuthUserURL(rawURL string, email string) string {
 	parsed.RawQuery = q.Encode()
 	return parsed.String()
 }
+
+// DetectAuthWall observa o título e a URL pós-navegação de uma aba e identifica bloqueios de permissão,
+// AccountChooser ou interceptação SAML/VPN.
+func DetectAuthWall(title, currentURL string) (bool, string) {
+	tLower := strings.ToLower(strings.TrimSpace(title))
+	uLower := strings.ToLower(strings.TrimSpace(currentURL))
+
+	if strings.Contains(uLower, "remote/saml/start") || strings.Contains(uLower, "127.0.0.1:8020") {
+		return true, "Interceptação de VPN/SAML detectada na rede. Conclua a autenticação da VPN antes de navegar."
+	}
+	if strings.Contains(uLower, "accounts.google.com/v3/signin") ||
+		strings.Contains(uLower, "accounts.google.com/servicelogin") ||
+		strings.Contains(uLower, "accountchooser") {
+		return true, "Redirecionado para Google AccountChooser/Login. Verifique se o perfil correto está ativo ('agyo browser profiles')."
+	}
+	if strings.Contains(tLower, "acesso negado") ||
+		strings.Contains(tLower, "access denied") ||
+		strings.Contains(tLower, "não foi possível abrir o arquivo") ||
+		strings.Contains(tLower, "você precisa de permissão") ||
+		strings.Contains(tLower, "you need permission") {
+		return true, "Bloqueio de permissão organizacional detectado ('Acesso negado' / 'Não foi possível abrir o arquivo'). A URL exige o perfil Workspace da organização."
+	}
+	return false, ""
+}
+
+// PruneIsolatedGhostProfiles remove diretórios de perfis fantasmas (sem conta logada e sem Bookmarks)
+// exclusivamente dentro do diretório de perfil isolado do agyo.
+func PruneIsolatedGhostProfiles(isolatedUserDataDir string) ([]string, error) {
+	profiles, err := DiscoverProfiles(isolatedUserDataDir, "isolated")
+	if err != nil {
+		return nil, nil // Se não existir ainda, nada a limpar
+	}
+
+	var pruned []string
+	for _, p := range profiles {
+		if p.Kind != ProfileKindGhost || p.Directory == "Default" || !strings.HasPrefix(p.Directory, "Profile ") {
+			continue
+		}
+		targetDir := filepath.Join(isolatedUserDataDir, p.Directory)
+		// Segurança extra: preserva caso exista arquivo Bookmarks com favoritos reais do usuário
+		if hasUserBookmarks(filepath.Join(targetDir, "Bookmarks")) {
+			continue
+		}
+		if err := os.RemoveAll(targetDir); err == nil {
+			pruned = append(pruned, p.Directory)
+		}
+	}
+
+	if len(pruned) > 0 {
+		lsPath := filepath.Join(isolatedUserDataDir, "Local State")
+		if data, err := os.ReadFile(lsPath); err == nil {
+			var raw map[string]interface{}
+			if json.Unmarshal(data, &raw) == nil {
+				if profMap, ok := raw["profile"].(map[string]interface{}); ok {
+					if cacheMap, ok := profMap["info_cache"].(map[string]interface{}); ok {
+						for _, dir := range pruned {
+							delete(cacheMap, dir)
+						}
+						if out, mErr := json.MarshalIndent(raw, "", "  "); mErr == nil {
+							_ = os.WriteFile(lsPath, out, 0600)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return pruned, nil
+}
+
+func hasUserBookmarks(path string) bool {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+	return strings.Contains(string(data), `"url"`)
+}

@@ -57,6 +57,15 @@ func Fix(targetDir string, info *platform.Info) (*FixResult, error) {
 		res.Skipped = append(res.Skipped, syncRes.Skipped...)
 	}
 
+	// 3. Auto-limpa perfis fantasmas vazios no diretório isolado do agyo (se Chrome isolado estiver parado)
+	if !profile.CheckStatus(info.BrowserProfile).IsRunning {
+		if pruned, pErr := profile.PruneIsolatedGhostProfiles(info.BrowserProfile); pErr == nil {
+			for _, dir := range pruned {
+				res.Repaired = append(res.Repaired, fmt.Sprintf("pruned isolated ghost profile: %s", dir))
+			}
+		}
+	}
+
 	return res, nil
 }
 

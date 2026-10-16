@@ -147,3 +147,32 @@ func TestResolveURLForProfilesAgnostic(t *testing.T) {
 		t.Errorf("expected generic URL to recommend Default profile, got %+v", res4)
 	}
 }
+
+func TestDetectAuthWallAndPruneGhosts(t *testing.T) {
+	if wall, _ := profile.DetectAuthWall("Acesso negado", "https://docs.google.com/forms/d/e/123/viewform"); !wall {
+		t.Errorf("expected Acesso negado to be detected as auth wall")
+	}
+	if wall, _ := profile.DetectAuthWall("Privacy error", "https://vpn.corp.com/remote/saml/start?redirect=1"); !wall {
+		t.Errorf("expected SAML redirect to be detected as auth wall")
+	}
+	if wall, _ := profile.DetectAuthWall("Dashboard", "https://portal.corp.example.com/home"); wall {
+		t.Errorf("did not expect normal dashboard page to trigger auth wall")
+	}
+
+	dir := setupMockUserDataDir(t)
+	pruned, err := profile.PruneIsolatedGhostProfiles(dir)
+	if err != nil {
+		t.Fatalf("unexpected error pruning ghosts: %v", err)
+	}
+	if len(pruned) != 1 || pruned[0] != "Profile 1" {
+		t.Fatalf("expected Profile 1 ghost to be pruned, got %v", pruned)
+	}
+
+	remaining, err := profile.DiscoverProfiles(dir, "isolated")
+	if err != nil {
+		t.Fatalf("unexpected error after prune: %v", err)
+	}
+	if len(remaining) != 2 {
+		t.Errorf("expected 2 authenticated profiles remaining after pruning ghost, got %d", len(remaining))
+	}
+}

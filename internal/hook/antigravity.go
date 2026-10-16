@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/tiagovilasboas/antigravity-operator/internal/checkpoint"
+	"github.com/tiagovilasboas/antigravity-operator/internal/platform"
+	"github.com/tiagovilasboas/antigravity-operator/internal/profile"
 	"github.com/tiagovilasboas/antigravity-operator/internal/session"
 )
 
@@ -273,6 +275,28 @@ func HandlePreInvocation(ctx context.Context, in *PreInvocationInput) (*PreInvoc
 	// HK-5: Suggest compaction if session footprint is in yellow or red zone, or done tasks >= 5
 	if summary.HealthStatus == "Moderate 🟡" || summary.HealthStatus == "Bloated 🔴" || summary.DoneTasks >= 5 {
 		sb.WriteString(fmt.Sprintf("💡 [agyo] Pegada de sessão em zona moderada/crítica (%d tarefas concluídas, ~%d tokens, %s). Execute 'agyo session compact' para evitar context bloat.\n", summary.DoneTasks, summary.EstimatedTokens, summary.HealthStatus))
+	}
+
+	// HK-8: Observe & inject Multi-Profile Chrome map when multiple authenticated profiles exist
+	if pInfo, pErr := platform.Detect(); pErr == nil {
+		profs, _ := profile.DiscoverProfiles(pInfo.BrowserProfile, "isolated")
+		if len(profs) == 0 {
+			profs, _ = profile.DiscoverProfiles(pInfo.SystemChromeDir, "system")
+		}
+		var authLabels []string
+		for _, p := range profs {
+			if p.Kind == profile.ProfileKindGhost {
+				continue
+			}
+			if p.HostedDomain != "" {
+				authLabels = append(authLabels, fmt.Sprintf("%s (%s: %s)", p.Directory, p.Kind, p.HostedDomain))
+			} else {
+				authLabels = append(authLabels, fmt.Sprintf("%s (%s)", p.Directory, p.Kind))
+			}
+		}
+		if len(authLabels) > 1 {
+			sb.WriteString(fmt.Sprintf("🧭 [agyo] Multi-Profile Chrome ativo: %s. Use 'agyo browser open <url>' ou 'agyo browser resolve <url>' para roteamento automático sem abrir janelas fantasmas.\n", strings.Join(authLabels, ", ")))
+		}
 	}
 
 	msg := sb.String()
