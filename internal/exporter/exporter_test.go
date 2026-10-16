@@ -121,4 +121,3 @@ func TestParseTranscript_LargeLineAndSubagents(t *testing.T) {
 		t.Errorf("expected duration 2m0s, got %s", metrics.Duration)
 	}
 }
-
