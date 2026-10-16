@@ -70,3 +70,31 @@ O comando `agyo hook run` consome JSON via `stdin` e responde JSON via `stdout`.
 O comando `agyo doctor` inspeciona a prontidão do lifecycle hook no sistema do usuário:
 - `✅ Lifecycle Hooks : agyo-session-agent ativo em ~/.gemini/config/hooks.json`
 - `ℹ️ Lifecycle Hooks : Não instalados em hooks.json (execute: agyo hook antigravity install)`
+
+---
+
+## Spike HK-8: Execução Headless e CLI Nativa do Antigravity
+
+Em outubro de 2026, foi conduzido um spike aprofundado para investigar a viabilidade de execução não-interativa / headless no Google Antigravity (estilo `claude -p`).
+
+### Descobertas de Engenharia
+
+1. **Codinome agy:**
+   - A sigla `agy` é a nomenclatura de engenharia interna do Google para o Antigravity (ex.: wrappers `agy-node`, configuracoes `agyAllowedModels`, skills `agy-customizations`).
+2. **Motor Core (`language_server agentapi`):**
+   - O binario `/Applications/Antigravity.app/Contents/Resources/bin/language_server` implementa nativamente o subcomando `agentapi`:
+     - `agentapi new-conversation [--model=<flash_lite|flash|pro>] [--title=<title>] <prompt>`: cria uma sessao programaticamente com workspace resolvido e despacha a execucao em background.
+     - `agentapi send-message <recipient_id> <content>`: envia mensagens e diretrizes diretamente a conversas ou subagentes ativos.
+     - `agentapi get-conversation-metadata <conversation_id>`: extrai em tempo real o estado, arvore de subagentes, permissoes e transcricoes da sessao em formato JSON.
+3. **Execucao Headless com Gemini CLI (`gemini -p`):**
+   - O binario `@google/gemini-cli` instalado em `/opt/homebrew/bin/gemini` oferece suporte nativo ao estilo `claude -p`:
+     ```bash
+     cat prompt.md | gemini -p "" -y -o json
+     ```
+   - Auto-aprova ferramentas com `-y` / `--approval-mode yolo` e emite JSON estruturado com `-o json`.
+
+### Interoperabilidade no Roadmap do agyo
+
+- **Wrapper agy canonico:** O comando `agyo sync` pode provisionar um symlink ou executavel wrapper em `~/.local/bin/agy` delegando para `language_server agentapi`.
+- **Subcomando agyo run (Outer Harness):** Executa pipelines de CI ou automacoes locais criando checkpoints de seguranca antes de disparar o agente de forma autonoma.
+

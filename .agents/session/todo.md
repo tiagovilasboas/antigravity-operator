@@ -9,7 +9,7 @@
 ### Lifecycle hooks - plano: [docs/plans/01-LIFECYCLE-HOOKS-SESSION-AGENT.md](../../docs/plans/01-LIFECYCLE-HOOKS-SESSION-AGENT.md)
 > 📦 *Histórico compactado: 7 tarefas concluídas arquivadas em [completed-tasks-2026-10-15.md](archive/completed-tasks-2026-10-15.md)*
 > 📦 *Histórico compactado: 29 tarefas concluídas arquivadas em [completed-tasks-2026-10-15.md](archive/completed-tasks-2026-10-15.md)*
-- [ ] Spike: existe modo headless (estilo `claude -p`) no CLI do Antigravity?
+- [x] Spike: existe modo headless (estilo `claude -p`) no CLI do Antigravity? (verificado via `language_server agentapi` e `gemini -p`; documentado na Spec 09)
 
 ### UX da CLI - plano: [docs/plans/02-CLI-UX-CONTRATO.md](../../docs/plans/02-CLI-UX-CONTRATO.md)
 > 📦 *Histórico compactado: 8 tarefas concluídas arquivadas em [completed-tasks-2026-10-15.md](archive/completed-tasks-2026-10-15.md)*
