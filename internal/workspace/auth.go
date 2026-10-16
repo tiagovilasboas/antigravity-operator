@@ -74,7 +74,7 @@ func SaveToken(path string, token *TokenInfo) error {
 	if token == nil {
 		return errors.New("cannot save nil token")
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return fmt.Errorf("create config dir: %w", err)
 	}
 	data, err := json.MarshalIndent(token, "", "  ")
@@ -84,6 +84,7 @@ func SaveToken(path string, token *TokenInfo) error {
 	if err := os.WriteFile(path, data, 0600); err != nil {
 		return fmt.Errorf("write token file: %w", err)
 	}
+	_ = os.Chmod(path, 0600)
 	return nil
 }
 

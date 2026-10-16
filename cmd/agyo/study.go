@@ -135,7 +135,7 @@ func runStudyIngest(info *platform.Info, args []string) {
 	destFolder := *outDir
 	if destFolder != "" {
 		destFolder = filepath.Clean(destFolder)
-		if strings.HasPrefix(destFolder, "..") || strings.Contains(destFolder, "/../") {
+		if filepath.IsAbs(destFolder) || strings.HasPrefix(destFolder, "..") || strings.Contains(destFolder, "/../") {
 			destFolder = filepath.Join("estudos", filepath.Base(destFolder))
 		}
 	} else {

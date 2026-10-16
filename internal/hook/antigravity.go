@@ -314,7 +314,7 @@ func HandlePreInvocation(ctx context.Context, in *PreInvocationInput) (*PreInvoc
 var codeExtRegex = regexp.MustCompile(`\.(go|ts|tsx|js|jsx|py|rs|rb|php|java|c|cpp|h|hpp|cs)$`)
 var testBuildCommandRegex = regexp.MustCompile(`(?i)\b(go test|make test|npm test|pytest|cargo test|yarn test|pnpm test|vitest|go build|tsc|make build)\b`)
 var destructiveCommandRegex = regexp.MustCompile(`(?i)\b(rm\s+-[a-zA-Z]*r[a-zA-Z]*f|git\s+reset\s+--hard|git\s+clean\s+-[a-zA-Z]*f|drop\s+database|drop\s+table|truncate\s+table)\b`)
-var rogueBrowserSpawnRegex = regexp.MustCompile(`(?i)(open\s+(-[a-zA-Z]+\s+)*["']?Google Chrome|--profile-directory=|osascript[\s\S]*Google Chrome[\s\S]*(make\s+new\s+(tab|window)|click\s+menu\s+item))`)
+var rogueBrowserSpawnRegex = regexp.MustCompile(`(?i)(open\s+.*(-a\s+["']?(Google Chrome|Chrome)["']?|-b\s+com\.google\.Chrome)|(google-chrome|chromium(-browser)?|Google\s+Chrome\.app\/Contents\/MacOS\/Google\s+Chrome)|--profile-directory=|osascript[\s\S]*(Google Chrome|Chrome)[\s\S]*(make\s+new\s+(tab|window)|click\s+menu\s+item|open\s+location))`)
 
 func isWriteFileTool(toolName string) bool {
 	return toolName == "write_to_file" ||
