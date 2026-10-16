@@ -76,6 +76,61 @@ AI coding agents excel at atomic execution but suffer from two critical flaws: *
 [ ~/Estudos/artigos/*.md + Tests ] ── Perennial study assets, documented architectures, tested code
 ```
 
+### Agentic AI BDI Architecture (Belief-Desire-Intention)
+
+`agyo` structures autonomous coding and research agents around the classic **BDI (Belief-Desire-Intention)** cognitive model, governed by Martin Fowler's **Outer Harness (Guides x Sensors)**:
+
+```mermaid
+flowchart TB
+    subgraph Sensors ["Perceptors & Host Sensors (Feedback)"]
+        Doc["agyo doctor & Platform Detect"]
+        Prof["Chrome Profile & Auth Sensor"]
+        Trans["Transcript Watcher & Analytics"]
+    end
+
+    subgraph BDI ["Agentic AI BDI Cognitive Loop (agyo Outer Harness)"]
+        direction TB
+        subgraph Beliefs ["1. BELIEFS (Grounded World State)"]
+            B1[".agents/session/state.md & decisions.md"]
+            B2["Google NotebookLM (Grounded RAG / MCP)"]
+            B3[".agentignore (Context Boundary)"]
+        end
+
+        subgraph Desires ["2. DESIRES (Goals & Invariants)"]
+            D1["Active Session Objective & Specs"]
+            D2["Zero-Regression & Security Guardrails"]
+            D3["O(1) Token Budget & Single-Window Rule"]
+        end
+
+        subgraph Intentions ["3. INTENTIONS (Committed Plan & Execution)"]
+            I1[".agents/session/todo.md (In-Progress Tasks)"]
+            I2["PreInvocation Hook (Context Injection)"]
+            I3["PreToolUse Hook (Auto-Checkpoint & Deny Gate)"]
+            I4["PostToolUse & Stop Hooks (DirtyCode & Completion Gate)"]
+        end
+
+        Beliefs -->|Deliberation| Desires
+        Desires -->|Means-Ends Reasoning| Intentions
+    end
+
+    subgraph Effectors ["Actuators & Execution Hands"]
+        Act1["Code & Test Execution (Antigravity IDE/CLI)"]
+        Act2["Pure-Go CDP Browser (Port 9222)"]
+        Act3["Google Workspace Bridge (Calendar & Docs)"]
+        Act4["Atomic Git Checkpoint & Rollback"]
+    end
+
+    Sensors -->|Updates World State| Beliefs
+    Intentions -->|Dispatches Tool Calls| Effectors
+    Effectors -->|Runtime Evidence & Diffs| Sensors
+```
+
+| BDI Pillar | Cognitive Role | `agyo` Component | Outer Harness Role |
+|---|---|---|---|
+| **Beliefs** *(What the agent knows)* | Grounded perception of the workspace, architecture decisions, and external sources without hallucination. | `.agents/session/state.md`, `decisions.md`, `agyo notebooklm`, `agyo doctor`, `browser profiles` | **Guide + Sensor:** Feeds verified facts into the context window at $O(1)$ token cost. |
+| **Desires** *(What the agent wants to achieve)* | Target engineering or academic outcome constrained by safety and quality invariants. | Active Objective in `state.md`, `docs/plans/*.md`, `.agentignore`, Single-Window Browser Rule | **Guide (Feedforward):** Steers model reasoning before tool selection. |
+| **Intentions** *(What the agent commits to doing)* | Actionable task queue and lifecycle gates that prevent premature stop or unverified code edits. | `.agents/session/todo.md`, `hooks.json` (`PreInvocation`, `PreToolUse`, `PostToolUse`, `Stop`), `checkpoint` | **Sensor (Feedback):** Enforces atomic checkpoints, blocks rogue commands, and verifies tests before stop. |
+
 ### Token Economics (FinOps)
 
 | Strategy | 15-Turn Session Cost | Rate Limits & Memory |

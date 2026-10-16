@@ -100,6 +100,30 @@ func LoadToken(path string) (*TokenInfo, error) {
 	return &token, nil
 }
 
+// GetValidAccessToken carrega o token para o contexto informado, atualiza-o se expirado via refresh token e retorna o access token valido.
+func GetValidAccessToken(ctx context.Context, geminiDir, contextName string) (string, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if geminiDir == "" {
+		home, _ := os.UserHomeDir()
+		geminiDir = filepath.Join(home, ".gemini", "antigravity")
+	}
+	authPath := AuthFilePathForContext(geminiDir, contextName)
+	tok, err := LoadToken(authPath)
+	if err != nil {
+		return "", fmt.Errorf("Google Workspace não autenticado. Execute 'agyo google auth' no terminal para conectar sua conta: %w", err)
+	}
+	if tok.IsExpired() && tok.RefreshToken != "" {
+		refreshed, err := RefreshAccessToken(ctx, nil, "", tok)
+		if err == nil {
+			_ = SaveToken(authPath, refreshed)
+			return refreshed.AccessToken, nil
+		}
+	}
+	return tok.AccessToken, nil
+}
+
 // GenerateState returns a cryptographically secure random state parameter.
 func GenerateState() string {
 	b := make([]byte, 16)

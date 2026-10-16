@@ -76,6 +76,61 @@ O `agyo` implementa o modelo canônico de **Outer Harness (Guia × Sensor)** de 
 [ ~/Estudos/artigos/*.md + Testes ] ── Acervo perene de estudos, arquitetura documentada e código testado
 ```
 
+### Arquitetura Cognitiva Agentic IA BDI (Belief-Desire-Intention)
+
+O `agyo` estrutura agentes autônomos de engenharia e pesquisa em torno do modelo cognitivo clássico **BDI (Belief-Desire-Intention)**, governado pelo **Outer Harness (Guias x Sensores)** de Martin Fowler:
+
+```mermaid
+flowchart TB
+    subgraph Sensors ["Perceptores & Sensores do Host (Feedback)"]
+        Doc["agyo doctor & Platform Detect"]
+        Prof["Chrome Profile & Auth Sensor"]
+        Trans["Transcript Watcher & Analytics"]
+    end
+
+    subgraph BDI ["Ciclo Cognitivo Agentic IA BDI (agyo Outer Harness)"]
+        direction TB
+        subgraph Beliefs ["1. BELIEFS / CRENCAS (Estado do Mundo Fundamentado)"]
+            B1[".agents/session/state.md & decisions.md"]
+            B2["Google NotebookLM (RAG Fundamentado / MCP)"]
+            B3[".agentignore (Fronteira de Contexto)"]
+        end
+
+        subgraph Desires ["2. DESIRES / DESEJOS (Objetivos & Invariantes)"]
+            D1["Objetivo Ativo da Sessao & Specs"]
+            D2["Zero-Regressao & Guardrails de Seguranca"]
+            D3["Orcamento O(1) de Tokens & Regra de Janela Unica"]
+        end
+
+        subgraph Intentions ["3. INTENTIONS / INTENCOES (Plano Comprometido & Execucao)"]
+            I1[".agents/session/todo.md (Tarefas em Progresso)"]
+            I2["PreInvocation Hook (Injecao Deterministica)"]
+            I3["PreToolUse Hook (Auto-Checkpoint & Deny Gate)"]
+            I4["PostToolUse & Stop Hooks (DirtyCode & Gate de Conclusao)"]
+        end
+
+        Beliefs -->|Deliberacao| Desires
+        Desires -->|Raciocinio Meio-Fim| Intentions
+    end
+
+    subgraph Effectors ["Atuadores & Maos de Execucao"]
+        Act1["Execucao de Codigo & Testes (Antigravity IDE/CLI)"]
+        Act2["Pure-Go CDP Browser (Porta 9222)"]
+        Act3["Google Workspace Bridge (Calendar & Docs)"]
+        Act4["Git Checkpoint Atomico & Rollback"]
+    end
+
+    Sensors -->|Atualiza Estado do Mundo| Beliefs
+    Intentions -->|Despacha Tool Calls| Effectors
+    Effectors -->|Evidencia de Runtime & Diffs| Sensors
+```
+
+| Pilar BDI | Papel Cognitivo | Componente no `agyo` | Papel no Outer Harness |
+|---|---|---|---|
+| **Beliefs (Crenças)** *(O que o agente sabe)* | Percepção fundamentada do workspace, decisões de arquitetura e fontes externas sem alucinação. | `.agents/session/state.md`, `decisions.md`, `agyo notebooklm`, `agyo doctor`, `browser profiles` | **Guia + Sensor:** Alimenta fatos verificados na janela de contexto com custo $O(1)$ de tokens. |
+| **Desires (Desejos)** *(O que o agente quer alcançar)* | Objetivo técnico ou acadêmico restrito por invariantes de qualidade e segurança. | Objetivo Ativo no `state.md`, `docs/plans/*.md`, `.agentignore`, Regra de Janela Única | **Guia (Feedforward):** Direciona o raciocínio do modelo antes da seleção de ferramentas. |
+| **Intentions (Intenções)** *(O que o agente se compromete a fazer)* | Fila de tarefas acionáveis e gates de ciclo de vida que impedem parada prematura ou código sem testes. | `.agents/session/todo.md`, `hooks.json` (`PreInvocation`, `PreToolUse`, `PostToolUse`, `Stop`), `checkpoint` | **Sensor (Feedback):** Força checkpoints atômicos, bloqueia comandos proibidos e exige testes antes do stop. |
+
 ### Economia de Tokens (FinOps)
 
 | Estratégia | Custo em Sessão de 15 Turnos | Limites de Taxa & Memória |

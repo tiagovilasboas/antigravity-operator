@@ -422,8 +422,8 @@ func TestAntigravityHook_PreToolUse_HK7_BrowserGuardrail(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error for %q: %v", cmdStr, err)
 		}
-		if out.Decision != "block" {
-			t.Errorf("expected command %q to be blocked by HK-7, got decision=%q", cmdStr, out.Decision)
+		if out.Decision != "deny" {
+			t.Errorf("expected command %q to be blocked with decision 'deny' by HK-7, got decision=%q", cmdStr, out.Decision)
 		}
 	}
 
@@ -447,8 +447,317 @@ func TestAntigravityHook_PreToolUse_HK7_BrowserGuardrail(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error for %q: %v", cmdStr, err)
 		}
-		if out.Decision == "block" {
-			t.Errorf("expected command %q to be allowed, but was blocked: %s", cmdStr, out.Reason)
+		if out.Decision != "allow" {
+			t.Errorf("expected command %q to be allowed with decision 'allow', but got decision=%q: %s", cmdStr, out.Decision, out.Reason)
 		}
+	}
+}
+
+func TestAntigravityHook_SpecContract_FlatAndGrouped(t *testing.T) {
+	spec := hook.DefaultAgyoHookSpec()
+	if !spec.Enabled {
+		t.Fatalf("expected spec to be enabled")
+	}
+
+	data, err := json.Marshal(spec)
+	if err != nil {
+		t.Fatalf("marshal spec failed: %v", err)
+	}
+
+	var root map[string]interface{}
+	if err := json.Unmarshal(data, &root); err != nil {
+		t.Fatalf("unmarshal json failed: %v", err)
+	}
+
+	// GAP-HOOK-01: PreInvocation must be flat ([]AntigravityHookCommand)
+	preInvRaw, ok := root["PreInvocation"].([]interface{})
+	if !ok || len(preInvRaw) == 0 {
+		t.Fatalf("expected PreInvocation to be non-empty array")
+	}
+	preInvFirst, ok := preInvRaw[0].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected PreInvocation[0] to be an object")
+	}
+	if _, hasCommand := preInvFirst["command"]; !hasCommand {
+		t.Errorf("expected flat PreInvocation[0] to have 'command', got: %+v", preInvFirst)
+	}
+	if _, hasHooks := preInvFirst["hooks"]; hasHooks {
+		t.Errorf("PreInvocation must NOT have grouped 'hooks' wrapper")
+	}
+	if _, hasMatcher := preInvFirst["matcher"]; hasMatcher {
+		t.Errorf("PreInvocation must NOT have 'matcher'")
+	}
+
+	// GAP-HOOK-01: Stop must be flat ([]AntigravityHookCommand)
+	stopRaw, ok := root["Stop"].([]interface{})
+	if !ok || len(stopRaw) == 0 {
+		t.Fatalf("expected Stop to be non-empty array")
+	}
+	stopFirst, ok := stopRaw[0].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected Stop[0] to be an object")
+	}
+	if _, hasCommand := stopFirst["command"]; !hasCommand {
+		t.Errorf("expected flat Stop[0] to have 'command', got: %+v", stopFirst)
+	}
+	if _, hasHooks := stopFirst["hooks"]; hasHooks {
+		t.Errorf("Stop must NOT have grouped 'hooks' wrapper")
+	}
+	if _, hasMatcher := stopFirst["matcher"]; hasMatcher {
+		t.Errorf("Stop must NOT have 'matcher'")
+	}
+
+	// GAP-HOOK-01 & GAP-HOOK-03: PreToolUse must be grouped ([]AntigravityHookGroup)
+	preToolRaw, ok := root["PreToolUse"].([]interface{})
+	if !ok || len(preToolRaw) == 0 {
+		t.Fatalf("expected PreToolUse to be non-empty array")
+	}
+	preToolFirst, ok := preToolRaw[0].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected PreToolUse[0] to be an object")
+	}
+	matcherVal, ok := preToolFirst["matcher"].(string)
+	if !ok || matcherVal != "run_command|write_to_file|replace_file_content" {
+		t.Errorf("expected PreToolUse matcher 'run_command|write_to_file|replace_file_content', got %q", matcherVal)
+	}
+	hooksRaw, ok := preToolFirst["hooks"].([]interface{})
+	if !ok || len(hooksRaw) == 0 {
+		t.Fatalf("expected PreToolUse[0] to contain nested 'hooks' array")
+	}
+
+	// PostToolUse must be grouped ([]AntigravityHookGroup)
+	postToolRaw, ok := root["PostToolUse"].([]interface{})
+	if !ok || len(postToolRaw) == 0 {
+		t.Fatalf("expected PostToolUse to be non-empty array")
+	}
+	postToolFirst, ok := postToolRaw[0].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected PostToolUse[0] to be an object")
+	}
+	postMatcherVal, ok := postToolFirst["matcher"].(string)
+	if !ok || postMatcherVal != "write_to_file|replace_file_content|run_command" {
+		t.Errorf("expected PostToolUse matcher 'write_to_file|replace_file_content|run_command', got %q", postMatcherVal)
+	}
+}
+
+func TestAntigravityHook_PreToolUse_Decisions(t *testing.T) {
+	// Nil tool call must return allow
+	nilOut, err := hook.HandlePreToolUse(context.Background(), &hook.PreToolUseInput{})
+	if err != nil {
+		t.Fatalf("HandlePreToolUse nil failed: %v", err)
+	}
+	if nilOut.Decision != "allow" {
+		t.Errorf("expected decision 'allow' for nil ToolCall, got %q", nilOut.Decision)
+	}
+
+	// Normal run_command must return allow
+	allowIn := &hook.PreToolUseInput{
+		CommonInput: hook.CommonInput{ConversationID: "conv-dec-1"},
+		ToolCall: &hook.ToolCall{
+			Name: "run_command",
+			Args: map[string]interface{}{"CommandLine": "echo hello"},
+		},
+	}
+	allowOut, err := hook.HandlePreToolUse(context.Background(), allowIn)
+	if err != nil {
+		t.Fatalf("HandlePreToolUse allow failed: %v", err)
+	}
+	if allowOut.Decision != "allow" {
+		t.Errorf("expected decision 'allow', got %q", allowOut.Decision)
+	}
+
+	// Dispatch JSON serialization test
+	var buf bytes.Buffer
+	inputJSON := `{"toolCall":{"name":"run_command","args":{"CommandLine":"echo ok"}}}`
+	if err := hook.DispatchHookEvent(context.Background(), "PreToolUse", strings.NewReader(inputJSON), &buf); err != nil {
+		t.Fatalf("DispatchHookEvent failed: %v", err)
+	}
+	var parsed hook.PreToolUseOutput
+	if err := json.Unmarshal(buf.Bytes(), &parsed); err != nil {
+		t.Fatalf("unmarshal dispatch output failed: %v", err)
+	}
+	if parsed.Decision != "allow" {
+		t.Errorf("expected dispatch PreToolUse decision 'allow', got %q", parsed.Decision)
+	}
+}
+
+func TestAntigravityHook_PreToolUse_DirtyCodeTracking(t *testing.T) {
+	ws := t.TempDir()
+	convID := "conv-pretool-dirty"
+
+	st := hook.LoadConversationState(convID, ws)
+	st.DirtyCode = false
+	_ = st.Save()
+
+	// 1. write_to_file on a .go file must set DirtyCode = true in PreToolUse
+	preInGo := &hook.PreToolUseInput{
+		CommonInput: hook.CommonInput{
+			ConversationID: convID,
+			WorkspacePaths: []string{ws},
+		},
+		ToolCall: &hook.ToolCall{
+			Name: "write_to_file",
+			Args: map[string]interface{}{
+				"TargetFile": "/path/to/server.go",
+			},
+		},
+	}
+	outGo, err := hook.HandlePreToolUse(context.Background(), preInGo)
+	if err != nil {
+		t.Fatalf("HandlePreToolUse failed on go write: %v", err)
+	}
+	if outGo.Decision != "allow" {
+		t.Errorf("expected decision 'allow', got %q", outGo.Decision)
+	}
+	st = hook.LoadConversationState(convID, ws)
+	if !st.DirtyCode {
+		t.Errorf("expected dirtyCode=true after PreToolUse on server.go")
+	}
+
+	// 2. replace_file_content on a .ts file must also preserve/set DirtyCode = true
+	st.DirtyCode = false
+	_ = st.Save()
+	preInTs := &hook.PreToolUseInput{
+		CommonInput: hook.CommonInput{
+			ConversationID: convID,
+			WorkspacePaths: []string{ws},
+		},
+		ToolCall: &hook.ToolCall{
+			Name: "replace_file_content",
+			Args: map[string]interface{}{
+				"TargetFile": "/path/to/types.ts",
+			},
+		},
+	}
+	outTs, err := hook.HandlePreToolUse(context.Background(), preInTs)
+	if err != nil {
+		t.Fatalf("HandlePreToolUse failed on ts edit: %v", err)
+	}
+	if outTs.Decision != "allow" {
+		t.Errorf("expected decision 'allow', got %q", outTs.Decision)
+	}
+	st = hook.LoadConversationState(convID, ws)
+	if !st.DirtyCode {
+		t.Errorf("expected dirtyCode=true after PreToolUse on types.ts")
+	}
+
+	// 3. write_to_file on a .md file must NOT set DirtyCode = true
+	st.DirtyCode = false
+	_ = st.Save()
+	preInMd := &hook.PreToolUseInput{
+		CommonInput: hook.CommonInput{
+			ConversationID: convID,
+			WorkspacePaths: []string{ws},
+		},
+		ToolCall: &hook.ToolCall{
+			Name: "write_to_file",
+			Args: map[string]interface{}{
+				"TargetFile": "/path/to/README.md",
+			},
+		},
+	}
+	_, _ = hook.HandlePreToolUse(context.Background(), preInMd)
+	st = hook.LoadConversationState(convID, ws)
+	if st.DirtyCode {
+		t.Errorf("dirtyCode must be false after writing README.md")
+	}
+}
+
+func TestAntigravityHook_DirtyCodeResilience_Antigravity2_Payload(t *testing.T) {
+	ws := t.TempDir()
+	_, _ = session.Init(ws, true)
+	todoPath := filepath.Join(ws, ".agents", "session", "todo.md")
+	_ = os.WriteFile(todoPath, []byte("# Lista de Tarefas\n\n## Em Progresso ⏳\n\n## Pendentes 📋\n"), 0644)
+
+	convID := "conv-resilience-ag2"
+	st := hook.LoadConversationState(convID, ws)
+	st.DirtyCode = false
+	st.StopBlocks = 0
+	_ = st.Save()
+
+	// 1. PreToolUse: write_to_file on code file marks DirtyCode = true
+	preIn := &hook.PreToolUseInput{
+		CommonInput: hook.CommonInput{
+			ConversationID: convID,
+			WorkspacePaths: []string{ws},
+		},
+		ToolCall: &hook.ToolCall{
+			Name: "write_to_file",
+			Args: map[string]interface{}{
+				"TargetFile": "/path/to/main.go",
+			},
+		},
+	}
+	preOut, err := hook.HandlePreToolUse(context.Background(), preIn)
+	if err != nil {
+		t.Fatalf("HandlePreToolUse failed: %v", err)
+	}
+	if preOut.Decision != "allow" {
+		t.Errorf("expected decision 'allow', got %q", preOut.Decision)
+	}
+
+	// 2. PostToolUse: Antigravity 2.0 payload arrives WITHOUT toolCall (ToolCall == nil)
+	postInAg2 := &hook.PostToolUseInput{
+		CommonInput: hook.CommonInput{
+			ConversationID: convID,
+			WorkspacePaths: []string{ws},
+			TranscriptPath: filepath.Join(ws, ".gemini", "antigravity", "transcript.jsonl"),
+		},
+		StepIdx:  42,
+		Error:    "",
+		ToolCall: nil,
+	}
+	_, err = hook.HandlePostToolUse(context.Background(), postInAg2)
+	if err != nil {
+		t.Fatalf("HandlePostToolUse failed: %v", err)
+	}
+
+	// State must STILL have DirtyCode = true
+	st = hook.LoadConversationState(convID, ws)
+	if !st.DirtyCode {
+		t.Fatalf("dirtyCode must remain true even when PostToolUse has ToolCall == nil")
+	}
+
+	// 3. Stop: must block because code is dirty
+	stopIn := &hook.StopInput{
+		CommonInput: hook.CommonInput{
+			ConversationID: convID,
+			WorkspacePaths: []string{ws},
+		},
+		TerminationReason: "model_stop",
+	}
+	stopOut, err := hook.HandleStop(context.Background(), stopIn)
+	if err != nil {
+		t.Fatalf("HandleStop failed: %v", err)
+	}
+	if stopOut.Decision != "continue" {
+		t.Errorf("expected decision 'continue' blocking stop, got %q", stopOut.Decision)
+	}
+
+	// 4. Successful test run in PostToolUse clears DirtyCode
+	testRunIn := &hook.PostToolUseInput{
+		CommonInput: hook.CommonInput{
+			ConversationID: convID,
+			WorkspacePaths: []string{ws},
+		},
+		ToolCall: &hook.ToolCall{
+			Name: "run_command",
+			Args: map[string]interface{}{
+				"CommandLine": "go test ./...",
+			},
+		},
+		Error: "",
+	}
+	_, _ = hook.HandlePostToolUse(context.Background(), testRunIn)
+
+	st = hook.LoadConversationState(convID, ws)
+	if st.DirtyCode {
+		t.Errorf("dirtyCode should be false after successful test command")
+	}
+
+	// 5. Stop: now permitted
+	stopOut, _ = hook.HandleStop(context.Background(), stopIn)
+	if stopOut.Decision == "continue" {
+		t.Errorf("Stop should be allowed after test, but got decision 'continue'")
 	}
 }

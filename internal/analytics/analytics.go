@@ -1,10 +1,8 @@
 package analytics
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"regexp"
 	"sort"
@@ -59,7 +57,7 @@ const (
 	maxTrackedFiles     = 20
 	maxDistinctCommands = 100
 	maxToolCalls        = 500
-	maxLineBytes        = 10 * 1024 * 1024 // 10 MB line limit
+	maxLineBytes        = watcher.DefaultMaxLineBytes // 10 MB line limit
 )
 
 var (
@@ -182,48 +180,15 @@ func AnalyzeTranscript(transcriptPath string) (*SessionAnalytics, error) {
 	}
 
 	commandFreq := make(map[string]int)
-	reader := bufio.NewReaderSize(file, 64*1024)
 
 	var nextPlannerIsPromptTriggered bool
 	var pendingToolIndices []int
 	toolCallCounter := 0
 
-	for {
-		var line []byte
-		var oversized bool
-		for {
-			chunk, isPrefix, err := reader.ReadLine()
-			if err != nil {
-				if err == io.EOF {
-					break
-				}
-				return nil, fmt.Errorf("failed to read transcript: %w", err)
-			}
-			if !oversized {
-				if len(line)+len(chunk) > maxLineBytes {
-					oversized = true
-					line = nil
-				} else {
-					line = append(line, chunk...)
-				}
-			}
-			if !isPrefix {
-				break
-			}
-		}
-		if oversized {
-			continue // skip line over 10MB gracefully
-		}
-		if len(line) == 0 {
-			if _, err := reader.Peek(1); err != nil {
-				break
-			}
-			continue
-		}
-
+	err = watcher.ForEachLine(file, maxLineBytes, func(line []byte) error {
 		evt, err := watcher.ParseLine(line)
 		if err != nil {
-			continue
+			return nil
 		}
 
 		sa.TotalSteps++
@@ -384,6 +349,10 @@ func AnalyzeTranscript(transcriptPath string) (*SessionAnalytics, error) {
 		case "SYSTEM_MESSAGE":
 			sa.SystemMessages++
 		}
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to read transcript: %w", err)
 	}
 
 	if !sa.StartTime.IsZero() && !sa.LastActiveTime.IsZero() {

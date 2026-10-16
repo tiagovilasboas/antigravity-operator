@@ -789,6 +789,11 @@ func TestCLI_RunGoogleCommands(t *testing.T) {
 	// 7. agyo google mcp --help
 	runGoogle(info, []string{"mcp", "--help"})
 
-	// 8. agyo google unknown
+	// 8. agyo google permuteArgs (flags after positional arguments)
+	runGoogle(info, []string{"calendar", "add", "Sprint Planning", "--desc", "Discuss sprint goals", "--start", "2026-10-15T14:00:00Z"})
+	runGoogle(info, []string{"docs", "read", "doc-test-id", "--json"})
+	runGoogle(info, []string{"docs", "create", "Notas da Reuniao", "--content", "Texto inicial", "--json"})
+
+	// 9. agyo google unknown
 	runGoogle(info, []string{"unknown"})
 }

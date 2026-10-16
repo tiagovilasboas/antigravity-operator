@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -180,42 +179,10 @@ func parseTranscript(path string) *Metrics {
 	defer f.Close()
 
 	metrics := &Metrics{}
-	const maxLineBytes = 10 * 1024 * 1024
-	reader := bufio.NewReaderSize(f, 64*1024)
-
-	for {
-		var line []byte
-		var oversized bool
-		for {
-			chunk, isPrefix, err := reader.ReadLine()
-			if err != nil {
-				if err == io.EOF {
-					break
-				}
-				return metrics
-			}
-			if !oversized {
-				if len(line)+len(chunk) > maxLineBytes {
-					oversized = true
-					line = nil
-				} else {
-					line = append(line, chunk...)
-				}
-			}
-			if !isPrefix {
-				break
-			}
-		}
-		if oversized || len(line) == 0 {
-			if _, err := reader.Peek(1); err != nil {
-				break
-			}
-			continue
-		}
-
+	_ = watcher.ForEachLine(f, watcher.DefaultMaxLineBytes, func(line []byte) error {
 		evt, err := watcher.ParseLine(line)
 		if err != nil {
-			continue
+			return nil
 		}
 
 		if evt.CreatedAt != "" {
@@ -242,7 +209,8 @@ func parseTranscript(path string) *Metrics {
 				metrics.SubagentsInvoked++
 			}
 		}
-	}
+		return nil
+	})
 
 	if !metrics.Start.IsZero() && !metrics.End.IsZero() {
 		d := metrics.End.Sub(metrics.Start)

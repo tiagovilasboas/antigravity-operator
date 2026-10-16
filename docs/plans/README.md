@@ -7,6 +7,7 @@
 | [03](03-RELEASE-SYNC-QUALIDADE.md) | Release, sync e qualidade | `G-` |
 | [04](04-GOOGLE-WORKSPACE-BRIDGE.md) | Google Workspace Bridge (Calendar & Docs) | `WS-` |
 | [05](05-GAPS-PERFORMANCE-STUDENT-EDITION.md) | Gaps, performance e Student Edition | `GAP-`, `PERF-`, `STU-` |
+| [06](06-BDI-ARCHITECTURE-SRP-DRY-CLEAN-CODE.md) | Arquitetura Agentic IA BDI, SRP, DRY, Clean Code e UX | `BDI-`, `FIX-`, `REF-` |
 
 Tasks rastreadas em [`.agents/session/todo.md`](../../.agents/session/todo.md).
 
@@ -24,6 +25,7 @@ Tasks rastreadas em [`.agents/session/todo.md`](../../.agents/session/todo.md).
 | 7 | UX PR 3, HK-4, HK-5, HK-7, G4, G7 | Concluído ✅ | Sugestão Levenshtein, detecção de concorrência, cobertura de testes >70% e resiliência de CI |
 | 8 | WS-1 a WS-7 (Plano 04) | Concluído ✅ | Google Workspace Bridge em Go puro: Calendar v3, Docs v1, OAuth2 loopback e MCP |
 | 9 | GAP-01 a 05, PERF-01 a 02, STU-01 a 02 (Plano 05) | Concluído ✅ | Exporter nativo, CDP WebSocket resiliente, injeção/streaming NotebookLM, skills embutidas e agyo study |
+| 10 | BDI-01, FIX-01 a 03, REF-01 a 02 (Plano 06) | Concluído ✅ | Diagrama Cognitivo BDI, permutação de flags posicionais, contrato real de hooks, DRY de JSONL/OAuth e SRP split de `main.go` |
 
 Decisões fechadas: formato e idioma de mensagens consistentes (UX-5), coexistência idempotente e não destrutiva no `hooks.json` preservando plugins de terceiros (HK-7), isolamento de credenciais por contexto (SEC-WS-01) e proteção de caminhos e sanitização em workflows acadêmicos (SEC-STU-01 a 05).
 

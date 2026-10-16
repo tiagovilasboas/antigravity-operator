@@ -12,6 +12,7 @@ import (
 
 	"github.com/tiagovilasboas/antigravity-operator/internal/notebook"
 	"github.com/tiagovilasboas/antigravity-operator/internal/platform"
+	"github.com/tiagovilasboas/antigravity-operator/internal/profile"
 	"github.com/tiagovilasboas/antigravity-operator/internal/workspace"
 )
 
@@ -142,10 +143,19 @@ func runGoogle(info *platform.Info, args []string) {
 		fmt.Printf("   Acesse a URL abaixo no seu navegador para autorizar:\n\n   %s\n\n", authURL)
 		fmt.Println("⏳ Aguardando confirmação no navegador (pressione Ctrl+C para cancelar)...")
 
-		if info.OS == "darwin" {
-			_ = exec.Command("open", authURL).Start()
-		} else if info.OS == "linux" {
-			_ = exec.Command("xdg-open", authURL).Start()
+		openedInProfile := false
+		if profile.CheckStatus(info.BrowserProfile).IsRunning {
+			if _, _, err := profile.OpenOrReuseTab(profile.DefaultDebugPort, authURL, false); err == nil {
+				openedInProfile = true
+			}
+		}
+
+		if !openedInProfile {
+			if info.OS == "darwin" {
+				_ = exec.Command("open", authURL).Start()
+			} else if info.OS == "linux" {
+				_ = exec.Command("xdg-open", authURL).Start()
+			}
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
@@ -337,7 +347,7 @@ func runGoogleCalendar(info *platform.Info, authPath string, args []string) {
 		endStr := addCmd.String("end", "", "Horário de término (formato RFC3339)")
 		desc := addCmd.String("desc", "", "Descrição do evento")
 		loc := addCmd.String("loc", "", "Localização ou link de videoconferência")
-		_ = addCmd.Parse(args[1:])
+		_ = addCmd.Parse(permuteArgs(args[1:], nil))
 
 		summary := ""
 		if addCmd.NArg() > 0 {
@@ -418,7 +428,7 @@ func runGoogleDocs(info *platform.Info, authPath string, args []string) {
 		}
 		readCmd := flag.NewFlagSet("docs read", flag.ExitOnError)
 		jsonOut := readCmd.Bool("json", false, "Saída em formato JSON")
-		_ = readCmd.Parse(args[1:])
+		_ = readCmd.Parse(permuteArgs(args[1:], map[string]bool{"json": true}))
 
 		docIDOrURL := ""
 		if readCmd.NArg() > 0 {
@@ -463,7 +473,7 @@ func runGoogleDocs(info *platform.Info, authPath string, args []string) {
 		createCmd := flag.NewFlagSet("docs create", flag.ExitOnError)
 		content := createCmd.String("content", "", "Conteúdo textual inicial do documento")
 		jsonOut := createCmd.Bool("json", false, "Saída em formato JSON")
-		_ = createCmd.Parse(args[1:])
+		_ = createCmd.Parse(permuteArgs(args[1:], map[string]bool{"json": true}))
 
 		title := ""
 		if createCmd.NArg() > 0 {

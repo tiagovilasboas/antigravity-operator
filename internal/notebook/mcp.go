@@ -288,20 +288,7 @@ func getWorkspaceToken(info *platform.Info) (string, error) {
 		home, _ := os.UserHomeDir()
 		geminiDir = filepath.Join(home, ".gemini", "antigravity")
 	}
-	contextName := os.Getenv("AGYO_GOOGLE_CONTEXT")
-	authPath := workspace.AuthFilePathForContext(geminiDir, contextName)
-	tok, err := workspace.LoadToken(authPath)
-	if err != nil {
-		return "", fmt.Errorf("Google Workspace não autenticado. Execute 'agyo google auth' no terminal para conectar sua conta: %w", err)
-	}
-	if tok.IsExpired() && tok.RefreshToken != "" {
-		refreshed, err := workspace.RefreshAccessToken(context.Background(), nil, "", tok)
-		if err == nil {
-			_ = workspace.SaveToken(authPath, refreshed)
-			return refreshed.AccessToken, nil
-		}
-	}
-	return tok.AccessToken, nil
+	return workspace.GetValidAccessToken(context.Background(), geminiDir, os.Getenv("AGYO_GOOGLE_CONTEXT"))
 }
 
 func executeTool(info *platform.Info, out io.Writer, id interface{}, name string, args map[string]interface{}) {

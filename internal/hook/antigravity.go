@@ -65,7 +65,7 @@ type PreToolUseInput struct {
 
 // PreToolUseOutput is returned by the PreToolUse handler.
 type PreToolUseOutput struct {
-	Decision string `json:"decision,omitempty"`
+	Decision string `json:"decision"`
 	Reason   string `json:"reason,omitempty"`
 }
 
@@ -316,22 +316,42 @@ var testBuildCommandRegex = regexp.MustCompile(`(?i)\b(go test|make test|npm tes
 var destructiveCommandRegex = regexp.MustCompile(`(?i)\b(rm\s+-[a-zA-Z]*r[a-zA-Z]*f|git\s+reset\s+--hard|git\s+clean\s+-[a-zA-Z]*f|drop\s+database|drop\s+table|truncate\s+table)\b`)
 var rogueBrowserSpawnRegex = regexp.MustCompile(`(?i)(open\s+(-[a-zA-Z]+\s+)*["']?Google Chrome|--profile-directory=|osascript[\s\S]*Google Chrome[\s\S]*(make\s+new\s+(tab|window)|click\s+menu\s+item))`)
 
-// HandlePreToolUse implements HK-6 (automated checkpoint before destructive commands)
-// and HK-7 (Single-Window & Multi-Profile Browser Guardrail sensor).
+func isWriteFileTool(toolName string) bool {
+	return toolName == "write_to_file" ||
+		toolName == "replace_file_content" ||
+		toolName == "write_file" ||
+		toolName == "edit_file" ||
+		strings.HasSuffix(toolName, "_write_file") ||
+		strings.HasSuffix(toolName, "_edit_file")
+}
+
+// HandlePreToolUse implements HK-6 (automated checkpoint before destructive commands),
+// HK-7 (Single-Window & Multi-Profile Browser Guardrail sensor), and HK-3 (proactive dirty code tracking).
 func HandlePreToolUse(ctx context.Context, in *PreToolUseInput) (*PreToolUseOutput, error) {
-	out := &PreToolUseOutput{}
 	if in.ToolCall == nil {
-		return out, nil
+		return &PreToolUseOutput{Decision: "allow"}, nil
 	}
 
 	toolName := strings.ToLower(in.ToolCall.Name)
+
+	// HK-3: Proactive dirty code tracking before writing code files
+	if isWriteFileTool(toolName) {
+		targetFile := extractTargetFilePath(in.ToolCall.Args)
+		if targetFile != "" && codeExtRegex.MatchString(targetFile) {
+			ws := TargetWorkspace(in.WorkspacePaths)
+			st := LoadConversationState(in.ConversationID, ws)
+			st.DirtyCode = true
+			_ = st.Save()
+		}
+	}
+
 	if toolName == "run_command" || toolName == "execute_bash" || toolName == "shell" {
 		cmdStr := extractCommandLine(in.ToolCall.Args)
 
 		// HK-7: Block rogue Chrome window/tab/profile spawning commands
 		if rogueBrowserSpawnRegex.MatchString(cmdStr) {
 			return &PreToolUseOutput{
-				Decision: "block",
+				Decision: "deny",
 				Reason:   "Bloqueado pelo guardrail de Instância Única e Multi-Profile do agyo: é proibido abrir janelas paralelas ('open -a Google Chrome'), criar abas avulsas ('make new tab') ou alternar perfis via menu AppleScript. Use 'agyo browser profiles' e 'agyo browser resolve <url>' para descobrir o perfil autenticado correto, 'agyo browser start --profile <seletor>' para o Chrome isolado (CDP 9222), ou reutilize estritamente a aba ativa existente.",
 			}, nil
 		}
@@ -346,7 +366,7 @@ func HandlePreToolUse(ctx context.Context, in *PreToolUseInput) (*PreToolUseOutp
 		}
 	}
 
-	return out, nil
+	return &PreToolUseOutput{Decision: "allow"}, nil
 }
 
 // HandlePostToolUse implements HK-3: tracking code edits vs verification runs per conversation.
@@ -359,7 +379,7 @@ func HandlePostToolUse(ctx context.Context, in *PostToolUseInput) (*PostToolUseO
 		toolName := strings.ToLower(in.ToolCall.Name)
 
 		// 1. Check if tool wrote or modified code
-		if toolName == "write_to_file" || toolName == "replace_file_content" || strings.HasSuffix(toolName, "_write_file") || strings.HasSuffix(toolName, "_edit_file") {
+		if isWriteFileTool(toolName) {
 			targetFile := extractTargetFilePath(in.ToolCall.Args)
 			if targetFile != "" && codeExtRegex.MatchString(targetFile) {
 				st.DirtyCode = true
@@ -493,31 +513,27 @@ type AntigravityHookCommand struct {
 }
 
 type AntigravityNamedHook struct {
-	Enabled       bool                   `json:"enabled"`
-	PreInvocation []AntigravityHookGroup `json:"PreInvocation,omitempty"`
-	PreToolUse    []AntigravityHookGroup `json:"PreToolUse,omitempty"`
-	PostToolUse   []AntigravityHookGroup `json:"PostToolUse,omitempty"`
-	Stop          []AntigravityHookGroup `json:"Stop,omitempty"`
+	Enabled       bool                     `json:"enabled"`
+	PreInvocation []AntigravityHookCommand `json:"PreInvocation,omitempty"`
+	PreToolUse    []AntigravityHookGroup   `json:"PreToolUse,omitempty"`
+	PostToolUse   []AntigravityHookGroup   `json:"PostToolUse,omitempty"`
+	Stop          []AntigravityHookCommand `json:"Stop,omitempty"`
 }
 
 // DefaultAgyoHookSpec returns the canonical agyo-session-agent hook configuration.
 func DefaultAgyoHookSpec() AntigravityNamedHook {
 	return AntigravityNamedHook{
 		Enabled: true,
-		PreInvocation: []AntigravityHookGroup{
+		PreInvocation: []AntigravityHookCommand{
 			{
-				Hooks: []AntigravityHookCommand{
-					{
-						Type:    "command",
-						Command: "agyo hook run PreInvocation",
-						Timeout: 5,
-					},
-				},
+				Type:    "command",
+				Command: "agyo hook run PreInvocation",
+				Timeout: 5,
 			},
 		},
 		PreToolUse: []AntigravityHookGroup{
 			{
-				Matcher: "run_command",
+				Matcher: "run_command|write_to_file|replace_file_content",
 				Hooks: []AntigravityHookCommand{
 					{
 						Type:    "command",
@@ -539,15 +555,11 @@ func DefaultAgyoHookSpec() AntigravityNamedHook {
 				},
 			},
 		},
-		Stop: []AntigravityHookGroup{
+		Stop: []AntigravityHookCommand{
 			{
-				Hooks: []AntigravityHookCommand{
-					{
-						Type:    "command",
-						Command: "agyo hook run Stop",
-						Timeout: 5,
-					},
-				},
+				Type:    "command",
+				Command: "agyo hook run Stop",
+				Timeout: 5,
 			},
 		},
 	}
@@ -720,7 +732,7 @@ func DispatchHookEvent(ctx context.Context, event string, r io.Reader, w io.Writ
 		out, handleErr := HandlePreToolUse(ctx, &in)
 		if handleErr != nil {
 			LogHookError(event, handleErr)
-			out = &PreToolUseOutput{}
+			out = &PreToolUseOutput{Decision: "allow"}
 		}
 		res, _ := json.Marshal(out)
 		_, _ = w.Write(append(res, '\n'))

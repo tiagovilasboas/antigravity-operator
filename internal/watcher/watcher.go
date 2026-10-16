@@ -136,6 +136,62 @@ func ParseLine(line []byte) (*Event, error) {
 	return &evt, nil
 }
 
+// DefaultMaxLineBytes define o limite maximo padrao por linha (10 MB).
+const DefaultMaxLineBytes = 10 * 1024 * 1024
+
+// ForEachLine le linhas de r de forma resiliente ate maxBytes por linha (padrao 10MB se <= 0).
+// Linhas que excederem o limite sao ignoradas com seguranca.
+func ForEachLine(r io.Reader, maxBytes int, fn func(line []byte) error) error {
+	if maxBytes <= 0 {
+		maxBytes = DefaultMaxLineBytes
+	}
+	reader := bufio.NewReaderSize(r, 64*1024)
+
+	for {
+		var line []byte
+		var oversized bool
+		for {
+			chunk, isPrefix, err := reader.ReadLine()
+			if err != nil {
+				if err == io.EOF {
+					if len(chunk) > 0 && !oversized {
+						if len(line)+len(chunk) > maxBytes {
+							oversized = true
+							line = nil
+						} else {
+							line = append(line, chunk...)
+						}
+					}
+					break
+				}
+				return err
+			}
+			if !oversized {
+				if len(line)+len(chunk) > maxBytes {
+					oversized = true
+					line = nil
+				} else {
+					line = append(line, chunk...)
+				}
+			}
+			if !isPrefix {
+				break
+			}
+		}
+		if oversized || len(line) == 0 {
+			if _, err := reader.Peek(1); err != nil {
+				break
+			}
+			continue
+		}
+
+		if err := fn(line); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Summary extrai uma descrição compacta e legível do evento para exibição no terminal.
 func (e *Event) Summary() string {
 	var sb strings.Builder

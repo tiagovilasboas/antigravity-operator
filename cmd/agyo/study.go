@@ -71,7 +71,7 @@ func runStudyIngest(info *platform.Info, args []string) {
 	title := fs.String("title", "", "Titulo opcional do conteudo ingerido")
 	port := fs.Int("port", 0, "Porta DevTools do Chrome")
 
-	if err := fs.Parse(args); err != nil {
+	if err := fs.Parse(permuteArgs(args, nil)); err != nil {
 		return
 	}
 
