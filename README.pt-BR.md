@@ -91,6 +91,7 @@ O `agyo` implementa o modelo canônico de **Outer Harness (Guia × Sensor)** de 
 
 | Superpoder | O que faz na prática | Especificação |
 |---|---|---|
+| **Workflow de Estudos (agyo study)** | Sintetiza aulas do YouTube, gera guias Feynman/flashcards e agenda preparatórios reversos. | [Spec 11](docs/spec/11-STUDENT-WORKFLOW-STUDY.md) |
 | **Cérebro & Mãos (NotebookLM)** | Externaliza conhecimento denso via CDP nativo e servidor stdio MCP. | [Spec 08](docs/spec/08-NOTEBOOKLM-E-MCP-SERVER.md) |
 | **Google Workspace Bridge** | Agendamento no Calendar e leitura/criação no Docs via OAuth2 puro e MCP. | [Spec 10](docs/spec/10-GOOGLE-WORKSPACE-BRIDGE.md) |
 | **Lifecycle Hooks (Agente de Sessão)** | Conecta direto no ciclo do Antigravity (`PreInvocation`, `PreToolUse`, `PostToolUse`, `Stop`). | [Spec 09](docs/spec/09-LIFECYCLE-HOOKS-SESSION-AGENT.md) |
@@ -117,6 +118,7 @@ O `agyo` implementa o modelo canônico de **Outer Harness (Guia × Sensor)** de 
 | `agyo browser start\|stop\|tabs` | Inicia e supervisiona o Chrome isolado usando protocolo CDP puro em Go. | [Spec 05](docs/spec/05-SUPERVISAO-CHROME-E-CDP-PURO.md) |
 | `agyo notebooklm ask\|mcp` | Consulta o NotebookLM ou inicia o servidor stdio MCP para IDEs com agentes. | [Spec 08](docs/spec/08-NOTEBOOKLM-E-MCP-SERVER.md) |
 | `agyo google auth\|status\|calendar\|docs` | Conecta ao Google Workspace (eventos do Calendar e documentos do Docs). | [Spec 10](docs/spec/10-GOOGLE-WORKSPACE-BRIDGE.md) |
+| `agyo study ingest\|exam-prep\|quiz` | Workflow acadêmico: video-para-artigo, plano reverso de provas e simulado Feynman. | [Spec 11](docs/spec/11-STUDENT-WORKFLOW-STUDY.md) |
 | `agyo doctor [--fix]` | Diagnostica dependências do host, variáveis de display e corrige arquivos. | [Spec 07](docs/spec/07-SENSORES-DOCTOR-E-SELF-HEALING.md) |
 | `agyo hook install\|uninstall` | Instala hook de git pre-commit para compactar tarefas e garantir continuidade. | [Spec 02](docs/spec/02-MEMORIA-OPERACIONAL-E-SESSAO.md) |
 | `agyo hook antigravity [status\|install]` | Gerencia hooks de lifecycle do Antigravity (`hooks.json`) para memória de sessão. | [Spec 09](docs/spec/09-LIFECYCLE-HOOKS-SESSION-AGENT.md) |
