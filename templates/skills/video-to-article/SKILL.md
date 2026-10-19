@@ -141,7 +141,7 @@ O NotebookLM passa a ter como fonte tanto o vídeo original quanto o artigo/spik
 
 ## 5. Regras Inegociáveis (Hard Constraints)
 
-1. **Zero Em-Dashes:** Nunca use travessões longos (`—`) ou meias-riscas (`–`). Use estritamente hífens normais com espaço: ` - `.
+1. **Zero Em-Dashes:** Nunca use travessoes longos ou meias-riscas. Use estritamente hifens normais com espaco: " - ".
 2. **Sem Afirmações sem Fonte:** Toda citação de métrica, comportamento interno de tecnologia ou arquitetura deve conter menção ao momento do vídeo ou referência direta da fonte.
 3. **Didática dos 80%:** O leitor de um artigo de estudos deve entender o "porquê" antes de ser bombardeado com especificações de API.
 4. **Validação Rigorosa de POCs:** Uma POC nunca termina sem que os testes tenham sido executados no terminal com resultado positivo comprovado nos logs.

@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/tiagovilasboas/antigravity-operator/internal/installer"
 	"github.com/tiagovilasboas/antigravity-operator/internal/notebook"
 	"github.com/tiagovilasboas/antigravity-operator/internal/platform"
 	"github.com/tiagovilasboas/antigravity-operator/internal/profile"
@@ -24,11 +26,11 @@ Usage:
   agyo google <subcommand> [arguments]
 
 Available subcommands:
-  auth        Authenticate with Google Workspace via local loopback OAuth 2.0
+  auth        Authenticate with Google Workspace via local loopback OAuth 2.0 (--credentials supported)
   status      Inspect Google Workspace authentication and token expiration
-  calendar    List or schedule Google Calendar events
+  calendar    List, schedule or export Google Calendar events (.ics & web template supported)
   docs        Read or create Google Docs documents
-  mcp         Run stdio MCP server exposing Google Workspace tools
+  mcp         Run or configure stdio MCP server for Google Calendar & Workspace (install|status|uninstall)
 
 Aliases:
   agyo gsuite <subcommand>
@@ -44,8 +46,22 @@ func printGoogleCalendarUsage() {
 Actions:
   list [--today|--week] [--max N] [--json]
       List upcoming Google Calendar events
-  add "<summary>" [--start "<datetime>"] [--end "<datetime>"] [--desc "<text>"] [--loc "<text>"]
-      Schedule a new event in the primary calendar (start format: RFC3339)`)
+  add "<summary>" [--start "<datetime>"] [--end "<datetime>"] [--desc "<text>"] [--loc "<text>"] [--ics "<file.ics>"] [--web]
+      Schedule a new event in the primary calendar (supports natural dates, .ics export and web zero-auth fallback)
+  ics "<summary>" [--start "<datetime>"] [--end "<datetime>"] [--desc "<text>"] [--loc "<text>"] [--out "<file.ics>"]
+      Export a universal iCalendar file directly without network access`)
+}
+
+func printGoogleMcpUsage() {
+	fmt.Println(`Usage:
+  agyo google mcp [action]
+
+Actions:
+  install     Configure google-calendar MCP server in Antigravity (mcp_config.json & default-servers.json)
+  status      Check whether google-calendar MCP server is configured and active
+  uninstall   Deregister google-calendar MCP server from Antigravity
+
+Without action, 'agyo google mcp' starts the stdio MCP server for direct agent communication with zero browser tabs.`)
 }
 
 func printGoogleDocsUsage() {
@@ -106,27 +122,46 @@ func runGoogle(info *platform.Info, args []string) {
 	switch sub {
 	case "auth":
 		if hasHelp(args[1:]) {
-			fmt.Println("Usage: agyo google auth [--client-id <id>] [--client-secret <secret>] [--port <p>]")
+			fmt.Println("Usage: agyo google auth [--credentials <file.json>] [--client-id <id>] [--client-secret <secret>] [--port <p>]")
 			fmt.Println("Inicia o fluxo OAuth 2.0 loopback local para autenticação com o Google Workspace.")
 			return
 		}
 		authCmd := flag.NewFlagSet("google auth", flag.ExitOnError)
 		clientID := authCmd.String("client-id", "", "Google OAuth 2.0 Client ID")
 		clientSecret := authCmd.String("client-secret", "", "Google OAuth 2.0 Client Secret")
+		credentialsFile := authCmd.String("credentials", "", "Caminho do arquivo credentials.json baixado do Google Cloud")
 		port := authCmd.Int("port", workspace.DefaultOAuthPort, "Porta do servidor loopback local")
 		_ = authCmd.Parse(args[1:])
 
 		cid := *clientID
+		csec := *clientSecret
+
+		if *credentialsFile != "" {
+			creds, err := workspace.ParseGoogleCredentials(*credentialsFile)
+			if err != nil {
+				runtimeError(err, "Falha ao validar arquivo de credenciais Google Cloud")
+				return
+			}
+			if cid == "" {
+				cid = creds.ClientID
+			}
+			if csec == "" {
+				csec = creds.ClientSecret
+			}
+			fmt.Printf("📄 Credenciais importadas com sucesso de: %s\n", *credentialsFile)
+			fmt.Printf("   Client ID     : %s\n", cid)
+			fmt.Printf("   Client Secret : %s\n", workspace.MaskSecret(csec))
+		}
+
 		if cid == "" {
 			cid = os.Getenv("GOOGLE_WORKSPACE_CLIENT_ID")
 		}
-		csec := *clientSecret
 		if csec == "" {
 			csec = os.Getenv("GOOGLE_WORKSPACE_CLIENT_SECRET")
 		}
 
 		if cid == "" {
-			fmt.Println("ℹ️  Dica: Você pode fornecer seu Client ID via --client-id ou GOOGLE_WORKSPACE_CLIENT_ID.")
+			fmt.Println("ℹ️  Dica: Você pode fornecer suas credenciais via --credentials <arquivo.json>, --client-id ou GOOGLE_WORKSPACE_CLIENT_ID.")
 			cid = "antigravity-operator.apps.googleusercontent.com"
 		}
 
@@ -243,9 +278,60 @@ func runGoogle(info *platform.Info, args []string) {
 		runGoogleDocs(info, authPath, args[1:])
 
 	case "mcp":
+		if len(args) > 1 && !strings.HasPrefix(args[1], "-") {
+			mcpAction := args[1]
+			switch mcpAction {
+			case "install":
+				st, err := installer.InstallCalendarMCP(info)
+				if err != nil {
+					runtimeError(err, "Falha ao instalar MCP do Google Calendar")
+					return
+				}
+				fmt.Println("✅ Servidor MCP 'google-calendar' instalado e configurado no Antigravity!")
+				fmt.Printf("   Comando : %s %s\n", st.Command, strings.Join(st.Args, " "))
+				fmt.Printf("   Schemas : %d ferramentas registradas em %s\n", st.SchemasCount, st.SchemaDir)
+				fmt.Println("💡 O agente de IA agora tem acesso direto ao Google Calendar com zero abas no navegador.")
+				return
+
+			case "status":
+				st, err := installer.CalendarMCPStatus(info)
+				if err != nil {
+					runtimeError(err, "Falha ao verificar status do MCP")
+					return
+				}
+				if hasJSON(args[2:]) {
+					data, _ := json.MarshalIndent(st, "", "  ")
+					fmt.Println(string(data))
+					return
+				}
+				if st.Installed {
+					fmt.Println("🔌 Servidor MCP Google Calendar: CONFIGURADO")
+					fmt.Printf("   Nome      : %s\n", st.Name)
+					fmt.Printf("   Comando   : %s %s\n", st.Command, strings.Join(st.Args, " "))
+					fmt.Printf("   Schemas   : %d ferramentas ativas em %s\n", st.SchemasCount, st.SchemaDir)
+					fmt.Println("   Status    : Ativo e pronto para uso pelo Antigravity (zero abas)")
+				} else {
+					fmt.Println("🔌 Servidor MCP Google Calendar: NÃO CONFIGURADO")
+					fmt.Println("   Para instalar : agyo google mcp install")
+				}
+				return
+
+			case "uninstall":
+				if err := installer.UninstallCalendarMCP(info); err != nil {
+					runtimeError(err, "Falha ao desinstalar MCP do Google Calendar")
+					return
+				}
+				fmt.Println("🗑️  Servidor MCP 'google-calendar' desinstalado do Antigravity.")
+				return
+
+			default:
+				usageError(fmt.Sprintf("unknown mcp action %q (use 'agyo google mcp --help')", mcpAction))
+				return
+			}
+		}
+
 		if hasHelp(args[1:]) {
-			fmt.Println("Usage: agyo google mcp")
-			fmt.Println("Inicia o servidor MCP stdio expondo ferramentas do Google Workspace e NotebookLM.")
+			printGoogleMcpUsage()
 			return
 		}
 		if err := notebook.ServeMCP(info, os.Stdin, os.Stdout); err != nil {
@@ -338,15 +424,17 @@ func runGoogleCalendar(info *platform.Info, authPath string, args []string) {
 
 	case "add":
 		if hasHelp(args[1:]) {
-			fmt.Println("Usage: agyo google calendar add \"<summary>\" [--start \"<datetime>\"] [--end \"<datetime>\"] [--desc \"<description>\"] [--loc \"<location>\"]")
+			fmt.Println("Usage: agyo google calendar add \"<summary>\" [--start \"<datetime>\"] [--end \"<datetime>\"] [--desc \"<description>\"] [--loc \"<location>\"] [--ics \"<file.ics>\"] [--web]")
 			fmt.Println("Agenda um novo evento no calendário primário do Google Calendar.")
 			return
 		}
 		addCmd := flag.NewFlagSet("calendar add", flag.ExitOnError)
-		startStr := addCmd.String("start", "", "Horário de início (formato RFC3339, ex: 2026-10-15T14:00:00Z)")
-		endStr := addCmd.String("end", "", "Horário de término (formato RFC3339)")
+		startStr := addCmd.String("start", "", "Horário de início (RFC3339, ISO, DD/MM/YYYY ou relativo ex: 'hoje 15:00', '+2h')")
+		endStr := addCmd.String("end", "", "Horário de término (RFC3339, ISO, DD/MM/YYYY ou relativo ex: '+1h')")
 		desc := addCmd.String("desc", "", "Descrição do evento")
 		loc := addCmd.String("loc", "", "Localização ou link de videoconferência")
+		icsPath := addCmd.String("ics", "", "Exportar evento para arquivo iCalendar universal (.ics)")
+		webFlag := addCmd.Bool("web", false, "Gerar URL web do Google Calendar para agendamento direto no navegador")
 		_ = addCmd.Parse(permuteArgs(args[1:], nil))
 
 		summary := ""
@@ -361,9 +449,9 @@ func runGoogleCalendar(info *platform.Info, authPath string, args []string) {
 		startTime := time.Now()
 		if *startStr != "" {
 			var err error
-			startTime, err = time.Parse(time.RFC3339, *startStr)
+			startTime, err = workspace.ParseFlexTime(*startStr, time.Now())
 			if err != nil {
-				usageError(fmt.Sprintf("formato de data/hora inválido para --start (use RFC3339, ex: 2026-10-15T14:00:00Z): %v", err))
+				usageError(fmt.Sprintf("formato de data/hora inválido para --start: %v", err))
 				return
 			}
 		}
@@ -371,7 +459,7 @@ func runGoogleCalendar(info *platform.Info, authPath string, args []string) {
 		var endTime time.Time
 		if *endStr != "" {
 			var err error
-			endTime, err = time.Parse(time.RFC3339, *endStr)
+			endTime, err = workspace.ParseFlexTime(*endStr, startTime)
 			if err != nil {
 				usageError(fmt.Sprintf("formato de data/hora inválido para --end: %v", err))
 				return
@@ -380,20 +468,73 @@ func runGoogleCalendar(info *platform.Info, authPath string, args []string) {
 			endTime = startTime.Add(1 * time.Hour)
 		}
 
-		tokenGetter := func(ctx context.Context) (string, error) {
-			return getGoogleWorkspaceToken(info, authPath)
-		}
-		client := workspace.NewCalendarClient(nil, "", tokenGetter)
-
-		created, err := client.CreateEvent(context.Background(), "primary", workspace.CalendarEvent{
+		event := workspace.CalendarEvent{
 			Summary:     summary,
 			Description: *desc,
 			Location:    *loc,
 			Start:       startTime,
 			End:         endTime,
-		})
+		}
+
+		if *icsPath != "" {
+			cwd, _ := os.Getwd()
+			baseDir := cwd
+			if filepath.IsAbs(*icsPath) {
+				baseDir = filepath.Dir(*icsPath)
+			}
+			if err := workspace.WriteSecureICSFile(*icsPath, []byte(event.ToICS()), baseDir); err != nil {
+				runtimeError(err, "Falha ao exportar arquivo ICS seguro")
+				return
+			}
+			fmt.Printf("💾 Arquivo iCalendar (.ics) exportado com sucesso: %s\n", *icsPath)
+		}
+
+		if *webFlag {
+			webURL := workspace.BuildCalendarWebURL(event)
+			fmt.Println("🌐 Agendamento Web do Google Calendar (Zero-Auth):")
+			fmt.Printf("   %s\n", webURL)
+			opened := false
+			if profile.CheckStatus(info.BrowserProfile).IsRunning {
+				if _, _, err := profile.OpenOrReuseTab(profile.DefaultDebugPort, webURL, false); err == nil {
+					opened = true
+				}
+			}
+			if !opened {
+				if info.OS == "darwin" {
+					_ = exec.Command("open", webURL).Start()
+				} else if info.OS == "linux" {
+					_ = exec.Command("xdg-open", webURL).Start()
+				}
+			}
+			fmt.Println("💡 Confirme a criação do evento na aba aberta do navegador.")
+			return
+		}
+
+		tokenGetter := func(ctx context.Context) (string, error) {
+			return getGoogleWorkspaceToken(info, authPath)
+		}
+		client := workspace.NewCalendarClient(nil, "", tokenGetter)
+
+		created, err := client.CreateEvent(context.Background(), "primary", event)
 		if err != nil {
-			runtimeError(err, "")
+			webURL := workspace.BuildCalendarWebURL(event)
+			fmt.Println("⚠️  Não foi possível agendar via API direta (Google Workspace não autenticado ou erro na API).")
+			fmt.Println("🌐 Fallback Zero-Auth ativado: use o link abaixo para criar o evento no navegador:")
+			fmt.Printf("   %s\n", webURL)
+			opened := false
+			if profile.CheckStatus(info.BrowserProfile).IsRunning {
+				if _, _, err := profile.OpenOrReuseTab(profile.DefaultDebugPort, webURL, false); err == nil {
+					opened = true
+				}
+			}
+			if !opened {
+				if info.OS == "darwin" {
+					_ = exec.Command("open", webURL).Start()
+				} else if info.OS == "linux" {
+					_ = exec.Command("xdg-open", webURL).Start()
+				}
+			}
+			fmt.Println("💡 Clique no link acima ou confirme a criação na aba aberta do navegador.")
 			return
 		}
 
@@ -403,6 +544,70 @@ func runGoogleCalendar(info *platform.Info, authPath string, args []string) {
 		if created.HtmlLink != "" {
 			fmt.Printf("   Link    : %s\n", created.HtmlLink)
 		}
+
+	case "ics":
+		if hasHelp(args[1:]) {
+			fmt.Println("Usage: agyo google calendar ics \"<summary>\" [--start \"<datetime>\"] [--end \"<datetime>\"] [--desc \"<description>\"] [--loc \"<location>\"] [--out \"<file.ics>\"]")
+			fmt.Println("Exporta um evento universal no formato iCalendar (.ics) com proteção contra CRLF injection e Path Traversal.")
+			return
+		}
+		icsCmd := flag.NewFlagSet("calendar ics", flag.ExitOnError)
+		startStr := icsCmd.String("start", "", "Horário de início (RFC3339, ISO, DD/MM/YYYY ou relativo ex: 'hoje 15:00', '+2h')")
+		endStr := icsCmd.String("end", "", "Horário de término (RFC3339, ISO, DD/MM/YYYY ou relativo ex: '+1h')")
+		desc := icsCmd.String("desc", "", "Descrição do evento")
+		loc := icsCmd.String("loc", "", "Localização ou link de videoconferência")
+		outPath := icsCmd.String("out", "evento.ics", "Caminho do arquivo .ics gerado")
+		_ = icsCmd.Parse(permuteArgs(args[1:], nil))
+
+		summary := ""
+		if icsCmd.NArg() > 0 {
+			summary = icsCmd.Arg(0)
+		}
+		if summary == "" {
+			usageError("o título do evento é obrigatório: agyo google calendar ics \"<título>\"")
+			return
+		}
+
+		startTime := time.Now()
+		if *startStr != "" {
+			var err error
+			startTime, err = workspace.ParseFlexTime(*startStr, time.Now())
+			if err != nil {
+				usageError(fmt.Sprintf("formato de data/hora inválido para --start: %v", err))
+				return
+			}
+		}
+
+		var endTime time.Time
+		if *endStr != "" {
+			var err error
+			endTime, err = workspace.ParseFlexTime(*endStr, startTime)
+			if err != nil {
+				usageError(fmt.Sprintf("formato de data/hora inválido para --end: %v", err))
+				return
+			}
+		} else {
+			endTime = startTime.Add(1 * time.Hour)
+		}
+
+		event := workspace.CalendarEvent{
+			Summary:     summary,
+			Description: *desc,
+			Location:    *loc,
+			Start:       startTime,
+			End:         endTime,
+		}
+
+		cwd, _ := os.Getwd()
+		baseDir := cwd
+		if filepath.IsAbs(*outPath) {
+			baseDir = filepath.Dir(*outPath)
+		}
+		if err := workspace.WriteSecureICSFile(*outPath, []byte(event.ToICS()), baseDir); err != nil {
+			runtimeError(err, "Falha ao gravar arquivo ICS seguro")
+			return
+		}
+		fmt.Printf("✅ Arquivo iCalendar exportado com sucesso: %s\n", *outPath)
 
 	default:
 		usageError(fmt.Sprintf("unknown calendar action %q (run 'agyo google calendar --help')", action))

@@ -1,7 +1,6 @@
 # Lista de Tarefas da Sessão
 
 ## Em Progresso ⏳
-- *(Nenhuma tarefa em execução)*
 
 ## Pendentes 📋
 - [ ] Validar fluxo ponta a ponta com o usuário (abertura do NotebookLM e login Google)
@@ -23,6 +22,9 @@
 
 ### Arquitetura Agentic IA BDI, SRP, DRY, Clean Code & UX - plano: [docs/plans/06-BDI-ARCHITECTURE-SRP-DRY-CLEAN-CODE.md](../../docs/plans/06-BDI-ARCHITECTURE-SRP-DRY-CLEAN-CODE.md)
 
+### Google Calendar MCP Autônomo (Zero-Tab & MCP Nativo) - plano: [docs/plans/07-GOOGLE-CALENDAR-MCP-AUTONOMOUS.md](../../docs/plans/07-GOOGLE-CALENDAR-MCP-AUTONOMOUS.md)
+> 📦 *Histórico compactado: 7 tarefas concluídas arquivadas em [completed-tasks-2026-10-19.md](archive/completed-tasks-2026-10-19.md)*
+
 ### Fora do agyo (Downshift)
 
 ## Concluídas ✅
@@ -33,3 +35,11 @@
 - [x] Binário compilado e instalado localmente em `~/.local/bin/agyo` (v0.5.0)
 - [x] README.md e README.pt-BR.md refatorados para layout moderno e escaneável (diagrama Brain & Hands, diagrama Agentic IA BDI, tabela FinOps e tabela de CLI com links para specs; CI 100% verde)
 
+
+
+### Cronograma de Prova: Engenharia de Software
+- [ ] 2026-11-18: Fundamentos e Leitura Base de Engenharia de Software (Revisao dos conceitos centrais e resumos)
+- [ ] 2026-11-20: Resolucao de Exercicios de Engenharia de Software (Pratica intensiva de listas e exercicios chave)
+- [ ] 2026-11-22: Simulado e Mapeamento de Gaps de Engenharia de Software (Simulado contra o relogio e levantamento de duvidas)
+- [ ] 2026-11-24: Revisao Leve e Flashcards de Engenharia de Software (Passada rapida nos flashcards e descanso mental)
+- [ ] 2026-11-25: Avaliacao: Dia da Prova de Engenharia de Software (Dia do exame presencial ou online)

@@ -8,6 +8,7 @@
 | [04](04-GOOGLE-WORKSPACE-BRIDGE.md) | Google Workspace Bridge (Calendar & Docs) | `WS-` |
 | [05](05-GAPS-PERFORMANCE-STUDENT-EDITION.md) | Gaps, performance e Student Edition | `GAP-`, `PERF-`, `STU-` |
 | [06](06-BDI-ARCHITECTURE-SRP-DRY-CLEAN-CODE.md) | Arquitetura Agentic IA BDI, SRP, DRY, Clean Code e UX | `BDI-`, `FIX-`, `REF-` |
+| [07](07-GOOGLE-CALENDAR-MCP-AUTONOMOUS.md) | Google Calendar MCP Autônomo (Zero-Tab & MCP Nativo) | `MCP-`, `QA-` |
 
 Tasks rastreadas em [`.agents/session/todo.md`](../../.agents/session/todo.md).
 

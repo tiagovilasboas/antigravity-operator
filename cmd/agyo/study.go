@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/tiagovilasboas/antigravity-operator/internal/notebook"
 	"github.com/tiagovilasboas/antigravity-operator/internal/platform"
+	"github.com/tiagovilasboas/antigravity-operator/internal/profile"
 	"github.com/tiagovilasboas/antigravity-operator/internal/workspace"
 	"github.com/tiagovilasboas/antigravity-operator/templates"
 )
@@ -198,9 +200,11 @@ func runStudyIngest(info *platform.Info, args []string) {
 func runStudyExamPrep(info *platform.Info, args []string) {
 	fs := flag.NewFlagSet("study exam-prep", flag.ContinueOnError)
 	disciplina := fs.String("disciplina", "", "Nome da disciplina ou prova")
-	dataStr := fs.String("data", "", "Data da prova no formato YYYY-MM-DD")
+	dataStr := fs.String("data", "", "Data da prova no formato YYYY-MM-DD, DD/MM/YYYY ou expressao relativa")
 	dias := fs.Int("dias", 7, "Quantidade de dias de preparacao reversa (padrao: 7)")
 	contextFlag := fs.String("context", "pessoal", "Contexto de autenticacao Google Workspace (padrao: pessoal)")
+	icsPath := fs.String("ics", "", "Exportar cronograma de preparacao para arquivo iCalendar (.ics)")
+	webFlag := fs.Bool("web", false, "Gerar URL web do Google Calendar para abertura direta no navegador")
 
 	if err := fs.Parse(args); err != nil {
 		return
@@ -210,19 +214,19 @@ func runStudyExamPrep(info *platform.Info, args []string) {
 
 	if cleanDisciplina == "" || *dataStr == "" {
 		fmt.Fprintln(os.Stderr, "Erro: as flags --disciplina <nome> e --data <YYYY-MM-DD> sao obrigatorias.")
-		fmt.Fprintln(os.Stderr, "Uso: agyo study exam-prep --disciplina \"Calculo III\" --data 2026-11-20 [--dias 7] [--context pessoal]")
+		fmt.Fprintln(os.Stderr, "Uso: agyo study exam-prep --disciplina \"Calculo III\" --data 2026-11-20 [--dias 7] [--context pessoal] [--ics cronograma.ics] [--web]")
 		exitFunc(ExitUsageError)
 		return
 	}
 
-	examDate, err := time.Parse("2006-01-02", *dataStr)
+	examDate, err := workspace.ParseFlexTime(*dataStr, time.Now())
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Formato de data invalido: %v (use YYYY-MM-DD, ex: 2026-11-20)\n", err)
+		fmt.Fprintf(os.Stderr, "Formato de data invalido: %v (use YYYY-MM-DD, DD/MM/YYYY ou expressoes relativas)\n", err)
 		exitFunc(ExitUsageError)
 		return
 	}
 
-	fmt.Printf("🎯 Plano de Preparacao Reversa para: %s (Data da Prova: %s)\n", cleanDisciplina, *dataStr)
+	fmt.Printf("🎯 Plano de Preparacao Reversa para: %s (Data da Prova: %s)\n", cleanDisciplina, examDate.Format("2006-01-02"))
 
 	// Define marcos do cronograma reverso
 	type milestone struct {
@@ -258,7 +262,40 @@ func runStudyExamPrep(info *platform.Info, args []string) {
 		}
 	}
 
-	// 2. Tenta agendar no Google Calendar se autenticado (SEC-STU-02, SEC-STU-05)
+	// 2. Monta eventos de calendario para sincronizacao e exportacao
+	var calEvents []workspace.CalendarEvent
+	for _, m := range plan {
+		targetDay := examDate.AddDate(0, 0, -m.DaysBefore)
+		startTime := time.Date(targetDay.Year(), targetDay.Month(), targetDay.Day(), 19, 0, 0, 0, time.Local)
+		endTime := startTime.Add(2 * time.Hour)
+		if m.DaysBefore == 0 {
+			startTime = time.Date(targetDay.Year(), targetDay.Month(), targetDay.Day(), 9, 0, 0, 0, time.Local)
+			endTime = startTime.Add(3 * time.Hour)
+		}
+		calEvents = append(calEvents, workspace.CalendarEvent{
+			Summary:     m.Title,
+			Description: fmt.Sprintf("Bloco de preparacao academica: %s", m.Desc),
+			Start:       startTime,
+			End:         endTime,
+		})
+	}
+
+	// 3. Exporta arquivo iCalendar (.ics) se solicitado (PLUG-03)
+	if *icsPath != "" {
+		cwd, _ := os.Getwd()
+		baseDir := cwd
+		if filepath.IsAbs(*icsPath) {
+			baseDir = filepath.Dir(*icsPath)
+		}
+		icsData := workspace.CalendarEventsToICS(calEvents)
+		if err := workspace.WriteSecureICSFile(*icsPath, []byte(icsData), baseDir); err != nil {
+			fmt.Fprintf(os.Stderr, "Aviso ao exportar arquivo .ics: %v\n", err)
+		} else {
+			fmt.Printf("💾 Cronograma exportado para iCalendar (.ics): %s\n", *icsPath)
+		}
+	}
+
+	// 4. Sincroniza com Google Calendar ou gera link web fallback (PLUG-02)
 	geminiDir := ""
 	if info != nil {
 		geminiDir = info.GeminiDir
@@ -272,27 +309,15 @@ func runStudyExamPrep(info *platform.Info, args []string) {
 		ctxName = env
 	}
 	authPath := workspace.AuthFilePathForContext(geminiDir, ctxName)
-	if tok, err := workspace.LoadToken(authPath); err == nil && (!tok.IsExpired() || tok.RefreshToken != "") {
+	if tok, err := workspace.LoadToken(authPath); err == nil && (!tok.IsExpired() || tok.RefreshToken != "") && !*webFlag {
 		tokenGetter := func(ctx context.Context) (string, error) {
 			return getGoogleWorkspaceToken(info, authPath)
 		}
 		calClient := workspace.NewCalendarClient(nil, "", tokenGetter)
 		createdCount := 0
-		for _, m := range plan {
-			targetDay := examDate.AddDate(0, 0, -m.DaysBefore)
-			startTime := time.Date(targetDay.Year(), targetDay.Month(), targetDay.Day(), 19, 0, 0, 0, time.Local)
-			endTime := startTime.Add(2 * time.Hour)
-			if m.DaysBefore == 0 {
-				startTime = time.Date(targetDay.Year(), targetDay.Month(), targetDay.Day(), 9, 0, 0, 0, time.Local)
-				endTime = startTime.Add(3 * time.Hour)
-			}
+		for _, evt := range calEvents {
 			callCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-			_, err := calClient.CreateEvent(callCtx, "primary", workspace.CalendarEvent{
-				Summary:     m.Title,
-				Description: fmt.Sprintf("Bloco de preparacao academica: %s", m.Desc),
-				Start:       startTime,
-				End:         endTime,
-			})
+			_, err := calClient.CreateEvent(callCtx, "primary", evt)
 			cancel()
 			if err == nil {
 				createdCount++
@@ -302,7 +327,26 @@ func runStudyExamPrep(info *platform.Info, args []string) {
 			fmt.Printf("📅 %d eventos sincronizados no Google Calendar (contexto: %s).\n", createdCount, ctxName)
 		}
 	} else {
-		fmt.Println("ℹ️  Google Calendar nao autenticado. Execute 'agyo google auth' para sincronizacao automatica da agenda.")
+		examEvent := calEvents[len(calEvents)-1] // Dia da prova
+		webURL := workspace.BuildCalendarWebURL(examEvent)
+		fmt.Println("ℹ️  Google Calendar nao autenticado (ou flag --web informada).")
+		fmt.Println("   Para sincronizar via terminal: agyo google auth")
+		fmt.Printf("   Link web para adicionar o dia da prova no Google Calendar:\n   %s\n", webURL)
+		if *webFlag {
+			opened := false
+			if profile.CheckStatus(info.BrowserProfile).IsRunning {
+				if _, _, err := profile.OpenOrReuseTab(profile.DefaultDebugPort, webURL, false); err == nil {
+					opened = true
+				}
+			}
+			if !opened {
+				if info.OS == "darwin" {
+					_ = exec.Command("open", webURL).Start()
+				} else if info.OS == "linux" {
+					_ = exec.Command("xdg-open", webURL).Start()
+				}
+			}
+		}
 	}
 
 	fmt.Println("✅ Cronograma de preparacao configurado com sucesso.")

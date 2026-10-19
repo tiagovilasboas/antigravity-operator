@@ -11,6 +11,10 @@
     "notebooklm": {
       "command": "agyo",
       "args": ["notebooklm", "mcp"]
+    },
+    "google-calendar": {
+      "command": "agyo",
+      "args": ["google", "mcp"]
     }
   }
 }

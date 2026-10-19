@@ -172,7 +172,7 @@ flowchart TB
 | `agyo dashboard` | Spawns zero-dependency local web inspector on `http://127.0.0.1:8080`. | [Spec 06](docs/spec/06-OBSERVABILIDADE-WATCHER-E-DASHBOARD.md) |
 | `agyo browser start\|stop\|tabs` | Launches and supervises isolated Chrome with pure-Go CDP protocol. | [Spec 05](docs/spec/05-SUPERVISAO-CHROME-E-CDP-PURO.md) |
 | `agyo notebooklm ask\|mcp` | Queries Google NotebookLM or exposes stdio MCP server for agent IDEs. | [Spec 08](docs/spec/08-NOTEBOOKLM-E-MCP-SERVER.md) |
-| `agyo google auth\|status\|calendar\|docs` | Connects to Google Workspace (Calendar events and Docs documents). | [Spec 10](docs/spec/10-GOOGLE-WORKSPACE-BRIDGE.md) |
+| `agyo google auth\|status\|calendar\|docs\|mcp` | Google Workspace bridge (Calendar scheduling with natural dates, .ics export, zero-tab MCP server). | [Spec 10](docs/spec/10-GOOGLE-WORKSPACE-BRIDGE.md) |
 | `agyo study ingest\|exam-prep\|quiz` | Academic workflow: video-to-article, reverse exam planning, and Feynman quiz. | [Spec 11](docs/spec/11-STUDENT-WORKFLOW-STUDY.md) |
 | `agyo doctor [--fix]` | Diagnoses host dependencies, display env, and repairs session files. | [Spec 07](docs/spec/07-SENSORES-DOCTOR-E-SELF-HEALING.md) |
 | `agyo hook install\|uninstall` | Installs git pre-commit hook that compacts sessions and checks continuity. | [Spec 02](docs/spec/02-MEMORIA-OPERACIONAL-E-SESSAO.md) |

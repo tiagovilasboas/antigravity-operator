@@ -69,13 +69,178 @@ func AuthFilePathForContext(geminiDir, contextName string) string {
 	return filepath.Join(geminiDir, fmt.Sprintf("google-workspace-auth.%s.json", safe))
 }
 
-// SaveToken persists the token to disk with restricted 0600 file permissions.
+// MaxCredentialsFileSize limits credentials.json import to 1 MB to prevent resource exhaustion attacks (PLUG-04).
+const MaxCredentialsFileSize = 1024 * 1024 // 1 MB
+
+// OAuthClientCredentials stores OAuth2 client credentials imported defensivelmente from Google Cloud Console.
+// ClientSecret is tagged with json:"-" to prevent secret leakage in any JSON serialization (PLUG-04).
+type OAuthClientCredentials struct {
+	ClientID     string `json:"client_id"`
+	ClientSecret string `json:"-"`
+	ProjectID    string `json:"project_id,omitempty"`
+}
+
+// MaskSecret returns a masked representation of a secret, revealing at most 3 characters at start and end.
+func MaskSecret(secret string) string {
+	secret = strings.TrimSpace(secret)
+	if secret == "" {
+		return ""
+	}
+	if len(secret) <= 8 {
+		return "********"
+	}
+	return secret[:3] + "..." + secret[len(secret)-3:]
+}
+
+// String redacts the client secret to prevent accidental leakage in logs.
+func (c *OAuthClientCredentials) String() string {
+	if c == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("OAuthClientCredentials(ClientID=%s, ClientSecret=[REDACTED], ProjectID=%s)", c.ClientID, c.ProjectID)
+}
+
+// SafeSummary returns non-sensitive metadata safe for terminal or JSON output.
+func (c *OAuthClientCredentials) SafeSummary() map[string]interface{} {
+	if c == nil {
+		return nil
+	}
+	return map[string]interface{}{
+		"client_id":  c.ClientID,
+		"has_secret": c.ClientSecret != "",
+		"project_id": c.ProjectID,
+	}
+}
+
+// ParseGoogleCredentials parses a Google Cloud Console credentials.json file defensivelmente,
+// enforcing size limits (<= 1 MB), file type checks, path traversal prevention,
+// and secret redaction in error messages (PLUG-04).
+func ParseGoogleCredentials(path string) (*OAuthClientCredentials, error) {
+	if strings.TrimSpace(path) == "" {
+		return nil, errors.New("caminho do arquivo de credenciais não pode ser vazio")
+	}
+	if strings.ContainsRune(path, 0) {
+		return nil, errors.New("caminho de arquivo inválido: caractere nulo detectado")
+	}
+
+	cleanPath := filepath.Clean(path)
+	ext := strings.ToLower(filepath.Ext(cleanPath))
+	if ext != ".json" {
+		return nil, fmt.Errorf("arquivo de credenciais inválido: deve possuir extensão .json (recebido: %q)", ext)
+	}
+
+	info, err := os.Lstat(cleanPath)
+	if err != nil {
+		return nil, fmt.Errorf("acesso ao arquivo de credenciais: %w", err)
+	}
+
+	// Resolve symlink target if applicable
+	targetPath := cleanPath
+	if info.Mode()&os.ModeSymlink != 0 {
+		resolved, err := filepath.EvalSymlinks(cleanPath)
+		if err != nil {
+			return nil, fmt.Errorf("avaliar link de credenciais: %w", err)
+		}
+		targetPath = resolved
+		info, err = os.Stat(targetPath)
+		if err != nil {
+			return nil, fmt.Errorf("acesso ao arquivo apontado pelo link de credenciais: %w", err)
+		}
+	}
+
+	if !info.Mode().IsRegular() {
+		return nil, errors.New("arquivo de credenciais deve ser um arquivo regular (não diretório, pipe ou dispositivo)")
+	}
+
+	if info.Size() > MaxCredentialsFileSize {
+		return nil, fmt.Errorf("arquivo de credenciais excede o limite máximo permitido de 1 MB (tamanho: %d bytes)", info.Size())
+	}
+	if info.Size() == 0 {
+		return nil, errors.New("arquivo de credenciais está vazio (0 bytes)")
+	}
+
+	f, err := os.Open(targetPath)
+	if err != nil {
+		return nil, fmt.Errorf("abrir arquivo de credenciais: %w", err)
+	}
+	defer f.Close()
+
+	// Read up to limit + 1 to detect dynamic growth or streaming sources
+	data, err := io.ReadAll(io.LimitReader(f, MaxCredentialsFileSize+1))
+	if err != nil {
+		return nil, fmt.Errorf("ler arquivo de credenciais: %w", err)
+	}
+	if int64(len(data)) > MaxCredentialsFileSize {
+		return nil, errors.New("arquivo de credenciais excede o limite máximo permitido de 1 MB")
+	}
+
+	var raw struct {
+		Installed *struct {
+			ClientID     string `json:"client_id"`
+			ClientSecret string `json:"client_secret"`
+			ProjectID    string `json:"project_id"`
+		} `json:"installed"`
+		Web *struct {
+			ClientID     string `json:"client_id"`
+			ClientSecret string `json:"client_secret"`
+			ProjectID    string `json:"project_id"`
+		} `json:"web"`
+		ClientID     string `json:"client_id"`
+		ClientSecret string `json:"client_secret"`
+		ProjectID    string `json:"project_id"`
+	}
+
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("estrutura JSON de credenciais inválida: %w", err)
+	}
+
+	var cid, csec, pid string
+	if raw.Installed != nil {
+		cid = raw.Installed.ClientID
+		csec = raw.Installed.ClientSecret
+		pid = raw.Installed.ProjectID
+	} else if raw.Web != nil {
+		cid = raw.Web.ClientID
+		csec = raw.Web.ClientSecret
+		pid = raw.Web.ProjectID
+	} else {
+		cid = raw.ClientID
+		csec = raw.ClientSecret
+		pid = raw.ProjectID
+	}
+
+	cid = strings.TrimSpace(cid)
+	csec = strings.TrimSpace(csec)
+	pid = strings.TrimSpace(pid)
+
+	if cid == "" {
+		return nil, errors.New("credenciais inválidas: client_id ausente ou vazio")
+	}
+	if csec == "" {
+		return nil, errors.New("credenciais inválidas: client_secret ausente ou vazio")
+	}
+	if len(cid) > 512 || len(csec) > 512 {
+		return nil, errors.New("credenciais inválidas: campos excedem tamanho máximo permitido")
+	}
+
+	return &OAuthClientCredentials{
+		ClientID:     cid,
+		ClientSecret: csec,
+		ProjectID:    pid,
+	}, nil
+}
+
+// SaveToken persists the token to disk with restricted 0600 file permissions and 0700 directory permissions.
 func SaveToken(path string, token *TokenInfo) error {
 	if token == nil {
 		return errors.New("cannot save nil token")
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0700); err != nil {
 		return fmt.Errorf("create config dir: %w", err)
+	}
+	if err := os.Chmod(dir, 0700); err != nil {
+		return fmt.Errorf("set config dir permissions: %w", err)
 	}
 	data, err := json.MarshalIndent(token, "", "  ")
 	if err != nil {
@@ -84,7 +249,9 @@ func SaveToken(path string, token *TokenInfo) error {
 	if err := os.WriteFile(path, data, 0600); err != nil {
 		return fmt.Errorf("write token file: %w", err)
 	}
-	_ = os.Chmod(path, 0600)
+	if err := os.Chmod(path, 0600); err != nil {
+		return fmt.Errorf("set token file permissions: %w", err)
+	}
 	return nil
 }
 
@@ -385,4 +552,51 @@ func (lb *LoopbackServer) handleCallback(w http.ResponseWriter, r *http.Request)
 	case lb.codeChan <- code:
 	default:
 	}
+}
+
+// GoogleCredentialsJSON models credentials files downloaded from Google Cloud Console (PLUG-04).
+type GoogleCredentialsJSON struct {
+	Installed *struct {
+		ClientID     string `json:"client_id"`
+		ClientSecret string `json:"client_secret"`
+	} `json:"installed"`
+	Web *struct {
+		ClientID     string `json:"client_id"`
+		ClientSecret string `json:"client_secret"`
+	} `json:"web"`
+	ClientID     string `json:"client_id"`
+	ClientSecret string `json:"client_secret"`
+}
+
+// ParseCredentialsFile reads a credentials.json file downloaded from Google Cloud Console,
+// extracting client_id and client_secret with full defensive security controls (PLUG-04).
+func ParseCredentialsFile(path string) (clientID, clientSecret string, err error) {
+	creds, err := ParseGoogleCredentials(path)
+	if err != nil {
+		return "", "", err
+	}
+	return creds.ClientID, creds.ClientSecret, nil
+}
+
+// ParseCredentialsJSON parses credentials JSON bytes downloaded from Google Cloud Console (PLUG-04).
+func ParseCredentialsJSON(data []byte) (clientID, clientSecret string, err error) {
+	if int64(len(data)) > MaxCredentialsFileSize {
+		return "", "", fmt.Errorf("arquivo de credenciais excede o limite máximo de 1 MB (tamanho: %d bytes)", len(data))
+	}
+	var creds GoogleCredentialsJSON
+	if err := json.Unmarshal(data, &creds); err != nil {
+		return "", "", fmt.Errorf("decodificar JSON de credenciais: %w", err)
+	}
+
+	if creds.Installed != nil && creds.Installed.ClientID != "" {
+		return creds.Installed.ClientID, creds.Installed.ClientSecret, nil
+	}
+	if creds.Web != nil && creds.Web.ClientID != "" {
+		return creds.Web.ClientID, creds.Web.ClientSecret, nil
+	}
+	if creds.ClientID != "" {
+		return creds.ClientID, creds.ClientSecret, nil
+	}
+
+	return "", "", errors.New("não foi possível encontrar client_id e client_secret válidos no JSON informado")
 }

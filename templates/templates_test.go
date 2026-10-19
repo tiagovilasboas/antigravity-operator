@@ -42,3 +42,32 @@ func TestMCPTemplates_PinNpxPackages(t *testing.T) {
 		}
 	}
 }
+
+func TestMCPTemplates_GoogleCalendar(t *testing.T) {
+	manifestPath := "mcps/default-servers.json"
+	raw, err := FS.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("falha ao ler %s: %v", manifestPath, err)
+	}
+
+	var cfg struct {
+		MCPServers map[string]struct {
+			Command string   `json:"command"`
+			Args    []string `json:"args"`
+		} `json:"mcpServers"`
+	}
+	if err := json.Unmarshal(raw, &cfg); err != nil {
+		t.Fatalf("JSON inválido em %s: %v", manifestPath, err)
+	}
+
+	srv, ok := cfg.MCPServers["google-calendar"]
+	if !ok {
+		t.Fatalf("mcpServers deve conter 'google-calendar'")
+	}
+	if srv.Command != "agyo" {
+		t.Errorf("srv.Command = %q; want %q", srv.Command, "agyo")
+	}
+	if len(srv.Args) != 2 || srv.Args[0] != "google" || srv.Args[1] != "mcp" {
+		t.Errorf("srv.Args = %v; want [\"google\", \"mcp\"]", srv.Args)
+	}
+}
