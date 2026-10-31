@@ -1,16 +1,22 @@
 # Estado da Sessão
 
 ## Objetivo Atual
-- Conclusão do Plano 07: Google Calendar Plug-and-Play no `agyo` e Plugin nativo no Antigravity (`PLUG-01` a `PLUG-06` e `QA-07`).
+- Plano 08 Concluído: Computer Use Híbrido no `agyo` (Accessibility-First + Fallback Visual) e servidor MCP stdio para o Antigravity (`COMP-01` a `COMP-06` e `QA-08`).
 
 ## Status em Tempo Real
-- **Fase Atual:** Plano 07 Concluído com Sucesso e Validado (PLUG-01 a PLUG-06 + QA-07).
+- **Fase Atual:** Plano 08 implementado e validado ponta a ponta com 100% dos testes e cross-compilação verdes.
+- **Branch:** `feat/computer-use`
 - **Bloqueios:** Nenhum
-- **Última Validação:** `go test -count=1 -race ./...` e `go vet ./...` 100% verdes, zero travessões (em-dashes) confirmados.
+- **Última Validação:**
+  - 17 pacotes com `go test -race ./...` 100% PASS
+  - `gofmt -l .` e `go vet ./...` sem advertências
+  - `make build` e `make build-linux` (CGO_ENABLED=0 estático) gerados com sucesso
+  - Testes reais no macOS de `agyo computer inspect` (extração em ~150ms sem imagem) e `agyo computer shot` (JPEG 92KB via `sips`) validados com sucesso.
 
 ## Próximos Passos Imediatos
-1. Validar fluxo ponta a ponta com o usuário (abertura do NotebookLM e login Google).
-2. Divulgar no TabNews e LinkedIn.
+1. Commit na branch `feat/computer-use`.
+2. Instalar binário atualizado localmente (`make install`).
+3. Reportar resultado final e evidências ao usuário.
 
 
 

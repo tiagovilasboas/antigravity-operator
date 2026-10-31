@@ -16,6 +16,7 @@ var commandCandidates = []commandCandidate{
 	{"checkpoint", "checkpoint"},
 	{"rollback", "rollback"},
 	{"browser", "browser"},
+	{"computer", "computer"},
 	{"notebooklm", "notebooklm"},
 	{"notebooklm", "notebook"},
 	{"notebooklm", "nblm"},

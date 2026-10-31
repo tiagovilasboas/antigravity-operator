@@ -6,6 +6,15 @@
 - [ ] Validar fluxo ponta a ponta com o usuário (abertura do NotebookLM e login Google)
 - [ ] Divulgar no TabNews e LinkedIn
 
+### Plano 08: Computer Use Híbrido (Accessibility-First + Fallback Visual)
+- [x] **COMP-01**: Core Domain & Types (`internal/computer/computer.go`) [2 pts]
+- [x] **COMP-02**: Accessibility Tree Engine (`internal/computer/ax.go`) [3 pts]
+- [x] **COMP-03**: Optimized Screen Capture (`internal/computer/screen.go`) [2 pts]
+- [x] **COMP-04**: Input & Macro Injection Engine (`internal/computer/input.go`) [3 pts]
+- [x] **COMP-05**: CLI Subcommand Integration (`cmd/agyo/cmd_computer.go`) [3 pts]
+- [x] **COMP-06**: MCP Server Protocol (`internal/computer/mcp.go`) [3 pts]
+- [x] **QA-08**: Bateria de QA, Sensores de Verificação e Cross-Compilação [2 pts]
+
 ### Lifecycle hooks - plano: [docs/plans/01-LIFECYCLE-HOOKS-SESSION-AGENT.md](../../docs/plans/01-LIFECYCLE-HOOKS-SESSION-AGENT.md)
 > 📦 *Histórico compactado: 7 tarefas concluídas arquivadas em [completed-tasks-2026-10-15.md](archive/completed-tasks-2026-10-15.md)*
 > 📦 *Histórico compactado: 29 tarefas concluídas arquivadas em [completed-tasks-2026-10-15.md](archive/completed-tasks-2026-10-15.md)*
