@@ -35,3 +35,11 @@
   3. **Pacote:** `internal/computer` e subcomando `agyo computer [inspect|shot|click|type|key|batch|mcp]`.
 - **Trade-offs:** Em vez de depender de frameworks de visão pesados locais (YOLO/OmniParser) ou queimar milhares de tokens de visão na nuvem a cada segundo, a semântica nativa do macOS entrega velocidade de ~100ms e precisão matemática.
 
+### [2026-10-31] Supressão Rigorosa de Browser Spawning em Testes e Remoção de Auto-Open no Fallback de Erro da API
+- **Contexto:** Durante execuções de testes unitários (`google_test.go`, `main_test.go`), o cliente chamava `calendar add` que falhava na API direta por falta de autenticação de teste e caía no fallback `exec.Command("open", webURL)`, abrindo dezenas de abas do Google Calendar repetidamente no Google Chrome do usuário.
+- **Decisão:**
+  1. Criar helper centralizado `openBrowserURL(osName, url)` que verifica `testing.Testing() || flag.Lookup("test.v") != nil` antes de qualquer execução de `open` ou `xdg-open`.
+  2. Remover completamente a execução de abertura de browser na rota de fallback de erro da API do Google Calendar (`cmd/agyo/google.go`), imprimindo apenas a URL e instruindo o usuário a autenticar via CLI ou abrir manualmente.
+  3. Blindar `internal/dashboard.OpenBrowser` com a mesma checagem de ambiente de teste.
+- **Trade-offs:** Elimina 100% dos loops de abas fantasmas e respeita estritamente o Guardrail de Instância Única e Zero Janelas Paralelas do Chrome.
+

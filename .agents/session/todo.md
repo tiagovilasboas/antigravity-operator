@@ -41,7 +41,9 @@
 > 📦 *Histórico compactado: 32 tarefas concluídas arquivadas em [completed-tasks-2026-10-01.md](archive/completed-tasks-2026-10-01.md)*
 > 📦 *Histórico compactado: 5 tarefas concluídas arquivadas em [completed-tasks-2026-10-08.md](archive/completed-tasks-2026-10-08.md)*
 - [x] PR #31 aprovado pelo CI do GitHub Actions e mesclado na branch `main`
-- [x] Binário compilado e instalado localmente em `~/.local/bin/agyo` (v0.5.0)
+- [x] PR #33 (Computer Use Híbrido) mesclado no `main` e documentação sincronizada
+- [x] Fix urgente: supressão de abertura de navegador durante testes e remoção de auto-open em fallback de erro da API
+- [x] Binário compilado e instalado localmente em `~/.local/bin/agyo` (v0.5.0-25-g2115ade)
 - [x] README.md e README.pt-BR.md refatorados para layout moderno e escaneável (diagrama Brain & Hands, diagrama Agentic IA BDI, tabela FinOps e tabela de CLI com links para specs; CI 100% verde)
 
 
