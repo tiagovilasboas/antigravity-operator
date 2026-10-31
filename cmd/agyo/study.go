@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -340,11 +339,7 @@ func runStudyExamPrep(info *platform.Info, args []string) {
 				}
 			}
 			if !opened {
-				if info.OS == "darwin" {
-					_ = exec.Command("open", webURL).Start()
-				} else if info.OS == "linux" {
-					_ = exec.Command("xdg-open", webURL).Start()
-				}
+				_ = openBrowserURL(info.OS, webURL)
 			}
 		}
 	}

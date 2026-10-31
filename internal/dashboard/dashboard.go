@@ -4,6 +4,7 @@ import (
 	"context"
 	_ "embed"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"net"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/tiagovilasboas/antigravity-operator/internal/doctor"
@@ -167,6 +169,9 @@ func (s *Server) Shutdown(ctx context.Context) error {
 
 // OpenBrowser tenta abrir a URL no navegador padrão do sistema operacional.
 func OpenBrowser(url string) {
+	if testing.Testing() || flag.Lookup("test.v") != nil {
+		return
+	}
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "darwin":

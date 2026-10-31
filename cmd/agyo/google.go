@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/tiagovilasboas/antigravity-operator/internal/installer"
@@ -17,6 +18,18 @@ import (
 	"github.com/tiagovilasboas/antigravity-operator/internal/profile"
 	"github.com/tiagovilasboas/antigravity-operator/internal/workspace"
 )
+
+var openBrowserURL = func(osName, url string) error {
+	if testing.Testing() || flag.Lookup("test.v") != nil {
+		return nil // NUNCA abre navegador durante execuções de testes automatizados
+	}
+	if osName == "darwin" {
+		return exec.Command("open", url).Start()
+	} else if osName == "linux" {
+		return exec.Command("xdg-open", url).Start()
+	}
+	return nil
+}
 
 func printGoogleUsage() {
 	fmt.Println(`agyo google - Google Workspace Bridge (Calendar & Docs)
@@ -186,11 +199,7 @@ func runGoogle(info *platform.Info, args []string) {
 		}
 
 		if !openedInProfile {
-			if info.OS == "darwin" {
-				_ = exec.Command("open", authURL).Start()
-			} else if info.OS == "linux" {
-				_ = exec.Command("xdg-open", authURL).Start()
-			}
+			_ = openBrowserURL(info.OS, authURL)
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
@@ -500,11 +509,7 @@ func runGoogleCalendar(info *platform.Info, authPath string, args []string) {
 				}
 			}
 			if !opened {
-				if info.OS == "darwin" {
-					_ = exec.Command("open", webURL).Start()
-				} else if info.OS == "linux" {
-					_ = exec.Command("xdg-open", webURL).Start()
-				}
+				_ = openBrowserURL(info.OS, webURL)
 			}
 			fmt.Println("💡 Confirme a criação do evento na aba aberta do navegador.")
 			return
@@ -521,20 +526,7 @@ func runGoogleCalendar(info *platform.Info, authPath string, args []string) {
 			fmt.Println("⚠️  Não foi possível agendar via API direta (Google Workspace não autenticado ou erro na API).")
 			fmt.Println("🌐 Fallback Zero-Auth ativado: use o link abaixo para criar o evento no navegador:")
 			fmt.Printf("   %s\n", webURL)
-			opened := false
-			if profile.CheckStatus(info.BrowserProfile).IsRunning {
-				if _, _, err := profile.OpenOrReuseTab(profile.DefaultDebugPort, webURL, false); err == nil {
-					opened = true
-				}
-			}
-			if !opened {
-				if info.OS == "darwin" {
-					_ = exec.Command("open", webURL).Start()
-				} else if info.OS == "linux" {
-					_ = exec.Command("xdg-open", webURL).Start()
-				}
-			}
-			fmt.Println("💡 Clique no link acima ou confirme a criação na aba aberta do navegador.")
+			fmt.Println("💡 Acesse o link acima no navegador ou autentique o terminal com: agyo google auth")
 			return
 		}
 
