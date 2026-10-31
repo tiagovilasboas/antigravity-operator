@@ -14,6 +14,7 @@ func TestScreenCapturer_CaptureDarwin_Mock(t *testing.T) {
 
 	var executedCommands []string
 	sc := &ScreenCapturer{
+		goos: "darwin",
 		customExec: func(ctx context.Context, name string, args ...string) ([]byte, error) {
 			executedCommands = append(executedCommands, name+" "+strings.Join(args, " "))
 			// Se for sips gerando outPath, cria arquivo simulado
@@ -25,6 +26,7 @@ func TestScreenCapturer_CaptureDarwin_Mock(t *testing.T) {
 			return []byte("ok"), nil
 		},
 		inspector: &Inspector{
+			goos: "darwin",
 			customExec: func(ctx context.Context, name string, args ...string) ([]byte, error) {
 				return []byte(`{"app":"App","bounds":{"x":10,"y":20,"width":800,"height":600},"elements":[]}`), nil
 			},
@@ -39,7 +41,7 @@ func TestScreenCapturer_CaptureDarwin_Mock(t *testing.T) {
 		OutPath:    outPath,
 	}
 
-	data, savedPath, err := sc.captureDarwin(context.Background(), opts, outPath)
+	data, savedPath, err := sc.Capture(context.Background(), opts)
 	if err != nil {
 		t.Fatalf("captureDarwin() error = %v", err)
 	}

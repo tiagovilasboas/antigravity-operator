@@ -9,12 +9,16 @@ import (
 func TestInputEngine_ResolveActionCoordinates(t *testing.T) {
 	mockJSON := `{"app":"App","elements":[{"role":"AXButton","title":"ClickMe","x":100,"y":200,"w":50,"h":40}]}`
 	ins := &Inspector{
+		goos: "darwin",
 		customExec: func(ctx context.Context, name string, args ...string) ([]byte, error) {
 			return []byte(mockJSON), nil
 		},
 	}
 
-	ie := NewInputEngine(ins)
+	ie := &InputEngine{
+		goos:      "darwin",
+		inspector: ins,
+	}
 	action := Action{Type: ActionClick, Ref: "ref_1"}
 
 	if err := ie.ResolveActionCoordinates(context.Background(), &action); err != nil {
@@ -30,6 +34,7 @@ func TestInputEngine_ResolveActionCoordinates(t *testing.T) {
 func TestInputEngine_ExecuteDarwin_Mock(t *testing.T) {
 	var executed []string
 	ie := &InputEngine{
+		goos: "darwin",
 		customExec: func(ctx context.Context, name string, args ...string) ([]byte, error) {
 			executed = append(executed, name+" "+strings.Join(args, " "))
 			return []byte("ok"), nil
@@ -70,6 +75,7 @@ func TestInputEngine_ExecuteDarwin_Mock(t *testing.T) {
 func TestInputEngine_ExecuteBatch(t *testing.T) {
 	count := 0
 	ie := &InputEngine{
+		goos: "darwin",
 		customExec: func(ctx context.Context, name string, args ...string) ([]byte, error) {
 			count++
 			return []byte("ok"), nil

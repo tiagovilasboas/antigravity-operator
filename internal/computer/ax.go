@@ -32,6 +32,7 @@ type RawSnapshot struct {
 
 // Inspector é responsável por extrair a árvore semântica da janela em foco.
 type Inspector struct {
+	goos       string
 	customExec func(ctx context.Context, name string, args ...string) ([]byte, error)
 }
 
@@ -45,9 +46,16 @@ func NewInspector() *Inspector {
 	}
 }
 
+func (ins *Inspector) targetOS() string {
+	if ins.goos != "" {
+		return ins.goos
+	}
+	return runtime.GOOS
+}
+
 // InspectWindow extrai os elementos semânticos da janela ativa no SO.
 func (ins *Inspector) InspectWindow(ctx context.Context) (*Snapshot, error) {
-	if runtime.GOOS == "darwin" {
+	if ins.targetOS() == "darwin" {
 		return ins.inspectDarwin(ctx)
 	}
 	return ins.inspectFallback(ctx)

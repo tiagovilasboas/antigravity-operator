@@ -12,6 +12,7 @@ import (
 
 // ScreenCapturer é responsável pela captura e compressão otimizada de tela.
 type ScreenCapturer struct {
+	goos       string
 	customExec func(ctx context.Context, name string, args ...string) ([]byte, error)
 	inspector  *Inspector
 }
@@ -28,6 +29,13 @@ func NewScreenCapturer(ins *Inspector) *ScreenCapturer {
 			return cmd.CombinedOutput()
 		},
 	}
+}
+
+func (sc *ScreenCapturer) targetOS() string {
+	if sc.goos != "" {
+		return sc.goos
+	}
+	return runtime.GOOS
 }
 
 // Capture executa a captura de tela aplicando downsampling e compressão para corte de tokens.
@@ -54,7 +62,7 @@ func (sc *ScreenCapturer) Capture(ctx context.Context, opts ShotOptions) ([]byte
 		_ = tmpFile.Close()
 	}
 
-	if runtime.GOOS == "darwin" {
+	if sc.targetOS() == "darwin" {
 		return sc.captureDarwin(ctx, opts, targetPath)
 	}
 

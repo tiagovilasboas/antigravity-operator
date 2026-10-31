@@ -11,6 +11,7 @@ import (
 
 // InputEngine executa injeções de eventos HID (mouse e teclado).
 type InputEngine struct {
+	goos       string
 	customExec func(ctx context.Context, name string, args ...string) ([]byte, error)
 	inspector  *Inspector
 }
@@ -27,6 +28,13 @@ func NewInputEngine(ins *Inspector) *InputEngine {
 			return cmd.CombinedOutput()
 		},
 	}
+}
+
+func (ie *InputEngine) targetOS() string {
+	if ie.goos != "" {
+		return ie.goos
+	}
+	return runtime.GOOS
 }
 
 // ResolveActionCoordinates resolve coordenadas (x, y) caso a ação use uma referência de elemento (Ref).
@@ -58,7 +66,7 @@ func (ie *InputEngine) Execute(ctx context.Context, action Action) error {
 		return err
 	}
 
-	if runtime.GOOS == "darwin" {
+	if ie.targetOS() == "darwin" {
 		return ie.executeDarwin(ctx, action)
 	}
 
