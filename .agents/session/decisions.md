@@ -24,3 +24,14 @@
   4. Manter filosofia KISS/YAGNI: zero dependências de runtime de terceiros, 100% Go padrão.
 - **Trade-offs:** A interação com o NotebookLM web é feita via CDP no contexto do navegador já autenticado pelo usuário, eliminando a fragilidade de RPCs obfuscados sujeitos a rotações do Google e respeitando a privacidade/isolamento do perfil.
 
+### [2026-10-31] Computer Use Híbrido no agyo (Opção B - Accessibility-First)
+- **Contexto:** Necessidade de permitir que o Antigravity e agentes operem o sistema operacional (desktop, janelas nativas, menus) com alta performance, baixo consumo de tokens e sem dependências pesadas de runtime.
+- **Decisão:**
+  1. Adotar a arquitetura híbrida (Opção B):
+     - **Pirâmide de Percepção:** Primeiro lê a árvore semântica da janela ativa via Accessibility API (`AXUIElement`), reduzindo o consumo de tokens de ~2.000 (visão bruta) para ~200 tokens de texto e cliques determinísticos por ID/nome.
+     - **Fallback Visual:** Apenas quando solicitado explicitamente ou em interfaces não-semânticas (canvas), capturar a janela ativa com `screencapture` e comprimir com `sips` (JPEG 1280px 70%), reduzindo o tamanho de arquivo em >85%.
+     - **Action Batching:** Permitir execução de macros sequenciais (focar, clicar, digitar, atalho) em um único turno.
+  2. **Zero CGo:** Implementar a ponte com o macOS usando os utilitários nativos e JXA (`osascript -l JavaScript`), garantindo que a compilação do `agyo` continue sendo `CGO_ENABLED=0` estática e cross-compilável para Linux.
+  3. **Pacote:** `internal/computer` e subcomando `agyo computer [inspect|shot|click|type|key|batch|mcp]`.
+- **Trade-offs:** Em vez de depender de frameworks de visão pesados locais (YOLO/OmniParser) ou queimar milhares de tokens de visão na nuvem a cada segundo, a semântica nativa do macOS entrega velocidade de ~100ms e precisão matemática.
+

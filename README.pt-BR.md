@@ -205,6 +205,7 @@ antigravity-operator/
 │   ├── installer/            # SRP: Idempotent rule and MCP manifesto synchronization
 │   ├── notebook/             # SRP: Native Google NotebookLM integration & stdio MCP server
 │   ├── workspace/            # SRP: Google Workspace Bridge (Calendar v3, Docs v1 & loopback auth)
+│   ├── computer/             # SRP: Motor de Computer Use híbrido (Accessibility-First) e MCP
 │   └── doctor/               # SRP: Machine diagnostic computational sensors
 ├── templates/                # Embedded static assets via //go:embed (zero external deps)
 ├── skills/                   # Bonus student skills (video-to-article, feynman, etc.)

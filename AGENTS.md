@@ -46,6 +46,7 @@ O `antigravity-operator` é um motor de execução e gerenciamento de **Session 
 | `internal/hook/` | Hook git pre-commit de continuidade de sessão |
 | `internal/completion/` | Scripts de autocompletar (bash, zsh, fish) |
 | `internal/workspace/` | Google Workspace Bridge: cliente Calendar v3, Docs v1, OAuth2 loopback e storage |
+| `internal/computer/` | Engine de Computer Use híbrido (Accessibility-First + fallback visual), HID input e MCP |
 | `templates/` | Templates embutidos via `embed.FS` (regras, sessão, MCPs, skills) |
 | `scripts/` | `install.sh` (verifica `checksums.txt`), setup de dev e checagem de pacotes MCP no npm |
 | `.github/workflows/` | CI (gofmt, vet, testes com race) e release (binários, checksums) |

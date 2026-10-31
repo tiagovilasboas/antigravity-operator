@@ -138,6 +138,8 @@ func main() {
 		runDoctor(info, os.Args[2:])
 	case "browser":
 		runBrowser(info, os.Args[2:])
+	case "computer":
+		runComputer(info, os.Args[2:])
 	case "notebook", "notebooklm", "nblm":
 		runNotebook(info, os.Args[2:])
 	case "sync":
@@ -203,6 +205,13 @@ Available commands:
   browser close <id>  Close a specific tab by ID
   browser eval "<js>" Evaluate JavaScript expression in the active tab (pure Go CDP)
   browser shot [file] Capture PNG screenshot of active tab without external libraries
+  computer inspect    Inspect active window and extract semantic Accessibility Tree (--json)
+  computer shot [f]   Capture compressed, token-optimized screenshot (JPEG 1280px by default)
+  computer click <r>  Click element by ref (e.g. ref_1) or coordinates (x y) (--double, --right)
+  computer type "<t>" Type text string into focused element
+  computer key "<k>"  Press key or shortcut (e.g. return, esc, cmd+space, cmd+c)
+  computer batch '<j>' Execute macro sequence of actions in one call
+  computer mcp        Serve stdio Model Context Protocol (MCP) server for agents
   notebooklm status   Inspect Google NotebookLM connection and auth readiness
   notebooklm open     Launch isolated Chrome directly into Google NotebookLM
   notebooklm list     List all notebooks available in the active Google account
