@@ -78,6 +78,7 @@ A especificação completa está modularizada por domínios de responsabilidade 
 | **09. Lifecycle Hooks** | [09-LIFECYCLE-HOOKS-SESSION-AGENT.md](09-LIFECYCLE-HOOKS-SESSION-AGENT.md) | Conexão do agyo no loop do Antigravity (PreInvocation, PostToolUse, Stop) via hooks.json. |
 | **10. Google Workspace Bridge** | [10-GOOGLE-WORKSPACE-BRIDGE.md](10-GOOGLE-WORKSPACE-BRIDGE.md) | Conexão com Google Calendar v3 e Docs v1 via OAuth2 loopback local e ferramentas MCP. |
 | **11. Workflow de Estudos** | [11-STUDENT-WORKFLOW-STUDY.md](11-STUDENT-WORKFLOW-STUDY.md) | Orquestração acadêmica de video-para-artigo, plano reverso de provas no Calendar e simulados no Docs. |
+| **12. Computer Use Engine** | [12-COMPUTER-USE-ENGINE.md](12-COMPUTER-USE-ENGINE.md) | Motor híbrido de automação desktop (Accessibility-First), injeção HID, captura otimizada e MCP stdio. |
 
 ---
 

@@ -109,7 +109,36 @@ agyo notebooklm mcp
 ```
 *(Aliases curtos suportados: `agyo notebook` e `agyo nblm`)*
 
-### 5. Proteção de Continuidade Git (Pre-Commit Sensor)
+### 5. Computer Use (Automação de Desktop & Accessibility Tree)
+```bash
+# Inspecionar a árvore semântica da janela ativa (rápido, ~200 tokens de texto, 0 imagens):
+agyo computer inspect
+
+# Inspecionar em formato JSON completo:
+agyo computer inspect --json
+
+# Capturar print otimizado em JPEG com crop na janela ativa (fallback visual):
+agyo computer shot --window [arquivo.jpg]
+
+# Clicar em elemento pelo ID de referência ou por coordenadas (x y):
+agyo computer click ref_2
+agyo computer click 450 320
+
+# Digitar texto no elemento em foco:
+agyo computer type "texto a ser digitado"
+
+# Acionar atalho de teclado ou tecla especial:
+agyo computer key "cmd+space"
+agyo computer key "return"
+
+# Executar macro sequencial em lote:
+agyo computer batch '[{"action":"click","ref":"ref_1"},{"action":"type","text":"busca"},{"action":"key","key":"return"}]'
+
+# Iniciar servidor Model Context Protocol (MCP) stdio para agentes:
+agyo computer mcp
+```
+
+### 6. Proteção de Continuidade Git (Pre-Commit Sensor)
 ```bash
 # Instalar o hook de pre-commit no repositório:
 agyo hook install
@@ -118,7 +147,7 @@ agyo hook install
 agyo hook uninstall
 ```
 
-### 6. Sincronização de Regras e Manifestos
+### 7. Sincronização de Regras e Manifestos
 ```bash
 agyo sync
 ```

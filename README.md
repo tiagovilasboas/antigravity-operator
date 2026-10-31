@@ -147,6 +147,7 @@ flowchart TB
 | Capability | What it does | Spec |
 |---|---|---|
 | **Student Workflow (agyo study)** | Synthesizes YouTube lectures, generates Feynman guides/flashcards, and schedules reverse exam prep. | [Spec 11](docs/spec/11-STUDENT-WORKFLOW-STUDY.md) |
+| **Computer Use Engine** | Native desktop automation via Accessibility Tree (`AXUIElement`), batch macros, and stdio MCP server. | [Spec 12](docs/spec/12-COMPUTER-USE-ENGINE.md) |
 | **Brain & Hands (NotebookLM)** | Externalizes dense multimodal knowledge via pure-Go CDP and stdio MCP server. | [Spec 08](docs/spec/08-NOTEBOOKLM-E-MCP-SERVER.md) |
 | **Google Workspace Bridge** | Calendar scheduling and Docs reading/creation via pure-Go OAuth2 and MCP tools. | [Spec 10](docs/spec/10-GOOGLE-WORKSPACE-BRIDGE.md) |
 | **Lifecycle Hooks (Session Agent)** | Hooks directly into Antigravity loop (`PreInvocation`, `PreToolUse`, `PostToolUse`, `Stop`). | [Spec 09](docs/spec/09-LIFECYCLE-HOOKS-SESSION-AGENT.md) |
@@ -171,6 +172,7 @@ flowchart TB
 | `agyo rollback` | Reverts tracked files to the latest checkpoint commit. | [Spec 04](docs/spec/04-FILESYSTEM-SAFETY-NET-CHECKPOINT.md) |
 | `agyo dashboard` | Spawns zero-dependency local web inspector on `http://127.0.0.1:8080`. | [Spec 06](docs/spec/06-OBSERVABILIDADE-WATCHER-E-DASHBOARD.md) |
 | `agyo browser start\|stop\|tabs` | Launches and supervises isolated Chrome with pure-Go CDP protocol. | [Spec 05](docs/spec/05-SUPERVISAO-CHROME-E-CDP-PURO.md) |
+| `agyo computer inspect\|shot\|click\|type\|key\|batch\|mcp` | Desktop OS automation (Accessibility-First semantic tree, token-optimized screenshot, and MCP server). | [Spec 12](docs/spec/12-COMPUTER-USE-ENGINE.md) |
 | `agyo notebooklm ask\|mcp` | Queries Google NotebookLM or exposes stdio MCP server for agent IDEs. | [Spec 08](docs/spec/08-NOTEBOOKLM-E-MCP-SERVER.md) |
 | `agyo google auth\|status\|calendar\|docs\|mcp` | Google Workspace bridge (Calendar scheduling with natural dates, .ics export, zero-tab MCP server). | [Spec 10](docs/spec/10-GOOGLE-WORKSPACE-BRIDGE.md) |
 | `agyo study ingest\|exam-prep\|quiz` | Academic workflow: video-to-article, reverse exam planning, and Feynman quiz. | [Spec 11](docs/spec/11-STUDENT-WORKFLOW-STUDY.md) |
