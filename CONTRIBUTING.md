@@ -51,8 +51,10 @@ We follow the **Martin Fowler Outer Harness** model:
 git clone https://github.com/tiagovilasboas/antigravity-operator.git
 cd antigravity-operator
 
-# Run the automated development setup (configures pre-commit hooks and builds the binary)
+# Run the automated development setup (configures git hooks via lefthook or fallback and builds the binary)
 ./scripts/setup-dev.sh
+# Or install just the git hooks:
+make hooks
 ```
 
 ---

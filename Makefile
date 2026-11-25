@@ -3,7 +3,7 @@ BUILD_DIR=bin
 VERSION ?= $(or $(shell git describe --tags --always --dirty 2>/dev/null | sed 's/^v//'),dev)
 LDFLAGS = -s -w -X main.Version=$(VERSION)
 
-.PHONY: all build test clean build-linux build-mac release fmt lint coverage
+.PHONY: all build test clean build-linux build-mac release fmt lint coverage check hooks
 
 all: build
 
@@ -54,3 +54,22 @@ install: build
 
 clean:
 	rm -rf $(BUILD_DIR)
+
+check:
+	@unformatted="$$(gofmt -l .)"; \
+	if [ -n "$$unformatted" ]; then \
+		echo "These files need gofmt:"; \
+		echo "$$unformatted"; \
+		exit 1; \
+	fi
+	go vet ./...
+	bash scripts/check-mcp-packages.sh
+	go test -race ./...
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go vet ./...
+
+hooks:
+	@if command -v lefthook >/dev/null 2>&1; then \
+		lefthook install; \
+	else \
+		bash scripts/setup-dev.sh --hooks-only; \
+	fi

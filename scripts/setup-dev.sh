@@ -1,24 +1,60 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "🚀 Configurando ambiente de desenvolvimento para o Antigravity Operator..."
+HOOKS_ONLY=false
+if [ "${1:-}" = "--hooks-only" ]; then
+  HOOKS_ONLY=true
+fi
 
-# 1. Instalar Git Hook de Pre-Commit
-HOOKS_DIR=".git/hooks"
-if [ -d "$HOOKS_DIR" ]; then
+install_fallback_hooks() {
+  HOOKS_DIR=".git/hooks"
+  if [ ! -d "$HOOKS_DIR" ]; then
+    echo "⚠️ Diretório $HOOKS_DIR não encontrado; pulando instalação de hooks."
+    return 0
+  fi
+
+  cat << 'EOF' > "$HOOKS_DIR/commit-msg"
+#!/usr/bin/env bash
+exec bash scripts/strip-agent-attribution.sh "$1"
+EOF
+  chmod +x "$HOOKS_DIR/commit-msg"
+
   cat << 'EOF' > "$HOOKS_DIR/pre-commit"
 #!/usr/bin/env bash
 set -e
+unformatted="$(gofmt -l .)"
+if [ -n "$unformatted" ]; then
+  echo "These files need gofmt:"
+  echo "$unformatted"
+  exit 1
+fi
 echo "🔍 [Hook] Executando go vet..."
 go vet ./...
-
-echo "🧪 [Hook] Executando testes unitários..."
-go test ./...
-
-echo "✅ Código validado com sucesso!"
+echo "✅ Código formatado e validado com sucesso!"
 EOF
   chmod +x "$HOOKS_DIR/pre-commit"
-  echo "✅ Hook de pre-commit configurado em $HOOKS_DIR/pre-commit"
+
+  cat << 'EOF' > "$HOOKS_DIR/pre-push"
+#!/usr/bin/env bash
+set -e
+echo "🧪 [Hook] Executando gate completo (make check)..."
+make check
+EOF
+  chmod +x "$HOOKS_DIR/pre-push"
+
+  echo "✅ Git hooks fallback configurados em $HOOKS_DIR (commit-msg, pre-commit, pre-push)"
+}
+
+echo "🚀 Configurando hooks de desenvolvimento para o Antigravity Operator..."
+if command -v lefthook >/dev/null 2>&1; then
+  lefthook install
+  echo "✅ Hooks instalados via lefthook (lefthook.yml)"
+else
+  install_fallback_hooks
+fi
+
+if [ "$HOOKS_ONLY" = true ]; then
+  exit 0
 fi
 
 # 2. Compilar binário local

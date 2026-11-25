@@ -1,0 +1,25 @@
+commit-msg:
+  commands:
+    strip-agent-attribution:
+      run: bash scripts/strip-agent-attribution.sh {1}
+
+pre-commit:
+  parallel: true
+  commands:
+    gofmt:
+      glob: "*.go"
+      run: |
+        unformatted="$(gofmt -l {staged_files})"
+        if [ -n "$unformatted" ]; then
+          echo "Files need gofmt:"
+          echo "$unformatted"
+          exit 1
+        fi
+    govet:
+      glob: "*.go"
+      run: go vet ./...
+
+pre-push:
+  commands:
+    ci-gate:
+      run: make check
