@@ -209,8 +209,7 @@ antigravity-operator/
 │   ├── workspace/            # SRP: Google Workspace Bridge (Calendar v3, Docs v1 & loopback auth)
 │   ├── computer/             # SRP: Hybrid Accessibility-First Computer Use engine & MCP server
 │   └── doctor/               # SRP: Machine diagnostic computational sensors
-├── templates/                # Embedded static assets via //go:embed (zero external deps)
-├── skills/                   # Bonus student skills (video-to-article, feynman, etc.)
+├── templates/                # Embedded static assets via //go:embed (zero external deps, incl. skills)
 └── docs/                     # Specifications (docs/spec/) & architecture guides
 ```
 
@@ -221,7 +220,7 @@ antigravity-operator/
 A tribute to computer science students, researchers, and the **Google AI Pro** access program:
 
 * **Zero-Root Portability:** Static binaries run from user space (`~/`) in locked-down university Linux labs without Docker or `sudo`.
-* **Bonus Skills Included (`skills/`):**
+* **Bonus Skills Included (`templates/skills/`):**
   * `video-to-article`: Transforms YouTube videos and lectures into study guides and runnable POCs via NotebookLM.
   * `feynman-code-tutor`: Explains complex algorithms and Big-O through real-world analogies.
   * `student-study-planner`: Breaks course syllabi into focused 20/80 sprint cycles.
@@ -236,6 +235,7 @@ We welcome contributions! To build and test locally:
 ```bash
 git clone https://github.com/tiagovilasboas/antigravity-operator.git
 cd antigravity-operator
+make hooks            # Installs versioned git hooks (lefthook / fallback)
 make test             # Runs go test -v -race ./...
 make build            # Compiles static binary to bin/agyo
 ```

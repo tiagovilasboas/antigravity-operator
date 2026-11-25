@@ -209,8 +209,7 @@ antigravity-operator/
 │   ├── workspace/            # SRP: Google Workspace Bridge (Calendar v3, Docs v1 & loopback auth)
 │   ├── computer/             # SRP: Motor de Computer Use híbrido (Accessibility-First) e MCP
 │   └── doctor/               # SRP: Machine diagnostic computational sensors
-├── templates/                # Embedded static assets via //go:embed (zero external deps)
-├── skills/                   # Bonus student skills (video-to-article, feynman, etc.)
+├── templates/                # Embedded static assets via //go:embed (zero external deps, incl. skills)
 └── docs/                     # Especificações técnicas (docs/spec/) e guias de arquitetura
 ```
 
@@ -221,7 +220,7 @@ antigravity-operator/
 Uma homenagem aos estudantes de computação, pesquisadores e ao programa **Google AI Pro**:
 
 * **Portabilidade Sem Root:** O executável estático roda direto no espaço de usuário (`~/`) em laboratórios Linux universitários, sem precisar de Docker ou `sudo`.
-* **Skills Incluídas de Fábrica (`skills/`):**
+* **Skills Incluídas de Fábrica (`templates/skills/`):**
   * `video-to-article`: Transforma vídeos e palestras do YouTube em artigos de estudo e POCs via NotebookLM.
   * `feynman-code-tutor`: Explica algoritmos complexos e Big-O com analogias práticas do cotidiano.
   * `student-study-planner`: Divide ementas e matérias de faculdade em ciclos focados 20/80.
@@ -236,6 +235,7 @@ Contribuições da comunidade são muito bem-vindas! Para compilar e rodar os te
 ```bash
 git clone https://github.com/tiagovilasboas/antigravity-operator.git
 cd antigravity-operator
+make hooks            # Instala git hooks versionados (lefthook / fallback)
 make test             # Executa go test -v -race ./...
 make build            # Compila o binário estático em bin/agyo
 ```
