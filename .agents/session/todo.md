@@ -7,13 +7,7 @@
 - [ ] Divulgar no TabNews e LinkedIn
 
 ### Plano 08: Computer Use Híbrido (Accessibility-First + Fallback Visual)
-- [x] **COMP-01**: Core Domain & Types (`internal/computer/computer.go`) [2 pts]
-- [x] **COMP-02**: Accessibility Tree Engine (`internal/computer/ax.go`) [3 pts]
-- [x] **COMP-03**: Optimized Screen Capture (`internal/computer/screen.go`) [2 pts]
-- [x] **COMP-04**: Input & Macro Injection Engine (`internal/computer/input.go`) [3 pts]
-- [x] **COMP-05**: CLI Subcommand Integration (`cmd/agyo/cmd_computer.go`) [3 pts]
-- [x] **COMP-06**: MCP Server Protocol (`internal/computer/mcp.go`) [3 pts]
-- [x] **QA-08**: Bateria de QA, Sensores de Verificação e Cross-Compilação [2 pts]
+> 📦 *Histórico compactado: 13 tarefas concluídas arquivadas em [completed-tasks-2026-11-25.md](archive/completed-tasks-2026-11-25.md)*
 
 ### Lifecycle hooks - plano: [docs/plans/01-LIFECYCLE-HOOKS-SESSION-AGENT.md](../../docs/plans/01-LIFECYCLE-HOOKS-SESSION-AGENT.md)
 > 📦 *Histórico compactado: 7 tarefas concluídas arquivadas em [completed-tasks-2026-10-15.md](archive/completed-tasks-2026-10-15.md)*
@@ -40,11 +34,9 @@
 > 📦 *Histórico compactado: 8 tarefas concluídas arquivadas em [completed-tasks-2026-10-08.md](archive/completed-tasks-2026-10-08.md)*
 > 📦 *Histórico compactado: 32 tarefas concluídas arquivadas em [completed-tasks-2026-10-01.md](archive/completed-tasks-2026-10-01.md)*
 > 📦 *Histórico compactado: 5 tarefas concluídas arquivadas em [completed-tasks-2026-10-08.md](archive/completed-tasks-2026-10-08.md)*
-- [x] PR #31 aprovado pelo CI do GitHub Actions e mesclado na branch `main`
-- [x] PR #33 (Computer Use Híbrido) mesclado no `main` e documentação sincronizada
-- [x] Fix urgente: supressão de abertura de navegador durante testes e remoção de auto-open em fallback de erro da API
-- [x] Binário compilado e instalado localmente em `~/.local/bin/agyo` (v0.5.0-25-g2115ade)
-- [x] README.md e README.pt-BR.md refatorados para layout moderno e escaneável (diagrama Brain & Hands, diagrama Agentic IA BDI, tabela FinOps e tabela de CLI com links para specs; CI 100% verde)
+- [x] Versionamento de hooks (`lefthook.yml`, `scripts/strip-agent-attribution.sh`, `make check`, `make hooks`)
+- [x] Split SRP dos 9 arquivos Go >500 linhas e sensor `TestQA_ProductionFileLineCeiling`
+- [x] Cobertura de testes para MCP `google-calendar` em `internal/installer/google_mcp_test.go` (44.7% -> 89.7%)
 
 
 

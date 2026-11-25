@@ -43,3 +43,13 @@
   3. Blindar `internal/dashboard.OpenBrowser` com a mesma checagem de ambiente de teste.
 - **Trade-offs:** Elimina 100% dos loops de abas fantasmas e respeita estritamente o Guardrail de Instância Única e Zero Janelas Paralelas do Chrome.
 
+### [2026-11-25] Limpeza de Harnesses Terceiros, Hooks Versionados (Lefthook) e Teto SRP de 500 Linhas
+- **Contexto:** O repositório acumulava arquivos ponteiro de outros harnesses (`CLAUDE.md`, `GEMINI.md`, `.cursor/`, `.github/copilot-instructions.md`), pasta `skills/` duplicada com `templates/skills/`, hooks apenas locais e 9 arquivos Go de produção acima de 500 linhas. Além disso, `levontumanyan` (PR #2) e `rune-gh` (PR #30) contribuíram código real sob licença MIT já lançado em `v0.5.0`.
+- **Decisão:**
+  1. Preservar integralmente o histórico git (sem `push --force` nem reescrita de autoria) e remover apenas o arquivo redundante `CONTRIBUTORS` da raiz.
+  2. Remover ponteiros de outros harnesses, `skills/` duplicada na raiz e binário solto `./agyo`, mantendo `templates/skills/` como fonte única de verdade embutida via `//go:embed`.
+  3. Versionar `lefthook.yml`, `scripts/strip-agent-attribution.sh`, `make check` e `make hooks` (com fallback em `scripts/setup-dev.sh` mantendo zero dependências em `go.mod`).
+  4. Dividir os 9 arquivos Go acima de 500 linhas em módulos coesos por domínio (`<= 375` linhas cada) e garantir o teto de 500 linhas via `TestQA_ProductionFileLineCeiling`.
+  5. Elevar cobertura do `internal/installer` (44.7% -> 89.7%) com testes unitários para o ciclo de vida do MCP `google-calendar`.
+
+
